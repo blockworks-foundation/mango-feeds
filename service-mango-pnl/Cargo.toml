@@ -1,5 +1,5 @@
 [package]
-name = "mango-pnl-service"
+name = "service-mango-pnl"
 version = "0.1.0"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"

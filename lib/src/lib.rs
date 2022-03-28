@@ -1,4 +1,5 @@
 pub mod chain_data;
+pub mod fill_event_filter;
 pub mod grpc_plugin_source;
 pub mod memory_target;
 pub mod metrics;
