@@ -1,5 +1,4 @@
-Overview
-========
+# Overview
 
 This project is about streaming Solana account updates for a specific program
 into other databases or event queues.
@@ -7,25 +6,26 @@ into other databases or event queues.
 Having an up to date version of all account data data in a database is
 particularly useful for queries that need access to all accounts. For example,
 retrieving the addresses of Mango Markets accounts with the largest unrealized
-PnL goes from "getProgramAccounts from a Solana node for 50MB of data and compute
-locally (3-10s total)" to "run a SQL query (150ms total)".
+PnL goes from "getProgramAccounts from a Solana node for 50MB of data and
+compute locally (3-10s total)" to "run a SQL query (150ms total)".
 
 The database could also be used as a backend for serving `getMultipleAccounts`
-and `getProgramAccounts` queries generally. That would reduce load on Solana RPCt
-nodes while decreasing response times.
+and `getProgramAccounts` queries generally. That would reduce load on Solana
+RPCt nodes while decreasing response times.
 
 Supported Solana sources:
+
 - Geyser plugin (preferred) plus JSONRPC HTTP API (for initial snapshots)
 
 Unfinished Solana sources:
+
 - JSONRPC websocket subscriptions plus JSONRPC HTTP API (for initial snapshots)
 
 Supported targets:
+
 - PostgreSQL
 
-
-Components
-==========
+# Components
 
 - [`geyser-plugin-grpc/`](geyser-plugin-grpc/)
 
@@ -49,15 +49,18 @@ Components
   A connector binary built on lib/ that decodes Mango account types before
   storing them in PostgeSQL.
 
+- [`service-mango-fills/`](service-mango-fills/)
 
-Setup Tutorial
-==============
+  A service providing lowest-latency, bandwidth conserving access to fill events
+  as they are processed by the rpc node.
+
+# Setup Tutorial
 
 1. Compile the project.
 
-   Make sure that you are using _exactly_ the same Rust version for compiling the
-   Geyser plugin that was used for compiling your `solana-validator`! Otherwise
-   the plugin will crash the validator during startup!
+   Make sure that you are using _exactly_ the same Rust version for compiling
+   the Geyser plugin that was used for compiling your `solana-validator`!
+   Otherwise the plugin will crash the validator during startup!
 
 2. Prepare the plugin configuration file.
 
@@ -78,7 +81,8 @@ Setup Tutorial
    - `connection_string` for your `grpc_sources` must point to the gRPC server
      address configured for the plugin.
    - `rpc_http_url` must point to the JSON-RPC URL.
-   - `connection_string` for your `posgres_target` uses [the tokio-postgres syntax](https://docs.rs/tokio-postgres/0.7.5/tokio_postgres/config/struct.Config.html)
+   - `connection_string` for your `posgres_target` uses
+     [the tokio-postgres syntax](https://docs.rs/tokio-postgres/0.7.5/tokio_postgres/config/struct.Config.html)
    - `program_id` must match what is configured for the gRPC plugin
 
 5. Prepare the PostgreSQL schema.
@@ -87,21 +91,19 @@ Setup Tutorial
 
 6. Start the connector service binary.
 
-   Pass the path to the config file as the first argument. It logs to stdout.
-   It should be restarted on exit. (it intentionally terminates when postgres is
+   Pass the path to the config file as the first argument. It logs to stdout. It
+   should be restarted on exit. (it intentionally terminates when postgres is
    unreachable for too long, for example)
 
 7. Monitor the logs
 
    `WARN` messages can be recovered from. `ERROR` messages need attention.
 
-   Check the metrics for `account_write_queue` and `slot_update_queue`: They should
-   be around 0. If they keep growing the service can't keep up and you'll need
-   to figure out what's up.
+   Check the metrics for `account_write_queue` and `slot_update_queue`: They
+   should be around 0. If they keep growing the service can't keep up and you'll
+   need to figure out what's up.
 
-
-Design and Reliability
-======================
+# Design and Reliability
 
 ```
 Solana    --------------->   Connector   ----------->   PostgreSQL
@@ -117,19 +119,17 @@ PostgeSQL target database.
 The Connector service is stateless (except for some caches). Restarting it is
 always safe.
 
-If the Solana node is down, the Connector service attempts to reconnect and
-then requests a new data snapshot if necessary.
+If the Solana node is down, the Connector service attempts to reconnect and then
+requests a new data snapshot if necessary.
 
 If PostgeSQL is down temporarily, the Connector service caches updates and
 applies them when the database is back up.
 
-If PostgreSQL is down for a longer time, the Connector service exits with
-an error. On restart, it pauses until PostgreSQL is back up, and then starts
+If PostgreSQL is down for a longer time, the Connector service exits with an
+error. On restart, it pauses until PostgreSQL is back up, and then starts
 pulling data from the Solana nodes again.
 
-
-PostgreSQL data layout
-======================
+# PostgreSQL data layout
 
 See `scripts/` for SQL that creates the target schema.
 
@@ -143,6 +143,7 @@ When new slots arrive, the `uncle` column is updated for "processed" and
 the chain.
 
 Example for querying confirmed data:
+
 ```
 SELECT DISTINCT ON(pubkey_id)
     pubkey, account_write.*
@@ -156,3 +157,28 @@ ORDER BY pubkey_id, slot DESC, write_version DESC;
 For each pubkey, this gets the latest (most recent slot, most recent
 write_version) account data; limited to slots that are either rooted or
 (confirmed and not an uncle).
+
+# Fill Service Setup
+
+1. Prepare the connector configuration file.
+
+   [Here is an example](service-mango-fills/example-config.toml).
+
+   - `bind_ws_addr` is the listen port for the websocket clients
+   - `rpc_ws_url` is unused and can stay empty.
+   - `connection_string` for your `grpc_sources` must point to the gRPC server
+     address configured for the plugin.
+   - `rpc_http_url` must point to the JSON-RPC URL.
+   - `program_id` must match what is configured for the gRPC plugin
+   - `markets` need to contain all observed perp markets
+
+2. Start the service binary.
+
+   Pass the path to the config file as the first argument. It logs to stdout. It
+   should be restarted on exit.
+
+3. Monitor the logs
+
+   `WARN` messages can be recovered from. `ERROR` messages need attention. The
+   logs are very spammy changing the default log level is recommended when you
+   dont want to analyze performance of the service.
