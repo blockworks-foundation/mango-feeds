@@ -2784,38 +2784,9 @@ dependencies = [
  "enumflags2",
  "fixed",
  "fixed-macro",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "mango-logs 0.1.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "mango-macro 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "num_enum",
- "pyth-client",
- "safe-transmute",
- "serde",
- "serum_dex",
- "solana-program",
- "spl-token",
- "static_assertions",
- "switchboard-program",
- "switchboard-utils",
- "thiserror",
-]
-
-[[package]]
-name = "mango"
-version = "3.5.1"
-source = "git+https://github.com/blockworks-foundation/mango-v3#dcfe4cd60cd2cad87884af6be5bd2c197d0d0efc"
-dependencies = [
- "anchor-lang",
- "arrayref",
- "bincode",
- "bs58 0.4.0",
- "bytemuck",
- "enumflags2",
- "fixed",
- "fixed-macro",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3)",
- "mango-logs 0.1.0 (git+https://github.com/blockworks-foundation/mango-v3)",
- "mango-macro 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3)",
+ "mango-common",
+ "mango-logs",
+ "mango-macro",
  "num_enum",
  "pyth-client",
  "safe-transmute",
@@ -2839,27 +2810,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "mango-common"
-version = "3.0.0"
-source = "git+https://github.com/blockworks-foundation/mango-v3#dcfe4cd60cd2cad87884af6be5bd2c197d0d0efc"
-dependencies = [
- "bytemuck",
- "solana-program",
-]
-
-[[package]]
 name = "mango-logs"
 version = "0.1.0"
 source = "git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10#64892f4ab0837c7fd260956867ee30a1a941d625"
-dependencies = [
- "anchor-lang",
- "base64 0.13.0",
-]
-
-[[package]]
-name = "mango-logs"
-version = "0.1.0"
-source = "git+https://github.com/blockworks-foundation/mango-v3#dcfe4cd60cd2cad87884af6be5bd2c197d0d0efc"
 dependencies = [
  "anchor-lang",
  "base64 0.13.0",
@@ -2871,20 +2824,7 @@ version = "3.0.0"
 source = "git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10#64892f4ab0837c7fd260956867ee30a1a941d625"
 dependencies = [
  "bytemuck",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "quote 1.0.21",
- "safe-transmute",
- "solana-program",
- "syn 1.0.99",
-]
-
-[[package]]
-name = "mango-macro"
-version = "3.0.0"
-source = "git+https://github.com/blockworks-foundation/mango-v3#dcfe4cd60cd2cad87884af6be5bd2c197d0d0efc"
-dependencies = [
- "bytemuck",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3)",
+ "mango-common",
  "quote 1.0.21",
  "safe-transmute",
  "solana-program",
@@ -4811,8 +4751,8 @@ dependencies = [
  "fixed",
  "jsonrpsee",
  "log 0.4.17",
- "mango 3.5.1 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
+ "mango",
+ "mango-common",
  "serde",
  "serde_derive",
  "solana-geyser-connector-lib",
@@ -5338,7 +5278,7 @@ dependencies = [
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.17",
- "mango 3.5.1 (git+https://github.com/blockworks-foundation/mango-v3)",
+ "mango",
  "native-tls",
  "postgres-native-tls",
  "postgres-types",
@@ -5368,8 +5308,8 @@ dependencies = [
  "bs58 0.3.1",
  "fixed",
  "log 0.4.17",
- "mango 3.5.1 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
- "mango-common 3.0.0 (git+https://github.com/blockworks-foundation/mango-v3?branch=pan/solana-1.10)",
+ "mango",
+ "mango-common",
  "postgres-types",
  "postgres_query",
  "solana-geyser-connector-lib",

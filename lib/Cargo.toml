@@ -16,7 +16,7 @@ solana-client = "=1.10.34"
 solana-account-decoder = "=1.10.34"
 solana-sdk = "=1.10.34"
 
-mango = { git = "https://github.com/blockworks-foundation/mango-v3" }
+mango = { git = "https://github.com/blockworks-foundation/mango-v3", branch = "pan/solana-1.10" }
 arrayref = "*"
 bytemuck = "*"
 fixed = { version = "*", features = ["serde"] }
