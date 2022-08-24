@@ -11,10 +11,10 @@ edition = "2021"
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-solana-rpc = "=1.9.13"
-solana-client = "=1.9.13"
-solana-account-decoder = "=1.9.13"
-solana-sdk = "=1.9.13"
+solana-rpc = "=1.10.34"
+solana-client = "=1.10.34"
+solana-account-decoder = "=1.10.34"
+solana-sdk = "=1.10.34"
 
 mango = { git = "https://github.com/blockworks-foundation/mango-v3" }
 arrayref = "*"
