@@ -1,3 +1,4 @@
+
 [package]
 name = "solana-geyser-connector-plugin-grpc"
 version = "0.1.0"
@@ -23,7 +24,7 @@ solana-logger = "=1.10.35"
 solana-metrics = "=1.10.35"
 solana-sdk = "=1.10.35"
 
-tonic = "0.6"
+tonic = { version = "0.6", features = ["compression"] }
 prost = "0.9"
 futures-core = "0.3"
 futures-util = "0.3"
@@ -32,9 +33,10 @@ tokio-stream = "0.1"
 
 async-stream = "0.2"
 rand = "0.8"
-
+zstd = "0.11.2"
+zstd-safe = "5.0.2"
 [build-dependencies]
-tonic-build = "0.6"
+tonic-build = { version = "0.6", features = ["compression"] }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
