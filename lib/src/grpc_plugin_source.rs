@@ -23,6 +23,8 @@ use crate::{
     SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
 
+use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
+
 type SnapshotData = Response<Vec<RpcKeyedAccount>>;
 
 enum Message {
@@ -336,7 +338,8 @@ pub async fn process_events(
                         }
                         *writes = update.write_version;
                         latest_write.retain(|&k, _| k >= update.slot - latest_write_retention);
-
+                        let mut uncompressed: Vec<u8> = Vec::new();
+                        zstd_decompress(&update.data, &mut uncompressed).unwrap();
                         account_write_queue_sender
                             .send(AccountWrite {
                                 pubkey: Pubkey::new(&update.pubkey),
@@ -346,7 +349,7 @@ pub async fn process_events(
                                 owner: Pubkey::new(&update.owner),
                                 executable: update.executable,
                                 rent_epoch: update.rent_epoch,
-                                data: update.data,
+                                data: uncompressed,
                                 is_selected: update.is_selected,
                             })
                             .await

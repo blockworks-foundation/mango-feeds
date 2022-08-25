@@ -5290,6 +5290,7 @@ dependencies = [
  "serde_json",
  "solana-account-decoder",
  "solana-client",
+ "solana-geyser-connector-plugin-grpc",
  "solana-rpc",
  "solana-sdk",
  "tokio",
