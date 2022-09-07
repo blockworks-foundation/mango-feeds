@@ -57,7 +57,9 @@ async fn handle_connection(
     info!("ws disconnected: {} err: {:?}", &addr, result_forward);
     peer_map.lock().unwrap().remove(&addr);
     result_ckpt.unwrap();
-    result_forward.unwrap();
+    // disconnecting the socket can result in an error in result_forward.
+    // unwrapping it can cause a panic in tokyo, ignore error for now
+    // result_forward.unwrap();
 }
 
 #[derive(Clone, Debug, Deserialize)]
