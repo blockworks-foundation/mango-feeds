@@ -113,16 +113,18 @@ async fn main() -> anyhow::Result<()> {
             let message = fill_receiver.recv().await.unwrap();
             match message {
                 FillEventFilterMessage::Update(update) => {
-                    info!("ws update {} {:?} fill", update.market, update.status);
-
+                    debug!("ws update {} {:?} fill", update.market, update.status);
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
-
                     for (k, v) in peer_copy.iter_mut() {
-                        debug!("  > {}", k);
-
+                        trace!("  > {}", k);
                         let json = serde_json::to_string(&update);
-
-                        v.send(Message::Text(json.unwrap())).await.unwrap()
+                        let result = v.send(Message::Text(json.unwrap())).await;
+                        if result.is_err() {
+                            error!(
+                                "ws update {} {:?} fill could not reach {}",
+                                update.market, update.status, k
+                            );
+                        }
                     }
                 }
                 FillEventFilterMessage::Checkpoint(checkpoint) => {
