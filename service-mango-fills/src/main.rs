@@ -1,10 +1,7 @@
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{pin_mut, SinkExt, StreamExt};
 use log::*;
-use std::{
-    collections::HashMap, fs::File, io::Read, net::SocketAddr, os::macos::raw, sync::Arc,
-    sync::Mutex,
-};
+use std::{collections::HashMap, fs::File, io::Read, net::SocketAddr, sync::Arc, sync::Mutex};
 use tokio::{
     net::{TcpListener, TcpStream},
     pin,
