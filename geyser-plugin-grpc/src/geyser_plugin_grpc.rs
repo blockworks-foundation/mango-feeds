@@ -2,7 +2,6 @@ use crate::compression::zstd_compress;
 
 use {
     crate::accounts_selector::AccountsSelector,
-    crate::compression,
     bs58,
     geyser_proto::{
         slot_update::Status as SlotUpdateStatus, update::UpdateOneof, AccountWrite, Ping,
@@ -398,8 +397,6 @@ pub unsafe extern "C" fn _create_plugin() -> *mut dyn GeyserPlugin {
 
 #[cfg(test)]
 pub(crate) mod tests {
-    use std::io::Write;
-
     use {super::*, serde_json};
 
     #[test]

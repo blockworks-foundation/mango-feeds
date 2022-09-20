@@ -12,6 +12,7 @@ pub fn zstd_decompress(data: &[u8], uncompressed: &mut Vec<u8>) -> Result<usize,
 }
 
 pub(crate) mod tests {
+    #[allow(unused_imports)]
     use super::*;
     #[test]
     fn test_zstd_compression() {
