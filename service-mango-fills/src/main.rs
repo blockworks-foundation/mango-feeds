@@ -95,7 +95,10 @@ async fn main() -> anyhow::Result<()> {
     let metrics_tx = metrics::start();
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
-        fill_event_filter::init(config.markets.clone()).await?;
+        fill_event_filter::init(
+            config.markets.clone(),
+            metrics_tx.clone()
+        ).await?;
 
     let checkpoints = CheckpointMap::new(Mutex::new(HashMap::new()));
     let peers = PeerMap::new(Mutex::new(HashMap::new()));
@@ -164,7 +167,7 @@ async fn main() -> anyhow::Result<()> {
             &config.source,
             account_write_queue_sender,
             slot_queue_sender,
-            metrics_tx,
+            metrics_tx.clone(),
         )
         .await;
     } else {
