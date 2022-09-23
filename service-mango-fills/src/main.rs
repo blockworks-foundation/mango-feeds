@@ -104,9 +104,9 @@ async fn main() -> anyhow::Result<()> {
 
     let metrics_tx = metrics::start();
 
-    let metrics_opened_connections = metrics_tx.register_u64("opened_connections".into());
+    let metrics_opened_connections = metrics_tx.register_u64("fills_feed_opened_connections".into());
 
-    let metrics_closed_connections = metrics_tx.register_u64("closed_connections".into());
+    let metrics_closed_connections = metrics_tx.register_u64("fills_feed_closed_connections".into());
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
         fill_event_filter::init(
