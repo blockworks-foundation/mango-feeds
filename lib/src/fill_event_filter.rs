@@ -1,6 +1,6 @@
 use crate::{
     chain_data::{AccountData, ChainData, SlotData},
-    AccountWrite, SlotUpdate, metrics
+    metrics, AccountWrite, SlotUpdate,
 };
 use log::*;
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
@@ -16,9 +16,9 @@ use std::{
     str::FromStr,
 };
 
+use crate::metrics::MetricU64;
 use arrayref::array_ref;
 use mango::queue::{AnyEvent, EventQueueHeader, EventType, FillEvent};
-use crate::metrics::MetricU64;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MarketConfig {
@@ -112,7 +112,7 @@ fn publish_changes(
     fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
     metric_events_new: &mut MetricU64,
     metric_events_change: &mut MetricU64,
-    metric_events_drop: &mut MetricU64
+    metric_events_drop: &mut MetricU64,
 ) {
     // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
     let start_seq_num = max(old_seq_num, header.seq_num) - QUEUE_LEN;
@@ -133,7 +133,6 @@ fn publish_changes(
             );
 
             metric_events_new.increment();
-
 
             // new fills are published and recorded in checkpoint
             if events[idx].event_type == EventType::Fill as u8 {
@@ -347,7 +346,7 @@ pub async fn init(
                                     &fill_update_sender,
                                     &mut metric_events_new,
                                     &mut metric_events_change,
-                                    &mut metrics_events_drop
+                                    &mut metrics_events_drop,
                                 ),
                                 _ => info!("events_cache could not find {}", mkt.name),
                             },
