@@ -14,6 +14,8 @@ use solana_geyser_connector_lib::{
     grpc_plugin_source, metrics, websocket_source, SourceConfig,
 };
 
+use crate::metrics::Metrics;
+use warp::{Filter, Rejection, Reply};
 type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UnboundedSender<Message>>>>;
 
@@ -68,6 +70,26 @@ async fn handle_connection(
     Ok(())
 }
 
+async fn handle_metrics(metrics: Metrics) -> Result<impl Reply, Rejection> {
+    let labels = HashMap::from([("process", "fills")]);
+    let label_strings_vec: Vec<String> = labels
+        .iter()
+        .map(|(name, value)| format!("{}=\"{}\"", name, value))
+        .collect();
+    let lines: Vec<String> = metrics
+        .get_registry_vec()
+        .iter()
+        .map(|(name, value)| format!("{}{{{}}} {}", name, label_strings_vec.join(","), value))
+        .collect();
+    Ok(lines.join("\n"))
+}
+
+pub fn with_metrics(
+    metrics: Metrics,
+) -> impl Filter<Extract = (Metrics,), Error = std::convert::Infallible> + Clone {
+    warp::any().map(move || metrics.clone())
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,
@@ -93,6 +115,14 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
 
     let metrics_tx = metrics::start();
+    let metrics_route = warp::path!("metrics")
+        .and(with_metrics(metrics_tx.clone()))
+        .and_then(handle_metrics);
+
+    // serve prometheus metrics endpoint
+    tokio::spawn(async move {
+        warp::serve(metrics_route).run(([0, 0, 0, 0], 9091)).await;
+    });
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
         fill_event_filter::init(config.markets.clone()).await?;

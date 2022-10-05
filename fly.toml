@@ -7,8 +7,8 @@ kill_timeout = 5
   image = "us-docker.pkg.dev/mango-markets/gcr.io/mango-geyser-services:latest"
 
 [processes]
-fills = "service-mango-fills fills-config.toml"
-pnl = "service-mango-pnl pnl-config.toml"
+  fills = "service-mango-fills fills-config.toml"
+  pnl = "service-mango-pnl pnl-config.toml"
 
 [[services]]
   processes = ["fills"]
@@ -35,3 +35,7 @@ pnl = "service-mango-pnl pnl-config.toml"
     type = "connections"
     hard_limit = 1024
     soft_limit = 1024
+
+[metrics]
+  port = 9091
+  path = "/metrics"

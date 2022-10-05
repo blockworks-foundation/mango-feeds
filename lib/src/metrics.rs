@@ -122,6 +122,26 @@ impl Metrics {
             },
         }
     }
+
+    pub fn get_registry_vec(&self) -> Vec<(String, String)> {
+        let mut vec: Vec<(String, String)> = Vec::new();
+        let metrics = self.registry.read().unwrap();
+        for (name, value) in metrics.iter() {
+            let value_str = match value {
+                Value::U64(v) => {
+                    format!("{}", v.load(atomic::Ordering::Acquire))
+                }
+                Value::I64(v) => {
+                    format!("{}", v.load(atomic::Ordering::Acquire))
+                }
+                Value::String(v) => {
+                    format!("{}", v.lock().unwrap())
+                }
+            };
+            vec.push((name.clone(), value_str));
+        }
+        vec
+    }
 }
 
 pub fn start() -> Metrics {
