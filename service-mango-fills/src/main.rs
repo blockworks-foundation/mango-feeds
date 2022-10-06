@@ -79,6 +79,7 @@ async fn handle_connection(
 }
 
 async fn handle_metrics(metrics: Metrics) -> Result<impl Reply, Rejection> {
+    info!("handle_metrics");
     let labels = HashMap::from([("process", "fills")]);
     let label_strings_vec: Vec<String> = labels
         .iter()
