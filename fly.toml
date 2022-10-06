@@ -24,6 +24,19 @@ kill_timeout = 5
     soft_limit = 1024
 
 [[services]]
+  processes = ["fills"]
+  internal_port = 9091
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = "9091"
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1024
+    soft_limit = 1024
+
+[[services]]
   processes = ["pnl"]
   internal_port = 2052
   protocol = "tcp"
