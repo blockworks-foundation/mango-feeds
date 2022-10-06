@@ -88,9 +88,9 @@ async fn handle_metrics(metrics: Metrics) -> Result<impl Reply, Rejection> {
     let lines: Vec<String> = metrics
         .get_registry_vec()
         .iter()
-        .map(|(name, value)| format!("{}{{{}}} {}", name, label_strings_vec.join(","), value))
+        .map(|(name, value)| format!("# TYPE {} counter\n{}{{{}}} {}", name, name, label_strings_vec.join(","), value))
         .collect();
-    Ok(lines.join("\n"))
+    Ok(format!("{}\n", lines.join("\n")))
 }
 
 pub fn with_metrics(
