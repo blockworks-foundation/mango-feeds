@@ -136,10 +136,10 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let metrics_opened_connections =
-        metrics_tx.register_u64("fills_feed_opened_connections".into());
+        metrics_tx.register_u64("fills_feed_opened_connections_count".into());
 
     let metrics_closed_connections =
-        metrics_tx.register_u64("fills_feed_closed_connections".into());
+        metrics_tx.register_u64("fills_feed_closed_connections_count".into());
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
         fill_event_filter::init(config.markets.clone(), metrics_tx.clone()).await?;

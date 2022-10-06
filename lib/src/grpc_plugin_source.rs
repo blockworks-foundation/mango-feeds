@@ -290,7 +290,7 @@ pub async fn process_events(
 
         tokio::spawn(async move {
             let mut metric_retries = metrics_sender.register_u64(format!(
-                "grpc_source_{}_connection_retries",
+                "grpc_source_{}_connection_retries_count",
                 grpc_source.name
             ));
             let metric_status =
@@ -335,13 +335,13 @@ pub async fn process_events(
     // Number of slots to retain in latest_write
     let latest_write_retention = 50;
 
-    let mut metric_account_writes = metrics_sender.register_u64("grpc_account_writes".into());
+    let mut metric_account_writes = metrics_sender.register_u64("grpc_account_writes_count".into());
     let mut metric_account_queue = metrics_sender.register_u64("account_write_queue".into());
     let mut metric_slot_queue = metrics_sender.register_u64("slot_update_queue".into());
-    let mut metric_slot_updates = metrics_sender.register_u64("grpc_slot_updates".into());
-    let mut metric_snapshots = metrics_sender.register_u64("grpc_snapshots".into());
+    let mut metric_slot_updates = metrics_sender.register_u64("grpc_slot_updates_count".into());
+    let mut metric_snapshots = metrics_sender.register_u64("grpc_snapshots_count".into());
     let mut metric_snapshot_account_writes =
-        metrics_sender.register_u64("grpc_snapshot_account_writes".into());
+        metrics_sender.register_u64("grpc_snapshot_account_writes_count".into());
 
     loop {
         let msg = msg_receiver.recv().await.expect("sender must not close");
