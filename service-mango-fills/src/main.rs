@@ -9,7 +9,7 @@ use tokio::{
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
-use solana_geyser_connector_lib::metrics::{MetricU64, MetricType};
+use solana_geyser_connector_lib::metrics::{MetricType, MetricU64};
 use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage, MarketConfig},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,

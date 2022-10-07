@@ -1,6 +1,7 @@
 use crate::{
     chain_data::{AccountData, ChainData, SlotData},
-    metrics::{Metrics, MetricType}, AccountWrite, SlotUpdate,
+    metrics::{MetricType, Metrics},
+    AccountWrite, SlotUpdate,
 };
 use log::*;
 use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
@@ -245,9 +246,12 @@ pub async fn init(
 )> {
     let metrics_sender = metrics_sender.clone();
 
-    let mut metric_events_new = metrics_sender.register_u64("fills_feed_events_new".into(), MetricType::Gauge);
-    let mut metric_events_change = metrics_sender.register_u64("fills_feed_events_change".into(), MetricType::Gauge);
-    let mut metrics_events_drop = metrics_sender.register_u64("fills_feed_events_drop".into(), MetricType::Gauge);
+    let mut metric_events_new =
+        metrics_sender.register_u64("fills_feed_events_new".into(), MetricType::Gauge);
+    let mut metric_events_change =
+        metrics_sender.register_u64("fills_feed_events_change".into(), MetricType::Gauge);
+    let mut metrics_events_drop =
+        metrics_sender.register_u64("fills_feed_events_drop".into(), MetricType::Gauge);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =

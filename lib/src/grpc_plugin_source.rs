@@ -19,8 +19,9 @@ pub mod geyser_proto {
 use geyser_proto::accounts_db_client::AccountsDbClient;
 
 use crate::{
-    metrics::{Metrics, MetricType}, AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate,
-    SnapshotSourceConfig, SourceConfig, TlsConfig,
+    metrics::{MetricType, Metrics},
+    AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate, SnapshotSourceConfig,
+    SourceConfig, TlsConfig,
 };
 
 use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
@@ -289,10 +290,10 @@ pub async fn process_events(
         let tls_config = grpc_source.tls.as_ref().map(make_tls_config);
 
         tokio::spawn(async move {
-            let mut metric_retries = metrics_sender.register_u64(format!(
-                "grpc_source_{}_connection_retries",
-                grpc_source.name,
-            ), MetricType::Counter);
+            let mut metric_retries = metrics_sender.register_u64(
+                format!("grpc_source_{}_connection_retries", grpc_source.name,),
+                MetricType::Counter,
+            );
             let metric_connected =
                 metrics_sender.register_bool(format!("grpc_source_{}_status", grpc_source.name));
 
@@ -335,11 +336,16 @@ pub async fn process_events(
     // Number of slots to retain in latest_write
     let latest_write_retention = 50;
 
-    let mut metric_account_writes = metrics_sender.register_u64("grpc_account_writes".into(), MetricType::Counter);
-    let mut metric_account_queue = metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
-    let mut metric_slot_queue = metrics_sender.register_u64("slot_update_queue".into(), MetricType::Gauge);
-    let mut metric_slot_updates = metrics_sender.register_u64("grpc_slot_updates".into(), MetricType::Counter);
-    let mut metric_snapshots = metrics_sender.register_u64("grpc_snapshots".into(), MetricType::Counter);
+    let mut metric_account_writes =
+        metrics_sender.register_u64("grpc_account_writes".into(), MetricType::Counter);
+    let mut metric_account_queue =
+        metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
+    let mut metric_slot_queue =
+        metrics_sender.register_u64("slot_update_queue".into(), MetricType::Gauge);
+    let mut metric_slot_updates =
+        metrics_sender.register_u64("grpc_slot_updates".into(), MetricType::Counter);
+    let mut metric_snapshots =
+        metrics_sender.register_u64("grpc_snapshots".into(), MetricType::Counter);
     let mut metric_snapshot_account_writes =
         metrics_sender.register_u64("grpc_snapshot_account_writes".into(), MetricType::Counter);
 

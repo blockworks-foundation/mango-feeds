@@ -2,17 +2,26 @@ use {
     crate::MetricsConfig,
     log::*,
     std::collections::HashMap,
+    std::fmt,
     std::sync::{atomic, Arc, Mutex, RwLock},
     tokio::time,
     warp::{Filter, Rejection, Reply},
-    std::fmt,
 };
 
 #[derive(Debug)]
 enum Value {
-    U64 { value: Arc<atomic::AtomicU64>, metric_type: MetricType },
-    I64 { value: Arc<atomic::AtomicI64>, metric_type: MetricType },
-    Bool { value: Arc<Mutex<bool>>, metric_type: MetricType },
+    U64 {
+        value: Arc<atomic::AtomicU64>,
+        metric_type: MetricType,
+    },
+    I64 {
+        value: Arc<atomic::AtomicI64>,
+        metric_type: MetricType,
+    },
+    Bool {
+        value: Arc<Mutex<bool>>,
+        metric_type: MetricType,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -26,10 +35,10 @@ impl fmt::Display for MetricType {
         match self {
             MetricType::Counter => {
                 write!(f, "counter")
-            },
+            }
             MetricType::Gauge => {
                 write!(f, "gauge")
-            },
+            }
         }
     }
 }
@@ -108,12 +117,16 @@ pub struct Metrics {
 impl Metrics {
     pub fn register_u64(&self, name: String, metric_type: MetricType) -> MetricU64 {
         let mut registry = self.registry.write().unwrap();
-        let value = registry
-            .entry(name)
-            .or_insert(Value::U64 { value: Arc::new(atomic::AtomicU64::new(0)), metric_type: metric_type });
+        let value = registry.entry(name).or_insert(Value::U64 {
+            value: Arc::new(atomic::AtomicU64::new(0)),
+            metric_type: metric_type,
+        });
         MetricU64 {
             value: match value {
-                Value::U64 { value: v, metric_type: _ } => v.clone(),
+                Value::U64 {
+                    value: v,
+                    metric_type: _,
+                } => v.clone(),
                 _ => panic!("bad metric type"),
             },
         }
@@ -121,12 +134,16 @@ impl Metrics {
 
     pub fn register_i64(&self, name: String, metric_type: MetricType) -> MetricI64 {
         let mut registry = self.registry.write().unwrap();
-        let value = registry
-            .entry(name)
-            .or_insert(Value::I64 { value: Arc::new(atomic::AtomicI64::new(0)), metric_type: metric_type });
+        let value = registry.entry(name).or_insert(Value::I64 {
+            value: Arc::new(atomic::AtomicI64::new(0)),
+            metric_type: metric_type,
+        });
         MetricI64 {
             value: match value {
-                Value::I64 { value: v, metric_type: _ } => v.clone(),
+                Value::I64 {
+                    value: v,
+                    metric_type: _,
+                } => v.clone(),
                 _ => panic!("bad metric type"),
             },
         }
@@ -134,12 +151,16 @@ impl Metrics {
 
     pub fn register_bool(&self, name: String) -> MetricBool {
         let mut registry = self.registry.write().unwrap();
-        let value = registry
-            .entry(name)
-            .or_insert(Value::Bool { value: Arc::new(Mutex::new(false)), metric_type: MetricType::Gauge });
+        let value = registry.entry(name).or_insert(Value::Bool {
+            value: Arc::new(Mutex::new(false)),
+            metric_type: MetricType::Gauge,
+        });
         MetricBool {
             value: match value {
-                Value::Bool { value: v, metric_type: _ } => v.clone(),
+                Value::Bool {
+                    value: v,
+                    metric_type: _,
+                } => v.clone(),
                 _ => panic!("bad metric type"),
             },
         }
@@ -150,18 +171,25 @@ impl Metrics {
         let metrics = self.registry.read().unwrap();
         for (name, value) in metrics.iter() {
             let (value_str, type_str) = match value {
-                Value::U64 { value: v, metric_type: t } => {
-                    (format!("{}", v.load(atomic::Ordering::Acquire)), t.to_string())
-                }
-                Value::I64 { value: v, metric_type: t } => {
-                    (format!("{}", v.load(atomic::Ordering::Acquire)), t.to_string())
-                }
-                Value::Bool { value: v, metric_type: t } => {
-                    let bool_to_int = if *v.lock().unwrap() {
-                        1 
-                    } else {
-                        0
-                    };
+                Value::U64 {
+                    value: v,
+                    metric_type: t,
+                } => (
+                    format!("{}", v.load(atomic::Ordering::Acquire)),
+                    t.to_string(),
+                ),
+                Value::I64 {
+                    value: v,
+                    metric_type: t,
+                } => (
+                    format!("{}", v.load(atomic::Ordering::Acquire)),
+                    t.to_string(),
+                ),
+                Value::Bool {
+                    value: v,
+                    metric_type: t,
+                } => {
+                    let bool_to_int = if *v.lock().unwrap() { 1 } else { 0 };
                     (format!("{}", bool_to_int), t.to_string())
                 }
             };
@@ -232,7 +260,10 @@ pub fn start(config: MetricsConfig) -> Metrics {
                 for (name, value) in metrics.iter() {
                     let previous_value = previous_values.get_mut(name);
                     match value {
-                        Value::U64 { value: v, metric_type: _ } => {
+                        Value::U64 {
+                            value: v,
+                            metric_type: _,
+                        } => {
                             let new_value = v.load(atomic::Ordering::Acquire);
                             let previous_value = if let Some(PrevValue::U64(v)) = previous_value {
                                 let prev = *v;
@@ -245,7 +276,10 @@ pub fn start(config: MetricsConfig) -> Metrics {
                             let diff = new_value.wrapping_sub(previous_value) as i64;
                             info!("metric: {}: {} ({:+})", name, new_value, diff);
                         }
-                        Value::I64 { value: v, metric_type: _ } => {
+                        Value::I64 {
+                            value: v,
+                            metric_type: _,
+                        } => {
                             let new_value = v.load(atomic::Ordering::Acquire);
                             let previous_value = if let Some(PrevValue::I64(v)) = previous_value {
                                 let prev = *v;
@@ -258,10 +292,12 @@ pub fn start(config: MetricsConfig) -> Metrics {
                             let diff = new_value - previous_value;
                             info!("metric: {}: {} ({:+})", name, new_value, diff);
                         }
-                        Value::Bool { value: v, metric_type: _ } => {
+                        Value::Bool {
+                            value: v,
+                            metric_type: _,
+                        } => {
                             let new_value = v.lock().unwrap();
-                            let previous_value = if let Some(PrevValue::Bool(v)) = previous_value
-                            {
+                            let previous_value = if let Some(PrevValue::Bool(v)) = previous_value {
                                 let mut prev = new_value.clone();
                                 std::mem::swap(&mut prev, v);
                                 prev

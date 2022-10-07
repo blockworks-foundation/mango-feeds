@@ -372,8 +372,10 @@ pub async fn init(
     let (slot_inserter_sender, slot_inserter_receiver) =
         async_channel::unbounded::<(SlotUpdate, SlotPreprocessing)>();
 
-    let metric_con_retries = metrics_sender.register_u64("postgres_connection_retries".into(), MetricType::Counter);
-    let metric_con_live = metrics_sender.register_u64("postgres_connections_alive".into(), MetricType::Gauge);
+    let metric_con_retries =
+        metrics_sender.register_u64("postgres_connection_retries".into(), MetricType::Counter);
+    let metric_con_live =
+        metrics_sender.register_u64("postgres_connections_alive".into(), MetricType::Gauge);
 
     // postgres account write sending worker threads
     for _ in 0..config.account_write_connection_count {
@@ -383,10 +385,12 @@ pub async fn init(
         let account_write_queue_receiver_c = account_write_queue_receiver.clone();
         let account_tables_c = account_tables.clone();
         let config = config.clone();
-        let mut metric_retries =
-            metrics_sender.register_u64("postgres_account_write_retries".into(), MetricType::Counter);
-        let mut metric_last_write =
-            metrics_sender.register_u64("postgres_account_write_last_write_timestamp".into(), MetricType::Gauge);
+        let mut metric_retries = metrics_sender
+            .register_u64("postgres_account_write_retries".into(), MetricType::Counter);
+        let mut metric_last_write = metrics_sender.register_u64(
+            "postgres_account_write_last_write_timestamp".into(),
+            MetricType::Gauge,
+        );
         tokio::spawn(async move {
             let mut client_opt = None;
             loop {
@@ -449,7 +453,8 @@ pub async fn init(
     }
 
     // slot update handling thread
-    let mut metric_slot_queue = metrics_sender.register_u64("slot_insert_queue".into(), MetricType::Gauge);
+    let mut metric_slot_queue =
+        metrics_sender.register_u64("slot_insert_queue".into(), MetricType::Gauge);
     tokio::spawn(async move {
         let mut slots = Slots::new();
 
@@ -486,9 +491,12 @@ pub async fn init(
                 .await?;
         let receiver_c = slot_inserter_receiver.clone();
         let config = config.clone();
-        let mut metric_retries = metrics_sender.register_u64("postgres_slot_update_retries".into(), MetricType::Counter);
-        let mut metric_last_write =
-            metrics_sender.register_u64("postgres_slot_last_write_timestamp".into(), MetricType::Gauge);
+        let mut metric_retries =
+            metrics_sender.register_u64("postgres_slot_update_retries".into(), MetricType::Counter);
+        let mut metric_last_write = metrics_sender.register_u64(
+            "postgres_slot_last_write_timestamp".into(),
+            MetricType::Gauge,
+        );
         let slots_processing = slots_processing.clone();
         tokio::spawn(async move {
             let mut client_opt = None;
@@ -535,8 +543,10 @@ pub async fn init(
         let postgres_con =
             postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone())
                 .await?;
-        let mut metric_last_cleanup =
-            metrics_sender.register_u64("postgres_cleanup_last_success_timestamp".into(), MetricType::Gauge);
+        let mut metric_last_cleanup = metrics_sender.register_u64(
+            "postgres_cleanup_last_success_timestamp".into(),
+            MetricType::Gauge,
+        );
         let mut metric_cleanup_errors =
             metrics_sender.register_u64("postgres_cleanup_errors".into(), MetricType::Counter);
         let config = config.clone();
@@ -567,12 +577,18 @@ pub async fn init(
         let postgres_con =
             postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone())
                 .await?;
-        let metric_slot_last_write =
-            metrics_sender.register_u64("postgres_slot_last_write_timestamp".into(), MetricType::Gauge);
-        let metric_account_write_last_write =
-            metrics_sender.register_u64("postgres_account_write_last_write_timestamp".into(), MetricType::Gauge);
-        let metric_account_queue = metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
-        let metric_slot_queue = metrics_sender.register_u64("slot_insert_queue".into(), MetricType::Gauge);
+        let metric_slot_last_write = metrics_sender.register_u64(
+            "postgres_slot_last_write_timestamp".into(),
+            MetricType::Gauge,
+        );
+        let metric_account_write_last_write = metrics_sender.register_u64(
+            "postgres_account_write_last_write_timestamp".into(),
+            MetricType::Gauge,
+        );
+        let metric_account_queue =
+            metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
+        let metric_slot_queue =
+            metrics_sender.register_u64("slot_insert_queue".into(), MetricType::Gauge);
         let config = config.clone();
         tokio::spawn(async move {
             let mut client_opt = None;
