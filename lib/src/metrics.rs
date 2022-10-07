@@ -210,11 +210,13 @@ async fn handle_prometheus_poll(metrics: Metrics) -> Result<impl Reply, Rejectio
         .get_registry_vec()
         .iter()
         .map(|(name, value, type_name)| {
+            let sanitized_name = str::replace(name, "-", "_");
             format!(
-                "# TYPE {} {}\n{}{{{}}} {}",
-                name,
+                "# HELP {} \n# TYPE {} {}\n{}{{{}}} {}",
+                sanitized_name,
+                sanitized_name,
                 type_name,
-                name,
+                sanitized_name,
                 label_strings_vec.join(","),
                 value
             )
