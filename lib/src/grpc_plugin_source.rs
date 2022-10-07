@@ -19,7 +19,7 @@ pub mod geyser_proto {
 use geyser_proto::accounts_db_client::AccountsDbClient;
 
 use crate::{
-    metrics, AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate,
+    metrics::{Metrics, MetricType}, AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate,
     SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
 
@@ -276,7 +276,7 @@ pub async fn process_events(
     config: &SourceConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
-    metrics_sender: metrics::Metrics,
+    metrics_sender: Metrics,
 ) {
     // Subscribe to geyser
     let (msg_sender, msg_receiver) = async_channel::bounded::<Message>(config.dedup_queue_size);
@@ -290,15 +290,15 @@ pub async fn process_events(
 
         tokio::spawn(async move {
             let mut metric_retries = metrics_sender.register_u64(format!(
-                "grpc_source_{}_connection_retries_count",
-                grpc_source.name
-            ));
-            let metric_status =
-                metrics_sender.register_string(format!("grpc_source_{}_status", grpc_source.name));
+                "grpc_source_{}_connection_retries",
+                grpc_source.name,
+            ), MetricType::Counter);
+            let metric_connected =
+                metrics_sender.register_bool(format!("grpc_source_{}_status", grpc_source.name));
 
             // Continuously reconnect on failure
             loop {
-                metric_status.set("connected".into());
+                metric_connected.set(true);
                 let out = feed_data_geyser(
                     &grpc_source,
                     tls_config.clone(),
@@ -314,7 +314,7 @@ pub async fn process_events(
                     );
                 }
 
-                metric_status.set("disconnected".into());
+                metric_connected.set(false);
                 metric_retries.increment();
 
                 tokio::time::sleep(std::time::Duration::from_secs(
@@ -335,13 +335,13 @@ pub async fn process_events(
     // Number of slots to retain in latest_write
     let latest_write_retention = 50;
 
-    let mut metric_account_writes = metrics_sender.register_u64("grpc_account_writes_count".into());
-    let mut metric_account_queue = metrics_sender.register_u64("account_write_queue".into());
-    let mut metric_slot_queue = metrics_sender.register_u64("slot_update_queue".into());
-    let mut metric_slot_updates = metrics_sender.register_u64("grpc_slot_updates_count".into());
-    let mut metric_snapshots = metrics_sender.register_u64("grpc_snapshots_count".into());
+    let mut metric_account_writes = metrics_sender.register_u64("grpc_account_writes".into(), MetricType::Counter);
+    let mut metric_account_queue = metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
+    let mut metric_slot_queue = metrics_sender.register_u64("slot_update_queue".into(), MetricType::Gauge);
+    let mut metric_slot_updates = metrics_sender.register_u64("grpc_slot_updates".into(), MetricType::Counter);
+    let mut metric_snapshots = metrics_sender.register_u64("grpc_snapshots".into(), MetricType::Counter);
     let mut metric_snapshot_account_writes =
-        metrics_sender.register_u64("grpc_snapshot_account_writes_count".into());
+        metrics_sender.register_u64("grpc_snapshot_account_writes".into(), MetricType::Counter);
 
     loop {
         let msg = msg_receiver.recv().await.expect("sender must not close");

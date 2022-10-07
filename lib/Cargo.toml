@@ -53,6 +53,8 @@ async-stream = "0.2"
 async-channel = "1.6"
 async-trait = "0.1"
 
+warp = "0.3"
+
 solana-geyser-connector-plugin-grpc = { path = "../geyser-plugin-grpc" }
 
 [build-dependencies]

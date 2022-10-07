@@ -1,5 +1,9 @@
 bind_ws_addr = "127.0.0.1:8080"
 
+[metrics]
+output_stdout = true
+output_http = true
+
 [source]
 dedup_queue_size = 50000
 rpc_ws_url = ""

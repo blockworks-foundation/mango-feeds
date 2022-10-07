@@ -1,3 +1,7 @@
+[metrics]
+output_stdout = true
+output_http = true
+
 [source]
 dedup_queue_size = 50000
 rpc_ws_url = ""

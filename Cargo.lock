@@ -539,9 +539,9 @@ dependencies = [
 
 [[package]]
 name = "base-x"
-version = "0.2.11"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cbbc9d0964165b47557570cce6c952866c2678457aca742aafc9fb771d30270"
+checksum = "dc19a4937b4fbd3fe3379793130e42060d10627a360f2127802b10b87e7baf74"
 
 [[package]]
 name = "base64"
@@ -4787,7 +4787,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "toml",
- "warp",
  "ws",
 ]
 
@@ -5349,6 +5348,7 @@ dependencies = [
  "tokio-stream",
  "tonic 0.6.2",
  "tonic-build 0.6.2",
+ "warp",
 ]
 
 [[package]]
@@ -7425,9 +7425,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-futures"
-version = "0.4.32"
+version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa76fb221a1f8acddf5b54ace85912606980ad661ac7a503b4570ffd3a624dad"
+checksum = "6f741de44b75e14c35df886aff5f1eb73aa114fa5d4d00dcd37b5e01259bf3b2"
 dependencies = [
  "cfg-if 1.0.0",
  "js-sys",

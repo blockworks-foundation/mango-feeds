@@ -33,6 +33,7 @@ pub struct JsonRpcConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,
+    pub metrics: MetricsConfig,
     pub pnl: PnlConfig,
     pub jsonrpc_server: JsonRpcConfig,
 }
@@ -197,7 +198,7 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
     info!("startup");
 
-    let metrics_tx = metrics::start();
+    let metrics_tx = metrics::start(config.metrics);
 
     let chain_data = Arc::new(RwLock::new(ChainData::new()));
     let pnl_data = Arc::new(RwLock::new(PnlData::new()));

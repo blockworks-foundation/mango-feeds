@@ -124,9 +124,18 @@ pub struct SnapshotSourceConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub struct MetricsConfig {
+    pub output_stdout: bool,
+    pub output_http: bool,
+    // TODO: add configurable port and endpoint url
+    // TODO: add configurable write interval
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub postgres_target: PostgresConfig,
     pub source: SourceConfig,
+    pub metrics: MetricsConfig,
 }
 
 #[async_trait]
