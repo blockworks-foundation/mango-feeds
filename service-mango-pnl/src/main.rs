@@ -14,6 +14,7 @@ use {
 
 use fixed::types::I80F48;
 use mango::state::{DataType, MangoAccount, MangoCache, MangoGroup, MAX_PAIRS};
+use solana_geyser_connector_lib::metrics::*;
 use solana_sdk::account::ReadableAccount;
 use std::mem::size_of;
 
@@ -61,6 +62,7 @@ fn start_pnl_updater(
     config: PnlConfig,
     chain_data: Arc<RwLock<ChainData>>,
     pnl_data: Arc<RwLock<PnlData>>,
+    metrics_pnls_tracked: MetricU64,
 ) {
     let program_pk = Pubkey::from_str(&config.mango_program).unwrap();
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
@@ -112,6 +114,7 @@ fn start_pnl_updater(
             }
 
             *pnl_data.write().unwrap() = pnls;
+            metrics_pnls_tracked.clone().set(pnl_data.read().unwrap().len() as u64)
         }
     });
 }
@@ -133,6 +136,8 @@ use jsonrpsee::http_server::HttpServerHandle;
 fn start_jsonrpc_server(
     config: JsonRpcConfig,
     pnl_data: Arc<RwLock<PnlData>>,
+    metrics_reqs: MetricU64,
+    metrics_invalid_reqs: MetricU64,
 ) -> anyhow::Result<HttpServerHandle> {
     use jsonrpsee::core::Error;
     use jsonrpsee::http_server::{HttpServerBuilder, RpcModule};
@@ -143,18 +148,21 @@ fn start_jsonrpc_server(
     let mut module = RpcModule::new(());
     module.register_method("unsettledPnlRanked", move |params, _| {
         let req = params.parse::<UnsettledPnlRankedRequest>()?;
-
+        metrics_reqs.clone().increment();
         let invalid =
             |s: &'static str| Err(Error::Call(CallError::InvalidParams(anyhow::anyhow!(s))));
         let limit = req.limit as usize;
         if limit > 20 {
+            metrics_invalid_reqs.clone().increment();
             return invalid("'limit' must be <= 20");
         }
         let market_index = req.market_index as usize;
         if market_index >= MAX_PAIRS {
+            metrics_invalid_reqs.clone().increment();
             return invalid("'market_index' must be < MAX_PAIRS");
         }
         if req.order != "ASC" && req.order != "DESC" {
+            metrics_invalid_reqs.clone().increment();
             return invalid("'order' must be ASC or DESC");
         }
 
@@ -200,13 +208,20 @@ async fn main() -> anyhow::Result<()> {
 
     let metrics_tx = metrics::start(config.metrics, "pnl".into());
 
+    let metrics_reqs =
+        metrics_tx.register_u64("pnl_jsonrpc_reqs_total".into(), MetricType::Counter);
+    let metrics_invalid_reqs =
+        metrics_tx.register_u64("pnl_jsonrpc_reqs_invalid_total".into(), MetricType::Counter);   
+    let metrics_pnls_tracked =
+        metrics_tx.register_u64("pnl_num_tracked".into(), MetricType::Gauge);
+
     let chain_data = Arc::new(RwLock::new(ChainData::new()));
     let pnl_data = Arc::new(RwLock::new(PnlData::new()));
 
-    start_pnl_updater(config.pnl.clone(), chain_data.clone(), pnl_data.clone());
+    start_pnl_updater(config.pnl.clone(), chain_data.clone(), pnl_data.clone(), metrics_pnls_tracked);
 
     // dropping the handle would exit the server
-    let _http_server_handle = start_jsonrpc_server(config.jsonrpc_server.clone(), pnl_data)?;
+    let _http_server_handle = start_jsonrpc_server(config.jsonrpc_server.clone(), pnl_data, metrics_reqs, metrics_invalid_reqs)?;
 
     // start filling chain_data from the grpc plugin source
     let (account_write_queue_sender, slot_queue_sender) = memory_target::init(chain_data).await?;
