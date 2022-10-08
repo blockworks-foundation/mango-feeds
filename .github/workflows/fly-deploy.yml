@@ -1,7 +1,5 @@
 name: Deploy to Fly
 
-on: workflow_dispatch
-
 on:
   workflow_run:
       workflows: ["Publish Docker Image to GCR"]
