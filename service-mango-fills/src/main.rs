@@ -103,13 +103,13 @@ async fn main() -> anyhow::Result<()> {
 
     solana_logger::setup_with_default("info");
 
-    let metrics_tx = metrics::start(config.metrics);
+    let metrics_tx = metrics::start(config.metrics, "fills".into());
 
     let metrics_opened_connections =
-        metrics_tx.register_u64("fills_feed_opened_connections".into(), MetricType::Gauge);
+        metrics_tx.register_u64("fills_feed_opened_connections".into(), MetricType::Counter);
 
     let metrics_closed_connections =
-        metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Gauge);
+        metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Counter);
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
         fill_event_filter::init(config.markets.clone(), metrics_tx.clone()).await?;

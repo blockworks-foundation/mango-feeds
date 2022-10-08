@@ -198,7 +198,7 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
     info!("startup");
 
-    let metrics_tx = metrics::start(config.metrics);
+    let metrics_tx = metrics::start(config.metrics, "pnl".into());
 
     let chain_data = Arc::new(RwLock::new(ChainData::new()));
     let pnl_data = Arc::new(RwLock::new(PnlData::new()));

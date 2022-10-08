@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
         Arc::new(mango::MangoCacheTable {}),
     ];
 
-    let metrics_tx = metrics::start(config.metrics);
+    let metrics_tx = metrics::start(config.metrics, "connector-mango".into());
 
     let (account_write_queue_sender, slot_queue_sender) =
         postgres_target::init(&config.postgres_target, account_tables, metrics_tx.clone()).await?;

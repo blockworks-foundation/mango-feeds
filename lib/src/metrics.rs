@@ -112,6 +112,7 @@ impl MetricBool {
 #[derive(Clone)]
 pub struct Metrics {
     registry: Arc<RwLock<HashMap<String, Value>>>,
+    labels: HashMap<String, String>,
 }
 
 impl Metrics {
@@ -201,8 +202,8 @@ impl Metrics {
 
 async fn handle_prometheus_poll(metrics: Metrics) -> Result<impl Reply, Rejection> {
     debug!("handle_prometheus_poll");
-    let labels = HashMap::from([("process", "fills")]);
-    let label_strings_vec: Vec<String> = labels
+    let label_strings_vec: Vec<String> = metrics
+        .labels
         .iter()
         .map(|(name, value)| format!("{}=\"{}\"", name, value))
         .collect();
@@ -231,13 +232,13 @@ pub fn with_metrics(
     warp::any().map(move || metrics.clone())
 }
 
-pub fn start(config: MetricsConfig) -> Metrics {
+pub fn start(config: MetricsConfig, process_name: String) -> Metrics {
     let mut write_interval = time::interval(time::Duration::from_secs(60));
 
     let registry = Arc::new(RwLock::new(HashMap::<String, Value>::new()));
     let registry_c = Arc::clone(&registry);
-
-    let metrics_tx = Metrics { registry };
+    let labels = HashMap::from([(String::from("process"), process_name)]);
+    let metrics_tx = Metrics { registry, labels };
     let metrics_route = warp::path!("metrics")
         .and(with_metrics(metrics_tx.clone()))
         .and_then(handle_prometheus_poll);

@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
     info!("startup");
 
-    let metrics_tx = metrics::start(config.metrics);
+    let metrics_tx = metrics::start(config.metrics, "connector-raw".into());
 
     let account_tables: AccountTables = vec![Arc::new(RawAccountTable {})];
 

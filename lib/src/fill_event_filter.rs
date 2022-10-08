@@ -247,11 +247,11 @@ pub async fn init(
     let metrics_sender = metrics_sender.clone();
 
     let mut metric_events_new =
-        metrics_sender.register_u64("fills_feed_events_new".into(), MetricType::Gauge);
+        metrics_sender.register_u64("fills_feed_events_new".into(), MetricType::Counter);
     let mut metric_events_change =
-        metrics_sender.register_u64("fills_feed_events_change".into(), MetricType::Gauge);
+        metrics_sender.register_u64("fills_feed_events_change".into(), MetricType::Counter);
     let mut metrics_events_drop =
-        metrics_sender.register_u64("fills_feed_events_drop".into(), MetricType::Gauge);
+        metrics_sender.register_u64("fills_feed_events_drop".into(), MetricType::Counter);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =
