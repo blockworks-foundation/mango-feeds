@@ -8,6 +8,7 @@ WORKDIR /app
 
 FROM base AS plan
 COPY . .
+WORKDIR /app
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base as build

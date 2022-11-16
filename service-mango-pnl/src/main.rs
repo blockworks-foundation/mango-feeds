@@ -114,7 +114,9 @@ fn start_pnl_updater(
             }
 
             *pnl_data.write().unwrap() = pnls;
-            metrics_pnls_tracked.clone().set(pnl_data.read().unwrap().len() as u64)
+            metrics_pnls_tracked
+                .clone()
+                .set(pnl_data.read().unwrap().len() as u64)
         }
     });
 }
@@ -211,17 +213,26 @@ async fn main() -> anyhow::Result<()> {
     let metrics_reqs =
         metrics_tx.register_u64("pnl_jsonrpc_reqs_total".into(), MetricType::Counter);
     let metrics_invalid_reqs =
-        metrics_tx.register_u64("pnl_jsonrpc_reqs_invalid_total".into(), MetricType::Counter);   
-    let metrics_pnls_tracked =
-        metrics_tx.register_u64("pnl_num_tracked".into(), MetricType::Gauge);
+        metrics_tx.register_u64("pnl_jsonrpc_reqs_invalid_total".into(), MetricType::Counter);
+    let metrics_pnls_tracked = metrics_tx.register_u64("pnl_num_tracked".into(), MetricType::Gauge);
 
     let chain_data = Arc::new(RwLock::new(ChainData::new()));
     let pnl_data = Arc::new(RwLock::new(PnlData::new()));
 
-    start_pnl_updater(config.pnl.clone(), chain_data.clone(), pnl_data.clone(), metrics_pnls_tracked);
+    start_pnl_updater(
+        config.pnl.clone(),
+        chain_data.clone(),
+        pnl_data.clone(),
+        metrics_pnls_tracked,
+    );
 
     // dropping the handle would exit the server
-    let _http_server_handle = start_jsonrpc_server(config.jsonrpc_server.clone(), pnl_data, metrics_reqs, metrics_invalid_reqs)?;
+    let _http_server_handle = start_jsonrpc_server(
+        config.jsonrpc_server.clone(),
+        pnl_data,
+        metrics_reqs,
+        metrics_invalid_reqs,
+    )?;
 
     // start filling chain_data from the grpc plugin source
     let (account_write_queue_sender, slot_queue_sender) = memory_target::init(chain_data).await?;

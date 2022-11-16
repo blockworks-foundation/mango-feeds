@@ -21,6 +21,4 @@ tokio = { version = "1", features = ["full"] }
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
-
-mango = { git = "https://github.com/blockworks-foundation/mango-v3", branch = "pan/solana-1.10" }
-mango-common = { git = "https://github.com/blockworks-foundation/mango-v3", branch = "pan/solana-1.10" }
+mango-v4 = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }

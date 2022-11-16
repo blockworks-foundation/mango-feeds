@@ -11,6 +11,7 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 use std::{
+    borrow::BorrowMut,
     cmp::max,
     collections::{HashMap, HashSet},
     mem::size_of,
@@ -18,8 +19,11 @@ use std::{
 };
 
 use crate::metrics::MetricU64;
+use anchor_lang::AccountDeserialize;
 use arrayref::array_ref;
-use mango::queue::{AnyEvent, EventQueueHeader, EventType, FillEvent};
+use mango_v4::state::{
+    AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent, MAX_NUM_EVENTS,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MarketConfig {
@@ -98,9 +102,7 @@ pub enum FillEventFilterMessage {
 }
 
 // couldn't compile the correct struct size / math on m1, fixed sizes resolve this issue
-const EVENT_SIZE: usize = 200; //size_of::<AnyEvent>();
-const QUEUE_LEN: usize = 256;
-type EventQueueEvents = [AnyEvent; QUEUE_LEN];
+type EventQueueEvents = [AnyEvent; MAX_NUM_EVENTS as usize];
 
 fn publish_changes(
     slot: u64,
@@ -108,7 +110,7 @@ fn publish_changes(
     mkt: &MarketConfig,
     header: &EventQueueHeader,
     events: &EventQueueEvents,
-    old_seq_num: usize,
+    old_seq_num: u64,
     old_events: &EventQueueEvents,
     fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
     metric_events_new: &mut MetricU64,
@@ -116,11 +118,12 @@ fn publish_changes(
     metric_events_drop: &mut MetricU64,
 ) {
     // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    let start_seq_num = max(old_seq_num, header.seq_num) - QUEUE_LEN;
+    let start_seq_num = max(old_seq_num, header.seq_num)
+        .checked_sub(MAX_NUM_EVENTS as u64)
+        .unwrap_or(0);
     let mut checkpoint = Vec::new();
-
     for seq_num in start_seq_num..header.seq_num {
-        let idx = seq_num % QUEUE_LEN;
+        let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
 
         // there are three possible cases:
         // 1) the event is past the old seq num, hence guaranteed new event
@@ -201,7 +204,7 @@ fn publish_changes(
 
     // in case queue size shrunk due to a fork we need revoke all previous fills
     for seq_num in header.seq_num..old_seq_num {
-        let idx = seq_num % QUEUE_LEN;
+        let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
 
         debug!(
             "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
@@ -328,14 +331,9 @@ pub async fn init(
 
                         let account = &account_info.account;
 
-                        const HEADER_SIZE: usize = size_of::<EventQueueHeader>();
-                        let header_data = array_ref![account.data(), 0, HEADER_SIZE];
-                        let header: &EventQueueHeader = bytemuck::from_bytes(header_data);
-                        trace!("evq {} seq_num {}", mkt.name, header.seq_num);
-
-                        const QUEUE_SIZE: usize = EVENT_SIZE * QUEUE_LEN;
-                        let events_data = array_ref![account.data(), HEADER_SIZE, QUEUE_SIZE];
-                        let events: &EventQueueEvents = bytemuck::from_bytes(events_data);
+                        let event_queue =
+                            EventQueue::try_deserialize(account.data().borrow_mut()).unwrap();
+                        trace!("evq {} seq_num {}", mkt.name, event_queue.header.seq_num);
 
                         match seq_num_cache.get(&mkt.event_queue) {
                             Some(old_seq_num) => match events_cache.get(&mkt.event_queue) {
@@ -343,8 +341,8 @@ pub async fn init(
                                     account_info.slot,
                                     account_info.write_version,
                                     mkt,
-                                    header,
-                                    events,
+                                    &event_queue.header,
+                                    &event_queue.buf,
                                     *old_seq_num,
                                     old_events,
                                     &fill_update_sender,
@@ -357,8 +355,9 @@ pub async fn init(
                             _ => info!("seq_num_cache could not find {}", mkt.name),
                         }
 
-                        seq_num_cache.insert(mkt.event_queue.clone(), header.seq_num.clone());
-                        events_cache.insert(mkt.event_queue.clone(), events.clone());
+                        seq_num_cache
+                            .insert(mkt.event_queue.clone(), event_queue.header.seq_num.clone());
+                        events_cache.insert(mkt.event_queue.clone(), event_queue.buf.clone());
                     }
                     Err(_) => info!("chain_cache could not find {}", mkt.name),
                 }

@@ -177,7 +177,7 @@ async fn main() -> anyhow::Result<()> {
             .map(|c| c.connection_string.clone())
             .collect::<String>()
     );
-    let use_geyser = true;
+    let use_geyser = false;
     if use_geyser {
         grpc_plugin_source::process_events(
             &config.source,
