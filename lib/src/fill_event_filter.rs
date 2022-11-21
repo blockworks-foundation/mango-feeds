@@ -14,13 +14,11 @@ use std::{
     borrow::BorrowMut,
     cmp::max,
     collections::{HashMap, HashSet},
-    mem::size_of,
     str::FromStr,
 };
 
 use crate::metrics::MetricU64;
 use anchor_lang::AccountDeserialize;
-use arrayref::array_ref;
 use mango_v4::state::{
     AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent, MAX_NUM_EVENTS,
 };

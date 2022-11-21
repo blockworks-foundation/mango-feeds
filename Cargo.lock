@@ -104,7 +104,7 @@ checksum = "6b2d54853319fd101b8dd81de382bcbf3e03410a64d8928bbee85a3e7dcde483"
 [[package]]
 name = "anchor-attribute-access-control"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -117,7 +117,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-account"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-constant"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "proc-macro2 1.0.47",
@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-error"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "proc-macro2 1.0.47",
@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-event"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -164,7 +164,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-interface"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-program"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -189,7 +189,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-state"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -199,9 +199,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "anchor-client"
+version = "0.25.0"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
+dependencies = [
+ "anchor-lang",
+ "anyhow",
+ "regex",
+ "serde",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "thiserror",
+ "url 2.3.1",
+]
+
+[[package]]
 name = "anchor-derive-accounts"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -213,7 +229,7 @@ dependencies = [
 [[package]]
 name = "anchor-lang"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#5d780a86dca69ef23c527217ae18358c3c9c2724"
 dependencies = [
  "anchor-attribute-access-control",
  "anchor-attribute-account",
@@ -236,7 +252,7 @@ dependencies = [
 [[package]]
 name = "anchor-spl"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-lang",
  "solana-program",
@@ -247,7 +263,7 @@ dependencies = [
 [[package]]
 name = "anchor-syn"
 version = "0.25.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anyhow",
  "bs58 0.3.1",
@@ -925,7 +941,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "checked_math"
 version = "0.1.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.47",
@@ -1001,6 +1017,36 @@ dependencies = [
  "textwrap",
  "unicode-width",
  "vec_map",
+]
+
+[[package]]
+name = "client"
+version = "0.1.0"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
+dependencies = [
+ "anchor-client",
+ "anchor-lang",
+ "anchor-spl",
+ "anyhow",
+ "base64 0.13.1",
+ "bincode",
+ "fixed",
+ "fixed-macro",
+ "itertools 0.10.5",
+ "log 0.4.17",
+ "mango-v4",
+ "pyth-sdk-solana",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serum_dex",
+ "shellexpand",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-sdk",
+ "spl-associated-token-account",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1424,6 +1470,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca3aa72a6f96ea37bbc5aa912f6788242832f75369bdfdadcb0e38423f100059"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-next"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1431,6 +1486,17 @@ checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
 dependencies = [
  "cfg-if 1.0.0",
  "dirs-sys-next",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b1d1d91c932ef41c0f2663aa8b0ca0342d444d842c06914aa0a7e352d0bada6"
+dependencies = [
+ "libc",
+ "redox_users",
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -2885,7 +2951,7 @@ dependencies = [
 [[package]]
 name = "mango-macro"
 version = "0.0.1"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "bytemuck",
  "quote 1.0.21",
@@ -2895,7 +2961,7 @@ dependencies = [
 [[package]]
 name = "mango-v4"
 version = "0.1.0"
-source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=solana-1.10.35#ca11d73be8bde6730dcdf9a6e467d6dd8341ab12"
+source = "git+ssh://git@github.com/blockworks-foundation/mango-v4?branch=dev#19e2b8639407c8599c1f62d3b7fd282420e3c9d9"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
@@ -2914,6 +2980,7 @@ dependencies = [
  "serum_dex",
  "solana-address-lookup-table-program",
  "solana-program",
+ "solana-sdk",
  "static_assertions",
  "switchboard-program",
  "switchboard-utils",
@@ -4880,8 +4947,8 @@ dependencies = [
 
 [[package]]
 name = "serum_dex"
-version = "0.4.0"
-source = "git+ssh://git@github.com/blockworks-foundation/serum-dex.git?branch=v4-compat#7033229b816af91cdeef3f14aff23a5e20be11f1"
+version = "0.5.6"
+source = "git+https://github.com/blockworks-foundation/serum-dex.git?branch=ckamm/find_by_key#c0b9f559daa74ec5960cc371a8bed610029a656b"
 dependencies = [
  "arrayref",
  "bincode",
@@ -4911,7 +4978,7 @@ dependencies = [
  "bs58 0.4.0",
  "futures-channel",
  "futures-util",
- "log 0.4.17",
+ "log 0.3.9",
  "serde",
  "serde_derive",
  "serde_json",
@@ -4927,10 +4994,13 @@ dependencies = [
 name = "service-mango-pnl"
 version = "0.1.0"
 dependencies = [
+ "anchor-client",
+ "anchor-lang",
  "anyhow",
  "async-trait",
  "bs58 0.3.1",
  "bytemuck",
+ "client",
  "fixed",
  "jsonrpsee",
  "log 0.4.17",
@@ -5050,6 +5120,15 @@ checksum = "bdf0c33fae925bdc080598b84bc15c55e7b9a4a43b3c704da051f977469691c9"
 dependencies = [
  "digest 0.10.5",
  "keccak",
+]
+
+[[package]]
+name = "shellexpand"
+version = "2.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ccc8076840c4da029af4f87e4e8daeb0fca6b87bbb02e10cb60b791450e11e4"
+dependencies = [
+ "dirs",
 ]
 
 [[package]]
@@ -5461,7 +5540,7 @@ dependencies = [
  "async-channel",
  "async-stream 0.2.1",
  "async-trait",
- "base64 0.13.1",
+ "base64 0.9.3",
  "bs58 0.4.0",
  "bytemuck",
  "bytes 1.2.1",
@@ -5493,25 +5572,6 @@ dependencies = [
  "tonic 0.6.2",
  "tonic-build 0.6.2",
  "warp",
-]
-
-[[package]]
-name = "solana-geyser-connector-mango"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bs58 0.3.1",
- "fixed",
- "log 0.4.17",
- "mango-v4",
- "postgres-types",
- "postgres_query",
- "solana-geyser-connector-lib",
- "solana-logger",
- "tokio",
- "tokio-postgres",
- "toml",
 ]
 
 [[package]]

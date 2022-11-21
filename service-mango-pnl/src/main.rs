@@ -8,22 +8,25 @@ use {
     std::{
         fs::File,
         io::Read,
+        mem::size_of,
         sync::{Arc, RwLock},
+        time::Duration,
     },
 };
 
+use anchor_client::Cluster;
+use anchor_lang::Discriminator;
+use client::{chain_data, health_cache, AccountFetcher, Client, MangoGroupContext};
 use fixed::types::I80F48;
-use mango::state::{DataType, MangoAccount, MangoCache, MangoGroup, MAX_PAIRS};
+use mango_v4::state::{MangoAccount, MangoAccountValue, PerpMarketIndex};
 use solana_geyser_connector_lib::metrics::*;
-use solana_sdk::account::ReadableAccount;
-use std::mem::size_of;
-
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::{account::ReadableAccount, signature::Keypair};
 #[derive(Clone, Debug, Deserialize)]
 pub struct PnlConfig {
     pub update_interval_millis: u64,
     pub mango_program: String,
     pub mango_group: String,
-    pub mango_cache: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -34,39 +37,54 @@ pub struct JsonRpcConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,
+    pub snapshot_source: SnapshotSourceConfig,
     pub metrics: MetricsConfig,
     pub pnl: PnlConfig,
     pub jsonrpc_server: JsonRpcConfig,
 }
 
-type PnlData = Vec<(Pubkey, [I80F48; MAX_PAIRS])>;
+type PnlData = Vec<(Pubkey, Vec<(PerpMarketIndex, I80F48)>)>;
 
 fn compute_pnl(
-    account: &MangoAccount,
-    market_index: usize,
-    group: &MangoGroup,
-    cache: &MangoCache,
-) -> I80F48 {
-    let perp_account = &account.perp_accounts[market_index];
-    let perp_market_cache = &cache.perp_market_cache[market_index];
-    let price = cache.price_cache[market_index].price;
-    let contract_size = group.perp_markets[market_index].base_lot_size;
+    context: Arc<MangoGroupContext>,
+    account_fetcher: Arc<impl AccountFetcher>,
+    account: &MangoAccountValue,
+) -> anyhow::Result<Vec<(PerpMarketIndex, I80F48)>> {
+    let health_cache = health_cache::new(&context, account_fetcher.as_ref(), account)?;
+    let perp_settle_health = health_cache.perp_settle_health();
 
-    let base_pos = I80F48::from_num(perp_account.base_position * contract_size) * price;
-    let quote_pos = perp_account.get_quote_position(&perp_market_cache);
-    base_pos + quote_pos
+    let pnls = account
+        .active_perp_positions()
+        .filter_map(|pp| {
+            if pp.base_position_lots() != 0 {
+                return None;
+            }
+            let pnl = pp.quote_position_native();
+            let settleable_pnl = if pnl > 0 {
+                pnl
+            } else if pnl < 0 && perp_settle_health > 0 {
+                pnl.max(-perp_settle_health)
+            } else {
+                return None;
+            };
+            Some((pp.market_index, settleable_pnl))
+        })
+        .collect::<Vec<(PerpMarketIndex, I80F48)>>();
+
+    Ok(pnls)
 }
 
 // regularly updates pnl_data from chain_data
 fn start_pnl_updater(
     config: PnlConfig,
+    context: Arc<MangoGroupContext>,
+    account_fetcher: Arc<impl AccountFetcher + 'static>,
     chain_data: Arc<RwLock<ChainData>>,
     pnl_data: Arc<RwLock<PnlData>>,
     metrics_pnls_tracked: MetricU64,
 ) {
     let program_pk = Pubkey::from_str(&config.mango_program).unwrap();
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
-    let cache_pk = Pubkey::from_str(&config.mango_cache).unwrap();
 
     tokio::spawn(async move {
         loop {
@@ -79,33 +97,29 @@ fn start_pnl_updater(
 
             // get the group and cache now
             let group = snapshot.get(&group_pk);
-            let cache = snapshot.get(&cache_pk);
-            if group.is_none() || cache.is_none() {
+            if group.is_none() {
                 continue;
             }
-            let group: &MangoGroup = bytemuck::from_bytes(group.unwrap().account.data());
-            let cache: &MangoCache = bytemuck::from_bytes(cache.unwrap().account.data());
 
             let mut pnls = Vec::with_capacity(snapshot.len());
             for (pubkey, account) in snapshot.iter() {
                 let owner = account.account.owner();
                 let data = account.account.data();
+
                 if data.len() != size_of::<MangoAccount>()
-                    || data[0] != DataType::MangoAccount as u8
+                    || data[0..8] != MangoAccount::discriminator()
                     || owner != &program_pk
                 {
                     continue;
                 }
 
-                let mango_account: &MangoAccount = bytemuck::from_bytes(data);
-                if mango_account.mango_group != group_pk {
+                let mango_account = MangoAccountValue::from_bytes(&data[8..]).unwrap();
+                if mango_account.fixed.group != group_pk {
                     continue;
                 }
 
-                let mut pnl_vals = [I80F48::ZERO; MAX_PAIRS];
-                for market_index in 0..MAX_PAIRS {
-                    pnl_vals[market_index] = compute_pnl(mango_account, market_index, group, cache);
-                }
+                let pnl_vals =
+                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account).unwrap();
 
                 // Alternatively, we could prepare the sorted and limited lists for each
                 // market here. That would be faster and cause less contention on the pnl_data
@@ -158,11 +172,11 @@ fn start_jsonrpc_server(
             metrics_invalid_reqs.clone().increment();
             return invalid("'limit' must be <= 20");
         }
-        let market_index = req.market_index as usize;
-        if market_index >= MAX_PAIRS {
-            metrics_invalid_reqs.clone().increment();
-            return invalid("'market_index' must be < MAX_PAIRS");
-        }
+        let market_index = req.market_index as u16;
+        // if market_index >= MAX_PAIRS {
+        //     metrics_invalid_reqs.clone().increment();
+        //     return invalid("'market_index' must be < MAX_PAIRS");
+        // }
         if req.order != "ASC" && req.order != "DESC" {
             metrics_invalid_reqs.clone().increment();
             return invalid("'order' must be ASC or DESC");
@@ -171,15 +185,29 @@ fn start_jsonrpc_server(
         // write lock, because we sort in-place...
         let mut pnls = pnl_data.write().unwrap();
         if req.order == "ASC" {
-            pnls.sort_unstable_by(|a, b| a.1[market_index].cmp(&b.1[market_index]));
+            pnls.sort_unstable_by(|a, b| {
+                a.1.iter()
+                    .find(|x| x.0 == market_index)
+                    .cmp(&b.1.iter().find(|x| x.0 == market_index))
+            });
         } else {
-            pnls.sort_unstable_by(|a, b| b.1[market_index].cmp(&a.1[market_index]));
+            pnls.sort_unstable_by(|a, b| {
+                b.1.iter()
+                    .find(|x| x.0 == market_index)
+                    .cmp(&a.1.iter().find(|x| x.0 == market_index))
+            });
         }
         let response = pnls
             .iter()
             .take(limit)
             .map(|p| PnlResponseItem {
-                pnl: p.1[market_index].to_num::<f64>(),
+                pnl: p
+                    .1
+                    .iter()
+                    .find(|x| x.0 == market_index)
+                    .unwrap()
+                    .1
+                    .to_num::<f64>(),
                 pubkey: p.0.to_string(),
             })
             .collect::<Vec<_>>();
@@ -208,6 +236,28 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
     info!("startup");
 
+    let rpc_url = config.snapshot_source.rpc_http_url;
+    let ws_url = rpc_url.replace("https", "wss");
+    let rpc_timeout = Duration::from_secs(10);
+    let cluster = Cluster::Custom(rpc_url.clone(), ws_url.clone());
+    let commitment = CommitmentConfig::processed();
+    let client = Client::new(
+        cluster.clone(),
+        commitment,
+        &Keypair::new(),
+        Some(rpc_timeout),
+    );
+    let group_context = Arc::new(MangoGroupContext::new_from_rpc(
+        Pubkey::from_str(&config.pnl.mango_group).unwrap(),
+        client.cluster.clone(),
+        client.commitment,
+    )?);
+    let chain_data = Arc::new(RwLock::new(chain_data::ChainData::new()));
+    let account_fetcher = Arc::new(chain_data::AccountFetcher {
+        chain_data: chain_data.clone(),
+        rpc: client.rpc(),
+    });
+
     let metrics_tx = metrics::start(config.metrics, "pnl".into());
 
     let metrics_reqs =
@@ -221,6 +271,8 @@ async fn main() -> anyhow::Result<()> {
 
     start_pnl_updater(
         config.pnl.clone(),
+        group_context.clone(),
+        account_fetcher.clone(),
         chain_data.clone(),
         pnl_data.clone(),
         metrics_pnls_tracked,

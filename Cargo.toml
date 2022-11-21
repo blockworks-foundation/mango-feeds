@@ -3,7 +3,7 @@ members = [
         "geyser-plugin-grpc",
         "lib",
         "connector-raw",
-        "connector-mango",
+#        "connector-mango",
         "service-mango-fills",
         "service-mango-pnl",
 ]
@@ -12,9 +12,7 @@ members = [
 [patch.crates-io]
 # for gzip encoded responses
 jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip" }
-anchor-spl = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "solana-1.10.35" }
-anchor-lang = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "solana-1.10.35" }
-
-[patch.'https://github.com/blockworks-foundation/serum-dex.git']
-serum_dex = { git = 'ssh://git@github.com/blockworks-foundation/serum-dex.git', branch = "v4-compat" }
-
+# force usage of mango-v4 anchor submodule with 1.10.35 support
+anchor-spl = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
+anchor-lang = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
+anchor-client = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
