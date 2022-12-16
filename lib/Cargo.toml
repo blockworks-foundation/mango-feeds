@@ -11,10 +11,10 @@ edition = "2021"
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-solana-rpc = "=1.10.35"
-solana-client = "=1.10.35"
-solana-account-decoder = "=1.10.35"
-solana-sdk = "=1.10.35"
+solana-rpc = "~1.14.9"
+solana-client = "~1.14.9"
+solana-account-decoder = "~1.14.9"
+solana-sdk = "~1.14.9"
 
 mango-v4 = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
 arrayref = "*"
@@ -57,7 +57,7 @@ warp = "0.3"
 
 anchor-lang = "0.25.0"
 
-solana-geyser-connector-plugin-grpc = { path = "../geyser-plugin-grpc" }
+serum_dex = { git = "ssh://git@github.com/openbook-dex/program", branch = "master" }
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = ["compression"] }
