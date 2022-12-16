@@ -1,4 +1,6 @@
-bind_ws_addr = "127.0.0.1:8080"
+bind_ws_addr = "0.0.0.0:8080"
+rpc_http_url = "http://mango.rpcpool.com/<token>"
+mango_group = "78b8f4cGCwmZ9ysPFMWLaLTkkaYnUjwMJYStWe5RTSSX"
 
 [metrics]
 output_stdout = true
@@ -6,63 +8,13 @@ output_http = true
 
 [source]
 dedup_queue_size = 50000
-rpc_ws_url = ""
+rpc_ws_url = "wss://mango.rpcpool.com/<token>"
 
 [[source.grpc_sources]]
-name = "server"
-connection_string = "http://[::1]:10000"
+name = "accountsdb-client"
+connection_string = "http://tyo64.rpcpool.com/"
 retry_connection_sleep_secs = 30
 
-#[source.grpc_sources.tls]
-#ca_cert_path = "ca.pem"
-#client_cert_path = "client.pem"
-#client_key_path = "client.pem"
-#domain_name = "example.com"
-
 [source.snapshot]
-rpc_http_url = ""
-program_id = "mv3ekLzLbnVPNxjSKvqBpU3ZeZXPQdEC3bp5MDEBG68"
-
-[[markets]]
-name = "BTC-PERP"
-event_queue = "7t5Me8RieYKsFpfLEV8jnpqcqswNpyWD95ZqgUXuLV8Z"
-
-[[markets]]
-name = "ETH-PERP"
-event_queue = "9vDfKNPJkCvQv9bzR4JNTGciQC2RVHPVNMMHiVDgT1mw"
-
-[[markets]]
-name = "SOL-PERP"
-event_queue = "31cKs646dt1YkA3zPyxZ7rUAkxTBz279w4XEobFXcAKP"
-
-[[markets]]
-name = "MNGO-PERP"
-event_queue = "7orixrhZpjvofZGWZyyLFxSEt2tfFiost5kHEzd7jdet"
-
-[[markets]]
-name = "SRM-PERP"
-event_queue = "BXSPmdHWP6fMqsCsT6kG8UN9uugAJxdDkQWy87njUQnL"
-
-[[markets]]
-name = "RAY-PERP"
-event_queue = "Css2MQhEvXMTKjp9REVZR9ZyUAYAZAPrnDvRoPxrQkeN"
-
-[[markets]]
-name = "FTT-PERP"
-event_queue = "5pHAhyEphQRVvLqvYF7dziofR52yZWuq8DThQFJvJ7r5"
-
-[[markets]]
-name = "ADA-PERP"
-event_queue = "G6Dsw9KnP4G38hePtedTH6gDfDQmPJGJw8zipBJvKc12"
-
-[[markets]]
-name = "BNB-PERP"
-event_queue = "GmX4qXMpXvs1DuUXNB4eqL1rfF8LeYEjkKgpFeYsm55n"
-
-[[markets]]
-name = "AVAX-PERP"
-event_queue = "5Grgo9kLu692SUcJ6S7jtbi1WkdwiyRWgThAfN1PcvbL"
-
-[[markets]]
-name = "LUNA-PERP"
-event_queue = "HDJ43o9Dxxu6yWRWPEce44gtCHauRGLXJwwtvD7GwEBx"
+rpc_http_url = "http://mango.rpcpool.com/<token>"
+program_id = "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg"

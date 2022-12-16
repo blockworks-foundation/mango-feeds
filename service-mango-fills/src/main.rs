@@ -1,7 +1,11 @@
+use anchor_client::{Cluster, solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair, account::Account}};
+use anchor_lang::prelude::Pubkey;
+use bytemuck::cast_slice;
+use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{pin_mut, SinkExt, StreamExt};
 use log::*;
-use std::{collections::HashMap, fs::File, io::Read, net::SocketAddr, sync::Arc, sync::Mutex};
+use std::{collections::HashMap, fs::File, io::Read, net::SocketAddr, sync::Arc, sync::Mutex, time::Duration, convert::identity, str::FromStr};
 use tokio::{
     net::{TcpListener, TcpStream},
     pin,
@@ -9,9 +13,9 @@ use tokio::{
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
-use solana_geyser_connector_lib::metrics::{MetricType, MetricU64};
+use solana_geyser_connector_lib::{metrics::{MetricType, MetricU64}, FilterConfig};
 use solana_geyser_connector_lib::{
-    fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage, MarketConfig},
+    fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
 };
 
@@ -80,8 +84,9 @@ async fn handle_connection(
 pub struct Config {
     pub source: SourceConfig,
     pub metrics: MetricsConfig,
-    pub markets: Vec<MarketConfig>,
     pub bind_ws_addr: String,
+    pub rpc_http_url: String,
+    pub mango_group: String,
 }
 
 #[tokio::main]
@@ -111,8 +116,58 @@ async fn main() -> anyhow::Result<()> {
     let metrics_closed_connections =
         metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Counter);
 
+    let rpc_url = config.rpc_http_url;
+    let ws_url = rpc_url.replace("https", "wss");
+    let rpc_timeout = Duration::from_secs(10);
+    let cluster = Cluster::Custom(rpc_url.clone(), ws_url.clone());
+    let client = Client::new(
+        cluster.clone(),
+        CommitmentConfig::processed(),
+        &Keypair::new(),
+        Some(rpc_timeout),
+    );
+    let group_context = Arc::new(MangoGroupContext::new_from_rpc(
+        Pubkey::from_str(&config.mango_group).unwrap(),
+        client.cluster.clone(),
+        client.commitment,
+    )?);
+
+    let perp_queue_pks: Vec<(Pubkey, Pubkey)> = group_context
+        .perp_markets
+        .iter()
+        .map(|(_, context)| (context.address, context.market.event_queue))
+        .collect();
+
+    let serum_market_pks: Vec<Pubkey> = group_context
+        .serum3_markets
+        .iter()
+        .map(|(_, context)| context.market.serum_market_external)
+        .collect();
+
+    let serum_market_ais = client
+        .rpc()
+        .get_multiple_accounts(serum_market_pks.as_slice())?;
+    let serum_market_ais: Vec<&Account> = serum_market_ais
+        .iter()
+        .filter_map(|maybe_ai| match maybe_ai {
+            Some(ai) => Some(ai),
+            None => None,
+        })
+        .collect();
+
+    let serum_queue_pks: Vec<(Pubkey, Pubkey)> = serum_market_ais
+        .iter()
+        .enumerate()
+        .map(|pair| {
+            let market_state: serum_dex::state::MarketState = *bytemuck::from_bytes(
+                &pair.1.data[5..5 + std::mem::size_of::<serum_dex::state::MarketState>()],
+            );
+            (serum_market_pks[pair.0], Pubkey::new(cast_slice(&identity(market_state.event_q) as &[_])))
+        })
+        .collect();
+
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) =
-        fill_event_filter::init(config.markets.clone(), metrics_tx.clone()).await?;
+    fill_event_filter::init(perp_queue_pks.clone(), serum_queue_pks.clone(), metrics_tx.clone()).await?;
 
     let checkpoints = CheckpointMap::new(Mutex::new(HashMap::new()));
     let peers = PeerMap::new(Mutex::new(HashMap::new()));
@@ -178,9 +233,13 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
+    let filter_config = FilterConfig {
+        program_ids: vec!["abc123".into()]
+    };
     if use_geyser {
         grpc_plugin_source::process_events(
             &config.source,
+            &filter_config,
             account_write_queue_sender,
             slot_queue_sender,
             metrics_tx.clone(),

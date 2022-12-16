@@ -4,7 +4,7 @@ use crate::{
     AccountWrite, SlotUpdate,
 };
 use log::*;
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
     clock::Epoch,
@@ -14,7 +14,6 @@ use std::{
     borrow::BorrowMut,
     cmp::max,
     collections::{HashMap, HashSet},
-    str::FromStr,
 };
 
 use crate::metrics::MetricU64;
@@ -22,12 +21,6 @@ use anchor_lang::AccountDeserialize;
 use mango_v4::state::{
     AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent, MAX_NUM_EVENTS,
 };
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct MarketConfig {
-    pub name: String,
-    pub event_queue: String,
-}
 
 #[derive(Clone, Copy, Debug, Serialize)]
 pub enum FillUpdateStatus {
@@ -51,7 +44,7 @@ impl Serialize for FillUpdate {
     where
         S: Serializer,
     {
-        let event = base64::encode_config(bytemuck::bytes_of(&self.event), base64::STANDARD);
+        let event = base64::encode(bytemuck::bytes_of(&self.event));
         let mut state = serializer.serialize_struct("FillUpdate", 4)?;
         state.serialize_field("event", &event)?;
         state.serialize_field("market", &self.market)?;
@@ -81,7 +74,7 @@ impl Serialize for FillCheckpoint {
         let events: Vec<String> = self
             .events
             .iter()
-            .map(|e| base64::encode_config(bytemuck::bytes_of(e), base64::STANDARD))
+            .map(|e| base64::encode(bytemuck::bytes_of(e)))
             .collect();
         let mut state = serializer.serialize_struct("FillUpdate", 3)?;
         state.serialize_field("events", &events)?;
@@ -105,7 +98,7 @@ type EventQueueEvents = [AnyEvent; MAX_NUM_EVENTS as usize];
 fn publish_changes(
     slot: u64,
     write_version: u64,
-    mkt: &MarketConfig,
+    mkt: &(Pubkey, Pubkey),
     header: &EventQueueHeader,
     events: &EventQueueEvents,
     old_seq_num: u64,
@@ -120,6 +113,8 @@ fn publish_changes(
         .checked_sub(MAX_NUM_EVENTS as u64)
         .unwrap_or(0);
     let mut checkpoint = Vec::new();
+    let mkt_pk_string = mkt.0.to_string();
+    let evq_pk_string = mkt.0.to_string();
     for seq_num in start_seq_num..header.seq_num {
         let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
 
@@ -131,7 +126,7 @@ fn publish_changes(
         if seq_num >= old_seq_num {
             debug!(
                 "found new event {} idx {} type {}",
-                mkt.name, idx, events[idx].event_type as u32
+                mkt_pk_string, idx, events[idx].event_type as u32
             );
 
             metric_events_new.increment();
@@ -145,8 +140,8 @@ fn publish_changes(
                         write_version,
                         event: fill,
                         status: FillUpdateStatus::New,
-                        market: mkt.name.clone(),
-                        queue: mkt.event_queue.clone(),
+                        market: mkt_pk_string.clone(),
+                        queue: evq_pk_string.clone(),
                     }))
                     .unwrap(); // TODO: use anyhow to bubble up error
                 checkpoint.push(fill);
@@ -156,7 +151,7 @@ fn publish_changes(
         {
             debug!(
                 "found changed event {} idx {} seq_num {} header seq num {} old seq num {}",
-                mkt.name, idx, seq_num, header.seq_num, old_seq_num
+                mkt_pk_string, idx, seq_num, header.seq_num, old_seq_num
             );
 
             metric_events_change.increment();
@@ -170,8 +165,8 @@ fn publish_changes(
                         write_version,
                         event: fill,
                         status: FillUpdateStatus::Revoke,
-                        market: mkt.name.clone(),
-                        queue: mkt.event_queue.clone(),
+                        market: mkt_pk_string.clone(),
+                        queue: evq_pk_string.clone(),
                     }))
                     .unwrap(); // TODO: use anyhow to bubble up error
             }
@@ -185,8 +180,8 @@ fn publish_changes(
                         write_version,
                         event: fill,
                         status: FillUpdateStatus::New,
-                        market: mkt.name.clone(),
-                        queue: mkt.event_queue.clone(),
+                        market: mkt_pk_string.clone(),
+                        queue: evq_pk_string.clone(),
                     }))
                     .unwrap(); // TODO: use anyhow to bubble up error
                 checkpoint.push(fill);
@@ -206,7 +201,7 @@ fn publish_changes(
 
         debug!(
             "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
-            mkt.name, idx, seq_num, header.seq_num, old_seq_num
+            mkt_pk_string, idx, seq_num, header.seq_num, old_seq_num
         );
 
         metric_events_drop.increment();
@@ -219,8 +214,8 @@ fn publish_changes(
                     event: fill,
                     write_version,
                     status: FillUpdateStatus::Revoke,
-                    market: mkt.name.clone(),
-                    queue: mkt.event_queue.clone(),
+                    market: mkt_pk_string.clone(),
+                    queue: evq_pk_string.clone(),
                 }))
                 .unwrap(); // TODO: use anyhow to bubble up error
         }
@@ -231,14 +226,15 @@ fn publish_changes(
             slot,
             write_version,
             events: checkpoint,
-            market: mkt.name.clone(),
-            queue: mkt.event_queue.clone(),
+            market: mkt_pk_string,
+            queue: evq_pk_string,
         }))
         .unwrap()
 }
 
 pub async fn init(
-    markets: Vec<MarketConfig>,
+    perp_queue_pks: Vec<(Pubkey, Pubkey)>,
+    serum_queue_pks: Vec<(Pubkey, Pubkey)>,
     metrics_sender: Metrics,
 ) -> anyhow::Result<(
     async_channel::Sender<AccountWrite>,
@@ -271,11 +267,12 @@ pub async fn init(
     let mut chain_cache = ChainData::new();
     let mut events_cache: HashMap<String, EventQueueEvents> = HashMap::new();
     let mut seq_num_cache = HashMap::new();
-    let mut last_ev_q_versions = HashMap::<String, (u64, u64)>::new();
+    let mut last_evq_versions = HashMap::<String, (u64, u64)>::new();
 
-    let relevant_pubkeys = markets
+    let relevant_pubkeys = [perp_queue_pks.clone(), serum_queue_pks.clone()]
+        .concat()
         .iter()
-        .map(|m| Pubkey::from_str(&m.event_queue).unwrap())
+        .map(|m| m.1)
         .collect::<HashSet<Pubkey>>();
 
     // update handling thread, reads both sloths and account updates
@@ -313,28 +310,29 @@ pub async fn init(
                 }
             }
 
-            for mkt in markets.iter() {
-                let last_ev_q_version = last_ev_q_versions.get(&mkt.event_queue).unwrap_or(&(0, 0));
-                let mkt_pk = mkt.event_queue.parse::<Pubkey>().unwrap();
+            for mkt in perp_queue_pks.iter() {
+                let last_evq_version = last_evq_versions.get(&mkt.1.to_string()).unwrap_or(&(0, 0));
+                let mkt_pk = mkt.1;
 
                 match chain_cache.account(&mkt_pk) {
                     Ok(account_info) => {
                         // only process if the account state changed
-                        let ev_q_version = (account_info.slot, account_info.write_version);
-                        trace!("evq {} write_version {:?}", mkt.name, ev_q_version);
-                        if ev_q_version == *last_ev_q_version {
+                        let evq_version = (account_info.slot, account_info.write_version);
+                        let evq_pk_string = mkt.1.to_string();
+                        trace!("evq {} write_version {:?}", evq_pk_string, evq_version);
+                        if evq_version == *last_evq_version {
                             continue;
                         }
-                        last_ev_q_versions.insert(mkt.event_queue.clone(), ev_q_version);
+                        last_evq_versions.insert(evq_pk_string.clone(), evq_version);
 
                         let account = &account_info.account;
 
                         let event_queue =
                             EventQueue::try_deserialize(account.data().borrow_mut()).unwrap();
-                        trace!("evq {} seq_num {}", mkt.name, event_queue.header.seq_num);
+                        trace!("evq {} seq_num {}", evq_pk_string, event_queue.header.seq_num);
 
-                        match seq_num_cache.get(&mkt.event_queue) {
-                            Some(old_seq_num) => match events_cache.get(&mkt.event_queue) {
+                        match seq_num_cache.get(&evq_pk_string) {
+                            Some(old_seq_num) => match events_cache.get(&evq_pk_string) {
                                 Some(old_events) => publish_changes(
                                     account_info.slot,
                                     account_info.write_version,
@@ -348,16 +346,16 @@ pub async fn init(
                                     &mut metric_events_change,
                                     &mut metrics_events_drop,
                                 ),
-                                _ => info!("events_cache could not find {}", mkt.name),
+                                _ => info!("events_cache could not find {}", evq_pk_string),
                             },
-                            _ => info!("seq_num_cache could not find {}", mkt.name),
+                            _ => info!("seq_num_cache could not find {}", evq_pk_string),
                         }
 
                         seq_num_cache
-                            .insert(mkt.event_queue.clone(), event_queue.header.seq_num.clone());
-                        events_cache.insert(mkt.event_queue.clone(), event_queue.buf.clone());
+                            .insert(evq_pk_string.clone(), event_queue.header.seq_num.clone());
+                        events_cache.insert(evq_pk_string.clone(), event_queue.buf.clone());
                     }
-                    Err(_) => info!("chain_cache could not find {}", mkt.name),
+                    Err(_) => info!("chain_cache could not find {}", mkt.1),
                 }
             }
         }
