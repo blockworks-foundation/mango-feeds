@@ -1,35 +1,51 @@
+use futures::stream::once;
+use geyser::geyser_client::GeyserClient;
 use jsonrpc_core::futures::StreamExt;
 use jsonrpc_core_client::transports::http;
 
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-use solana_client::rpc_response::{Response, RpcKeyedAccount};
-use solana_rpc::{rpc::rpc_accounts::AccountsDataClient, rpc::OptionalContext};
+use solana_client::rpc_response::{OptionalContext, Response, RpcKeyedAccount};
+use solana_rpc::{rpc::rpc_accounts::AccountsDataClient};
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
-use tonic::transport::{Certificate, ClientTlsConfig, Endpoint, Identity};
+use tonic::{
+    metadata::MetadataValue, Request,
+    transport::{Channel, Certificate, Identity, ClientTlsConfig},
+};
 
 use log::*;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
-pub mod geyser_proto {
-    tonic::include_proto!("accountsdb");
+pub mod geyser {
+    tonic::include_proto!("geyser");
 }
-use geyser_proto::accounts_db_client::AccountsDbClient;
 
+pub mod solana {
+    pub mod storage {
+        pub mod confirmed_block {
+            tonic::include_proto!("solana.storage.confirmed_block");
+        }
+    }
+}
+
+pub use geyser::*;
+pub use solana::storage::confirmed_block::*;
+
+use crate::FilterConfig;
 use crate::{
     metrics::{MetricType, Metrics},
     AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate, SnapshotSourceConfig,
     SourceConfig, TlsConfig,
 };
 
-use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
+//use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
 
 type SnapshotData = Response<Vec<RpcKeyedAccount>>;
 
 enum Message {
-    GrpcUpdate(geyser_proto::Update),
+    GrpcUpdate(geyser::SubscribeUpdate),
     Snapshot(SnapshotData),
 }
 
@@ -69,6 +85,7 @@ async fn feed_data_geyser(
     grpc_config: &GrpcSourceConfig,
     tls_config: Option<ClientTlsConfig>,
     snapshot_config: &SnapshotSourceConfig,
+    filter_config: &FilterConfig,
     sender: async_channel::Sender<Message>,
 ) -> anyhow::Result<()> {
     let program_id = Pubkey::from_str(&snapshot_config.program_id)?;
@@ -82,7 +99,8 @@ async fn feed_data_geyser(
             .expect("reading connection string from env"),
         _ => snapshot_config.rpc_http_url.clone(),
     };
-    let endpoint = Endpoint::from_str(&connection_string)?;
+    info!("connecting {}", connection_string);
+    let endpoint = Channel::from_shared(connection_string)?;
     let channel = if let Some(tls) = tls_config {
         endpoint.tls_config(tls)?
     } else {
@@ -90,12 +108,38 @@ async fn feed_data_geyser(
     }
     .connect()
     .await?;
-    let mut client = AccountsDbClient::new(channel);
+    let token: MetadataValue<_> = "dbbf36253d0b2e6a85618a4ef2fa".parse()?;
+    let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
+        req.metadata_mut().insert("x-token", token.clone());
+        Ok(req)
+    });
 
-    let mut update_stream = client
-        .subscribe(geyser_proto::SubscribeRequest {})
-        .await?
-        .into_inner();
+    let mut accounts = HashMap::new();
+    accounts.insert(
+        "client".to_owned(),
+        SubscribeRequestFilterAccounts {
+            account: Vec::new(),
+            owner: filter_config.program_ids.clone(),
+        },
+    );
+    let mut slots = HashMap::new();
+    slots.insert(
+        "client".to_owned(),
+        SubscribeRequestFilterSlots {},
+    );
+    let blocks = HashMap::new();
+    let transactions = HashMap::new();
+
+    let request = SubscribeRequest {
+        accounts,
+        blocks,
+        slots,
+        transactions,
+    };
+    info!("Going to send request: {:?}", request);
+
+    let response = client.subscribe(once(async move { request })).await?;
+    let mut update_stream = response.into_inner();
 
     // We can't get a snapshot immediately since the finalized snapshot would be for a
     // slot in the past and we'd be missing intermediate updates.
@@ -155,15 +199,16 @@ async fn feed_data_geyser(
     loop {
         tokio::select! {
             update = update_stream.next() => {
-                use geyser_proto::{update::UpdateOneof, slot_update::Status};
+                use geyser::{subscribe_update::UpdateOneof};
                 let mut update = update.ok_or(anyhow::anyhow!("geyser plugin has closed the stream"))??;
                 match update.update_oneof.as_mut().expect("invalid grpc") {
-                    UpdateOneof::SubscribeResponse(subscribe_response) => {
-                        first_full_slot = subscribe_response.highest_write_slot + 1;
-                    },
-                    UpdateOneof::SlotUpdate(slot_update) => {
+                    UpdateOneof::Slot(slot_update) => {
                         let status = slot_update.status;
-                        if status == Status::Rooted as i32 {
+                        if status == SubscribeUpdateSlotStatus::Finalized as i32 {
+                            if first_full_slot == u64::MAX {
+                                // TODO: is this equivalent to before? what was highesy_write_slot?
+                                first_full_slot = slot_update.slot + 1;
+                            }
                             if slot_update.slot > max_rooted_slot {
                                 max_rooted_slot = slot_update.slot;
 
@@ -176,21 +221,28 @@ async fn feed_data_geyser(
                             }
                         }
                     },
-                    UpdateOneof::AccountWrite(write) => {
-                        if write.slot < first_full_slot {
+                    UpdateOneof::Account(info) => {
+                        if info.slot < first_full_slot {
                             // Don't try to process data for slots where we may have missed writes:
                             // We could not map the write_version correctly for them.
                             continue;
                         }
 
-                        if write.slot > newest_write_slot {
-                            newest_write_slot = write.slot;
-                        } else if max_rooted_slot > 0 && write.slot < max_rooted_slot - max_out_of_order_slots {
-                            anyhow::bail!("received write {} slots back from max rooted slot {}", max_rooted_slot - write.slot, max_rooted_slot);
+                        if info.slot > newest_write_slot {
+                            newest_write_slot = info.slot;
+                        } else if max_rooted_slot > 0 && info.slot < max_rooted_slot - max_out_of_order_slots {
+                            anyhow::bail!("received write {} slots back from max rooted slot {}", max_rooted_slot - info.slot, max_rooted_slot);
                         }
 
-                        let pubkey_writes = slot_pubkey_writes.entry(write.slot).or_default();
-
+                        let pubkey_writes = slot_pubkey_writes.entry(info.slot).or_default();
+                        let mut write = match info.account.clone() {
+                            Some(x) => x,
+                            None => {
+                                // TODO: handle error
+                                continue;
+                            },
+                        };
+                        
                         let pubkey_bytes = Pubkey::new(&write.pubkey).to_bytes();
                         let write_version_mapping = pubkey_writes.entry(pubkey_bytes).or_insert(WriteVersion {
                             global: write.write_version,
@@ -208,7 +260,8 @@ async fn feed_data_geyser(
                         write.write_version = write_version_mapping.slot as u64;
                         write_version_mapping.slot += 1;
                     },
-                    geyser_proto::update::UpdateOneof::Ping(_) => {},
+                    UpdateOneof::Block(_) => {},
+                    UpdateOneof::Transaction(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -275,6 +328,7 @@ fn make_tls_config(config: &TlsConfig) -> ClientTlsConfig {
 
 pub async fn process_events(
     config: &SourceConfig,
+    filter_config: &FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
     metrics_sender: Metrics,
@@ -285,6 +339,7 @@ pub async fn process_events(
         let msg_sender = msg_sender.clone();
         let snapshot_source = config.snapshot.clone();
         let metrics_sender = metrics_sender.clone();
+        let f = filter_config.clone();
 
         // Make TLS config if configured
         let tls_config = grpc_source.tls.as_ref().map(make_tls_config);
@@ -304,6 +359,7 @@ pub async fn process_events(
                     &grpc_source,
                     tls_config.clone(),
                     &snapshot_source,
+                    &f,
                     msg_sender.clone(),
                 );
                 let result = out.await;
@@ -351,11 +407,18 @@ pub async fn process_events(
 
     loop {
         let msg = msg_receiver.recv().await.expect("sender must not close");
-
+        use geyser::{subscribe_update::UpdateOneof};
         match msg {
             Message::GrpcUpdate(update) => {
                 match update.update_oneof.expect("invalid grpc") {
-                    geyser_proto::update::UpdateOneof::AccountWrite(update) => {
+                    UpdateOneof::Account(info) => {
+                        let update = match info.account.clone() {
+                            Some(x) => x,
+                            None => {
+                                // TODO: handle error
+                                continue;
+                            },
+                        };
                         assert!(update.pubkey.len() == 32);
                         assert!(update.owner.len() == 32);
 
@@ -363,40 +426,40 @@ pub async fn process_events(
                         metric_account_queue.set(account_write_queue_sender.len() as u64);
 
                         // Skip writes that a different server has already sent
-                        let pubkey_writes = latest_write.entry(update.slot).or_default();
+                        let pubkey_writes = latest_write.entry(info.slot).or_default();
                         let pubkey_bytes = Pubkey::new(&update.pubkey).to_bytes();
                         let writes = pubkey_writes.entry(pubkey_bytes).or_insert(0);
                         if update.write_version <= *writes {
                             continue;
                         }
                         *writes = update.write_version;
-                        latest_write.retain(|&k, _| k >= update.slot - latest_write_retention);
-                        let mut uncompressed: Vec<u8> = Vec::new();
-                        zstd_decompress(&update.data, &mut uncompressed).unwrap();
+                        latest_write.retain(|&k, _| k >= info.slot - latest_write_retention);
+                        // let mut uncompressed: Vec<u8> = Vec::new();
+                        // zstd_decompress(&update.data, &mut uncompressed).unwrap();
                         account_write_queue_sender
                             .send(AccountWrite {
                                 pubkey: Pubkey::new(&update.pubkey),
-                                slot: update.slot,
+                                slot: info.slot,
                                 write_version: update.write_version,
                                 lamports: update.lamports,
                                 owner: Pubkey::new(&update.owner),
                                 executable: update.executable,
                                 rent_epoch: update.rent_epoch,
-                                data: uncompressed,
-                                is_selected: update.is_selected,
+                                data: update.data,
+                                // TODO: what should this be? related to account deletes?
+                                is_selected: true,
                             })
                             .await
                             .expect("send success");
                     }
-                    geyser_proto::update::UpdateOneof::SlotUpdate(update) => {
+                    UpdateOneof::Slot(update) => {
                         metric_slot_updates.increment();
                         metric_slot_queue.set(slot_queue_sender.len() as u64);
 
-                        use geyser_proto::slot_update::Status;
-                        let status = Status::from_i32(update.status).map(|v| match v {
-                            Status::Processed => SlotStatus::Processed,
-                            Status::Confirmed => SlotStatus::Confirmed,
-                            Status::Rooted => SlotStatus::Rooted,
+                        let status = SubscribeUpdateSlotStatus::from_i32(update.status).map(|v| match v {
+                            SubscribeUpdateSlotStatus::Processed => SlotStatus::Processed,
+                            SubscribeUpdateSlotStatus::Confirmed => SlotStatus::Confirmed,
+                            SubscribeUpdateSlotStatus::Finalized => SlotStatus::Rooted,
                         });
                         if status.is_none() {
                             error!("unexpected slot status: {}", update.status);
@@ -413,8 +476,8 @@ pub async fn process_events(
                             .await
                             .expect("send success");
                     }
-                    geyser_proto::update::UpdateOneof::Ping(_) => {}
-                    geyser_proto::update::UpdateOneof::SubscribeResponse(_) => {}
+                    UpdateOneof::Block(_) => {},
+                    UpdateOneof::Transaction(_) => {},
                 }
             }
             Message::Snapshot(update) => {

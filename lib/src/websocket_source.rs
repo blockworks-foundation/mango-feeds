@@ -4,11 +4,10 @@ use jsonrpc_core_client::transports::{http, ws};
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
-    //rpc_filter::RpcFilterType,
-    rpc_response::{Response, RpcKeyedAccount},
+    rpc_response::{OptionalContext, Response, RpcKeyedAccount},
 };
 use solana_rpc::{
-    rpc::rpc_accounts::AccountsDataClient, rpc::OptionalContext, rpc_pubsub::RpcSolPubSubClient,
+    rpc::rpc_accounts::AccountsDataClient, rpc_pubsub::RpcSolPubSubClient,
 };
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 

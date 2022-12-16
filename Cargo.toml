@@ -3,6 +3,7 @@ members = [
         "lib",
         "service-mango-fills",
         "service-mango-pnl",
+        "service-mango-orderbook",
 ]
 
 

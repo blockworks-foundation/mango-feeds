@@ -1,5 +1,6 @@
 pub mod chain_data;
 pub mod fill_event_filter;
+pub mod orderbook_filter;
 pub mod grpc_plugin_source;
 pub mod memory_target;
 pub mod metrics;
@@ -8,6 +9,7 @@ pub mod postgres_types_numeric;
 pub mod websocket_source;
 
 pub use chain_data::SlotStatus;
+use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use {
     async_trait::async_trait,
@@ -115,6 +117,30 @@ pub struct SourceConfig {
     pub grpc_sources: Vec<GrpcSourceConfig>,
     pub snapshot: SnapshotSourceConfig,
     pub rpc_ws_url: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct FilterConfig {
+    pub program_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct StatusResponse<'a> {
+    pub success: bool,
+    pub message: &'a str,
+}
+
+impl<'a> Serialize for StatusResponse<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Status", 2)?;
+        state.serialize_field("success", &self.success)?;
+        state.serialize_field("message", &self.message)?;
+
+        state.end()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
