@@ -13,17 +13,19 @@ use tokio::{
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
-use solana_geyser_connector_lib::{metrics::{MetricType, MetricU64}, FilterConfig};
+use solana_geyser_connector_lib::{metrics::{MetricType, MetricU64}, FilterConfig, fill_event_filter::SerumFillCheckpoint};
 use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
 };
 
 type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
+type SerumCheckpointMap = Arc<Mutex<HashMap<String, SerumFillCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, UnboundedSender<Message>>>>;
 
 async fn handle_connection_error(
     checkpoint_map: CheckpointMap,
+    serum_checkpoint_map: SerumCheckpointMap,
     peer_map: PeerMap,
     raw_stream: TcpStream,
     addr: SocketAddr,
@@ -32,7 +34,7 @@ async fn handle_connection_error(
 ) {
     metrics_opened_connections.clone().increment();
 
-    let result = handle_connection(checkpoint_map, peer_map.clone(), raw_stream, addr).await;
+    let result = handle_connection(checkpoint_map, serum_checkpoint_map, peer_map.clone(), raw_stream, addr).await;
     if result.is_err() {
         error!("connection {} error {}", addr, result.unwrap_err());
     };
@@ -44,6 +46,7 @@ async fn handle_connection_error(
 
 async fn handle_connection(
     checkpoint_map: CheckpointMap,
+    serum_checkpoint_map: SerumCheckpointMap,
     peer_map: PeerMap,
     raw_stream: TcpStream,
     addr: SocketAddr,
@@ -59,6 +62,7 @@ async fn handle_connection(
         info!("ws published: {}", addr);
     }
 
+    // todo: add subscribe logic
     // 2: send initial checkpoint
     {
         let checkpoint_map_copy = checkpoint_map.lock().unwrap().clone();
@@ -170,9 +174,11 @@ async fn main() -> anyhow::Result<()> {
     fill_event_filter::init(perp_queue_pks.clone(), serum_queue_pks.clone(), metrics_tx.clone()).await?;
 
     let checkpoints = CheckpointMap::new(Mutex::new(HashMap::new()));
+    let serum_checkpoints = SerumCheckpointMap::new(Mutex::new(HashMap::new()));
     let peers = PeerMap::new(Mutex::new(HashMap::new()));
 
     let checkpoints_ref_thread = checkpoints.clone();
+    let serum_checkpoints_ref_thread = serum_checkpoints.clone();
     let peers_ref_thread = peers.clone();
 
     // filleventfilter websocket sink
@@ -202,6 +208,27 @@ async fn main() -> anyhow::Result<()> {
                         .unwrap()
                         .insert(checkpoint.queue.clone(), checkpoint);
                 }
+                FillEventFilterMessage::SerumUpdate(update) => {
+                    debug!("ws update {} {:?} serum fill", update.market, update.status);
+                    let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
+                    for (k, v) in peer_copy.iter_mut() {
+                        trace!("  > {}", k);
+                        let json = serde_json::to_string(&update);
+                        let result = v.send(Message::Text(json.unwrap())).await;
+                        if result.is_err() {
+                            error!(
+                                "ws update {} {:?} serum fill could not reach {}",
+                                update.market, update.status, k
+                            );
+                        }
+                    }
+                }
+                FillEventFilterMessage::SerumCheckpoint(checkpoint) => {
+                    serum_checkpoints_ref_thread
+                        .lock()
+                        .unwrap()
+                        .insert(checkpoint.queue.clone(), checkpoint);
+                }
             }
         }
     });
@@ -214,6 +241,7 @@ async fn main() -> anyhow::Result<()> {
         while let Ok((stream, addr)) = listener.accept().await {
             tokio::spawn(handle_connection_error(
                 checkpoints.clone(),
+                serum_checkpoints.clone(),
                 peers.clone(),
                 stream,
                 addr,
@@ -234,7 +262,10 @@ async fn main() -> anyhow::Result<()> {
     );
     let use_geyser = true;
     let filter_config = FilterConfig {
-        program_ids: vec!["abc123".into()]
+        program_ids: vec![
+            "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
+            "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
+        ],
     };
     if use_geyser {
         grpc_plugin_source::process_events(
