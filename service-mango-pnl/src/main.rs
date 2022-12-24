@@ -288,11 +288,17 @@ async fn main() -> anyhow::Result<()> {
 
     // start filling chain_data from the grpc plugin source
     let (account_write_queue_sender, slot_queue_sender) = memory_target::init(chain_data).await?;
+    let filter_config = FilterConfig {
+        program_ids: vec![
+            "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
+        ],
+    };
     grpc_plugin_source::process_events(
         &config.source,
+        &filter_config,
         account_write_queue_sender,
         slot_queue_sender,
-        metrics_tx,
+        metrics_tx.clone(),
     )
     .await;
 

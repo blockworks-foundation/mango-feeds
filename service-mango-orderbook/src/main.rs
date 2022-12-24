@@ -7,8 +7,7 @@ use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
     future::{self, Ready},
-    pin_mut,
-    SinkExt, StreamExt, TryStreamExt,
+    pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
 use std::{
@@ -27,14 +26,14 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
-use serde::{Deserialize};
+use serde::Deserialize;
+use solana_geyser_connector_lib::{
+    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
+};
 use solana_geyser_connector_lib::{
     metrics::{MetricType, MetricU64},
     orderbook_filter::{self, MarketConfig, OrderbookCheckpoint, OrderbookFilterMessage},
     FilterConfig, StatusResponse,
-};
-use solana_geyser_connector_lib::{
-    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
 };
 
 type CheckpointMap = Arc<Mutex<HashMap<String, OrderbookCheckpoint>>>;
@@ -81,7 +80,7 @@ pub struct Config {
 async fn handle_connection_error(
     checkpoint_map: CheckpointMap,
     peer_map: PeerMap,
-    market_ids: Vec<String>,
+    market_ids: HashMap<String, String>,
     raw_stream: TcpStream,
     addr: SocketAddr,
     metrics_opened_connections: MetricU64,
@@ -109,7 +108,7 @@ async fn handle_connection_error(
 async fn handle_connection(
     checkpoint_map: CheckpointMap,
     peer_map: PeerMap,
-    market_ids: Vec<String>,
+    market_ids: HashMap<String, String>,
     raw_stream: TcpStream,
     addr: SocketAddr,
 ) -> Result<(), Error> {
@@ -153,7 +152,7 @@ fn handle_commands(
     msg: Message,
     peer_map: PeerMap,
     checkpoint_map: CheckpointMap,
-    market_ids: Vec<String>,
+    market_ids: HashMap<String, String>,
 ) -> Ready<Result<(), Error>> {
     let msg_str = msg.clone().into_text().unwrap();
     let command: Result<Command, serde_json::Error> = serde_json::from_str(&msg_str);
@@ -162,17 +161,20 @@ fn handle_commands(
     match command {
         Ok(Command::Subscribe(cmd)) => {
             let market_id = cmd.clone().market_id;
-            let subscribed = peer.subscriptions.insert(market_id.clone());
-            if !market_ids.contains(&market_id) {
-                let res = StatusResponse {
-                    success: false,
-                    message: "market not found",
-                };
-                peer.sender
-                    .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
-                    .unwrap();
-                return future::ok(());
+            match market_ids.get(&market_id) {
+                None => {
+                    let res = StatusResponse {
+                        success: false,
+                        message: "market not found",
+                    };
+                    peer.sender
+                        .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                        .unwrap();
+                    return future::ok(());
+                }
+                _ => {}
             }
+            let subscribed = peer.subscriptions.insert(market_id.clone());
 
             let res = if subscribed {
                 StatusResponse {
@@ -221,13 +223,13 @@ fn handle_commands(
             peer.sender
                 .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
                 .unwrap();
-        },
+        }
         Ok(Command::GetMarkets) => {
             info!("getMarkets");
             peer.sender
                 .unbounded_send(Message::Text(serde_json::to_string(&market_ids).unwrap()))
                 .unwrap();
-        },
+        }
         Err(err) => {
             info!("error deserializing user input {:?}", err);
             let res = StatusResponse {
@@ -287,31 +289,65 @@ async fn main() -> anyhow::Result<()> {
         Pubkey::from_str(&config.mango_group).unwrap(),
         client.cluster.clone(),
         client.commitment,
-    )?);   
+    )?);
 
     // todo: reload markets at intervals
-    let market_pubkey_strings: Vec<String> = group_context
-        .perp_markets
-        .iter()
-        .map(|(_, context)| context.address.to_string())
-        .collect();
     let market_configs: Vec<(Pubkey, MarketConfig)> = group_context
         .perp_markets
         .iter()
         .map(|(_, context)| {
+            let quote_decimals = match group_context.tokens.get(&context.market.settle_token_index) {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market") // todo: default to 6 for usdc?
+            };
             (
                 context.address,
                 MarketConfig {
                     name: context.market.name().to_owned(),
                     bids: context.market.bids,
                     asks: context.market.asks,
+                    base_decimals: context.market.base_decimals,
+                    quote_decimals,
                 },
             )
         })
         .collect();
 
+    let serum_market_configs: Vec<(Pubkey, MarketConfig)> = group_context
+        .serum3_markets
+        .iter()
+        .map(|(_, context)| {
+            let base_decimals = match group_context.tokens.get(&context.market.base_token_index) {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market") // todo: default?
+            };
+            let quote_decimals = match group_context.tokens.get(&context.market.quote_token_index) {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market") // todo: default to 6 for usdc?
+            };
+            (
+                context.address,
+                MarketConfig {
+                    name: context.market.name().to_owned(),
+                    bids: context.bids,
+                    asks: context.asks,
+                    base_decimals,
+                    quote_decimals,
+                },
+            )
+        })
+        .collect();
+
+    let market_pubkey_strings: HashMap<String, String> = [market_configs.clone(), serum_market_configs.clone()]
+        .concat()
+        .iter()
+        .map(|market| (market.0.to_string(), market.1.name.clone()))
+        .collect::<Vec<(String, String)>>()
+        .into_iter()
+        .collect();
+
     let (account_write_queue_sender, slot_queue_sender, orderbook_receiver) =
-        orderbook_filter::init(market_configs, metrics_tx.clone()).await?;
+        orderbook_filter::init(market_configs, serum_market_configs, metrics_tx.clone()).await?;
 
     let checkpoints_ref_thread = checkpoints.clone();
     let peers_ref_thread = peers.clone();
@@ -381,7 +417,7 @@ async fn main() -> anyhow::Result<()> {
         let filter_config = FilterConfig {
             program_ids: vec![
                 "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
-                //"srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
+                "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
             ],
         };
         grpc_plugin_source::process_events(

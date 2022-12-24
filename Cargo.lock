@@ -5079,6 +5079,30 @@ dependencies = [
 [[package]]
 name = "serum_dex"
 version = "0.5.10"
+source = "git+ssh://git@github.com/jup-ag/openbook-program?branch=feat/expose-things#d287391bd7ed8111078fd1afb8f7b6d55cdd1d1f"
+dependencies = [
+ "anchor-lang",
+ "arrayref",
+ "bincode",
+ "bytemuck",
+ "byteorder",
+ "enumflags2",
+ "field-offset",
+ "itertools 0.9.0",
+ "num-traits",
+ "num_enum",
+ "safe-transmute",
+ "serde",
+ "solana-program",
+ "spl-token",
+ "static_assertions",
+ "thiserror",
+ "without-alloc",
+]
+
+[[package]]
+name = "serum_dex"
+version = "0.5.10"
 source = "git+ssh://git@github.com/openbook-dex/program?branch=master#b7af74a7300227ba5375b8fe2ee24f8f098cbc46"
 dependencies = [
  "anchor-lang",
@@ -5121,7 +5145,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serum_dex 0.5.10",
+ "serum_dex 0.5.10 (git+ssh://git@github.com/jup-ag/openbook-program?branch=feat/expose-things)",
  "solana-geyser-connector-lib",
  "solana-logger",
  "tokio",
@@ -5149,7 +5173,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serum_dex 0.5.10",
+ "serum_dex 0.5.10 (git+ssh://git@github.com/openbook-dex/program?branch=master)",
  "solana-geyser-connector-lib",
  "solana-logger",
  "tokio",
@@ -5728,7 +5752,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "serum_dex 0.5.10",
+ "serum_dex 0.5.10 (git+ssh://git@github.com/jup-ag/openbook-program?branch=feat/expose-things)",
  "solana-account-decoder",
  "solana-client",
  "solana-rpc",
