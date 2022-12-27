@@ -348,14 +348,17 @@ async fn main() -> anyhow::Result<()> {
                     debug!("ws update {} {:?} fill", update.market, update.status);
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
-                        trace!("  > {}", addr);
-                        let json = serde_json::to_string(&update);
-                        let result = peer.sender.send(Message::Text(json.unwrap())).await;
-                        if result.is_err() {
-                            error!(
-                                "ws update {} {:?} fill could not reach {}",
-                                update.market, update.status, addr
-                            );
+                        let json = serde_json::to_string(&update).unwrap();
+                        
+                        // only send updates if the peer is subscribed
+                        if peer.subscriptions.contains(&update.market) {
+                            let result = peer.sender.send(Message::Text(json)).await;
+                            if result.is_err() {
+                                error!(
+                                    "ws update {} fill could not reach {}",
+                                    update.market, addr
+                                );
+                            }
                         }
                     }
                 }
@@ -369,14 +372,17 @@ async fn main() -> anyhow::Result<()> {
                     debug!("ws update {} {:?} serum fill", update.market, update.status);
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
-                        trace!("  > {}", addr);
-                        let json = serde_json::to_string(&update);
-                        let result = peer.sender.send(Message::Text(json.unwrap())).await;
-                        if result.is_err() {
-                            error!(
-                                "ws update {} {:?} serum fill could not reach {}",
-                                update.market, update.status, addr
-                            );
+                        let json = serde_json::to_string(&update).unwrap();
+                        
+                        // only send updates if the peer is subscribed
+                        if peer.subscriptions.contains(&update.market) {
+                            let result = peer.sender.send(Message::Text(json)).await;
+                            if result.is_err() {
+                                error!(
+                                    "ws update {} fill could not reach {}",
+                                    update.market, addr
+                                );
+                            }
                         }
                     }
                 }
