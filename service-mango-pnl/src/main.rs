@@ -45,12 +45,12 @@ pub struct Config {
 
 type PnlData = Vec<(Pubkey, Vec<(PerpMarketIndex, I80F48)>)>;
 
-fn compute_pnl(
+async fn compute_pnl(
     context: Arc<MangoGroupContext>,
     account_fetcher: Arc<impl AccountFetcher>,
     account: &MangoAccountValue,
 ) -> anyhow::Result<Vec<(PerpMarketIndex, I80F48)>> {
-    let health_cache = health_cache::new(&context, account_fetcher.as_ref(), account)?;
+    let health_cache = health_cache::new(&context, account_fetcher.as_ref(), account).await?;
     let perp_settle_health = health_cache.perp_settle_health();
 
     let pnls = account
@@ -119,7 +119,7 @@ fn start_pnl_updater(
                 }
 
                 let pnl_vals =
-                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account).unwrap();
+                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account.clone()).await.unwrap();
 
                 // Alternatively, we could prepare the sorted and limited lists for each
                 // market here. That would be faster and cause less contention on the pnl_data
@@ -248,14 +248,13 @@ async fn main() -> anyhow::Result<()> {
         Some(rpc_timeout),
     );
     let group_context = Arc::new(MangoGroupContext::new_from_rpc(
+        &client.rpc_async(),
         Pubkey::from_str(&config.pnl.mango_group).unwrap(),
-        client.cluster.clone(),
-        client.commitment,
-    )?);
+    ).await?);
     let chain_data = Arc::new(RwLock::new(chain_data::ChainData::new()));
     let account_fetcher = Arc::new(chain_data::AccountFetcher {
         chain_data: chain_data.clone(),
-        rpc: client.rpc(),
+        rpc: client.rpc_async(),
     });
 
     let metrics_tx = metrics::start(config.metrics, "pnl".into());

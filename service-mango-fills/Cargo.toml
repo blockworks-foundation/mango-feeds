@@ -24,8 +24,8 @@ tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 bytemuck = "1.7.2"
 
-mango-v4 = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
-client = { git = "ssh://git@github.com/blockworks-foundation/mango-v4", branch = "dev" }
-serum_dex = { git = "ssh://git@github.com/jup-ag/openbook-program", branch = "feat/expose-things" }
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things" }
 anchor-lang = "0.25.0"
 anchor-client = "0.25.0"
