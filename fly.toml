@@ -3,12 +3,13 @@ app = "mango-geyser-services"
 kill_signal = "SIGINT"
 kill_timeout = 5
 
-[build]
-  image = "us-docker.pkg.dev/mango-markets/gcr.io/mango-geyser-services:latest"
+# [build]
+#   image = "us-docker.pkg.dev/mango-markets/gcr.io/mango-geyser-services:latest"
 
 [processes]
   fills = "service-mango-fills fills-config.toml"
   pnl = "service-mango-pnl pnl-config.toml"
+  orderbook = "service-mango-orderbook orderbook-config.toml"
 
 [[services]]
   processes = ["fills"]
@@ -16,6 +17,7 @@ kill_timeout = 5
   protocol = "tcp"
 
   [[services.ports]]
+    handlers = ["tls", "http"]
     port = "8080"
 
   [services.concurrency]
@@ -25,11 +27,26 @@ kill_timeout = 5
 
 [[services]]
   processes = ["pnl"]
-  internal_port = 2052
+  internal_port = 8081
   protocol = "tcp"
 
   [[services.ports]]
-    port = "2052"
+    handlers = ["tls", "http"]
+    port = 8081
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 1024
+    soft_limit = 1024
+
+[[services]]
+  processes = ["orderbook"]
+  internal_port = 8082
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["tls", "http"]
+    port = "8082"
 
   [services.concurrency]
     type = "connections"

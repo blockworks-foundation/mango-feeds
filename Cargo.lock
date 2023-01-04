@@ -104,7 +104,7 @@ checksum = "6b2d54853319fd101b8dd81de382bcbf3e03410a64d8928bbee85a3e7dcde483"
 [[package]]
 name = "anchor-attribute-access-control"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -117,7 +117,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-account"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -131,7 +131,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-constant"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "proc-macro2 1.0.47",
@@ -141,7 +141,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-error"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "proc-macro2 1.0.47",
@@ -152,7 +152,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-event"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -164,7 +164,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-interface"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -177,7 +177,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-program"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -189,7 +189,7 @@ dependencies = [
 [[package]]
 name = "anchor-attribute-state"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -201,7 +201,7 @@ dependencies = [
 [[package]]
 name = "anchor-client"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-lang",
  "anyhow",
@@ -217,7 +217,7 @@ dependencies = [
 [[package]]
 name = "anchor-derive-accounts"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-syn",
  "anyhow",
@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "anchor-lang"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-attribute-access-control",
  "anchor-attribute-account",
@@ -252,7 +252,7 @@ dependencies = [
 [[package]]
 name = "anchor-spl"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-lang",
  "solana-program",
@@ -263,7 +263,7 @@ dependencies = [
 [[package]]
 name = "anchor-syn"
 version = "0.25.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anyhow",
  "bs58 0.3.1",
@@ -410,6 +410,12 @@ checksum = "479db852db25d9dbf6204e6cb6253698f175c15726470f78af0d918e99d6156e"
 dependencies = [
  "event-listener",
 ]
+
+[[package]]
+name = "async-once-cell"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f61305cacf1d0c5c9d3ee283d22f8f1f8c743a18ceb44a1b102bd53476c141de"
 
 [[package]]
 name = "async-stream"
@@ -966,7 +972,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "checked_math"
 version = "0.1.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.47",
@@ -1072,12 +1078,13 @@ dependencies = [
 [[package]]
 name = "client"
 version = "0.1.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-client",
  "anchor-lang",
  "anchor-spl",
  "anyhow",
+ "async-once-cell",
  "async-trait",
  "base64 0.13.1",
  "bincode",
@@ -3005,7 +3012,7 @@ dependencies = [
 [[package]]
 name = "mango-v4"
 version = "0.1.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4?branch=dev#7a8f31c6118b0577aa6375af4643e41efe85e057"
+source = "git+https://github.com/blockworks-foundation/mango-v4?branch=ckamm/accountfetcher-send#0bad232315b6c5ddf420d728dfcb13c18a0fb50f"
 dependencies = [
  "anchor-lang",
  "anchor-spl",

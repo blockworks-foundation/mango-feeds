@@ -275,10 +275,9 @@ async fn main() -> anyhow::Result<()> {
         Some(rpc_timeout),
     );
     let group_context = Arc::new(MangoGroupContext::new_from_rpc(
+        &client.rpc_async(),
         Pubkey::from_str(&config.mango_group).unwrap(),
-        client.cluster.clone(),
-        client.commitment,
-    )?);
+    ).await?);
 
     let perp_queue_pks: Vec<(Pubkey, Pubkey)> = group_context
         .perp_markets
@@ -293,8 +292,8 @@ async fn main() -> anyhow::Result<()> {
         .collect();
 
     let serum_market_ais = client
-        .rpc()
-        .get_multiple_accounts(serum_market_pks.as_slice())?;
+        .rpc_async()
+        .get_multiple_accounts(serum_market_pks.as_slice()).await?;
     let serum_market_ais: Vec<&Account> = serum_market_ais
         .iter()
         .filter_map(|maybe_ai| match maybe_ai {
@@ -317,11 +316,11 @@ async fn main() -> anyhow::Result<()> {
     let a: Vec<(String, String)> = group_context
         .serum3_markets
         .iter()
-        .map(|(_, context)| (context.market.name().to_owned(), context.market.serum_market_external.to_string())).collect();
+        .map(|(_, context)| (context.market.serum_market_external.to_string(), context.market.name().to_owned())).collect();
     let b: Vec<(String, String)> = group_context
         .perp_markets
         .iter()
-        .map(|(_, context)| (context.market.name().to_owned(), context.address.to_string())).collect();
+        .map(|(_, context)| (context.address.to_string(), context.market.name().to_owned())).collect();
     let market_pubkey_strings: HashMap<String, String> = [a, b]
         .concat()
         .into_iter()

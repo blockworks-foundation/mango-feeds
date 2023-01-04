@@ -11,7 +11,7 @@ members = [
 # for gzip encoded responses
 jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip" }
 # force usage of mango-v4 submodules with 1.14.9 support
-anchor-spl = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-lang = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+anchor-spl = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "ckamm/accountfetcher-send" }
+anchor-lang = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "ckamm/accountfetcher-send" }
+anchor-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "ckamm/accountfetcher-send" }
 switchboard-v2 = { git = "https://github.com/blockworks-foundation/sbv2-solana", branch = "mango-v4" }

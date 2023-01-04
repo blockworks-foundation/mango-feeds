@@ -326,7 +326,7 @@ fn publish_changes_serum(
     let mkt_pk_string = mkt.0.to_string();
     let evq_pk_string = mkt.1.to_string();
     let header_seq_num = header.seq_num;
-    info!("start seq {} header seq {}", start_seq_num, header_seq_num);
+    debug!("start seq {} header seq {}", start_seq_num, header_seq_num);
     for seq_num in start_seq_num..header_seq_num {
         let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
         let event_view = events[idx].as_view().unwrap();
@@ -340,7 +340,7 @@ fn publish_changes_serum(
                 // 3) all other events are matching the old event queue
                 // the order of these checks is important so they are exhaustive
                 if seq_num >= old_seq_num {
-                    info!("found new serum fill {} idx {}", mkt_pk_string, idx,);
+                    debug!("found new serum fill {} idx {}", mkt_pk_string, idx,);
 
                     metric_events_new.increment();
                     fill_update_sender
@@ -359,12 +359,11 @@ fn publish_changes_serum(
 
                 match old_event_view {
                     EventView::Fill { .. } => {
-                        info!("already got all fills???");
                         // every already published event is recorded in checkpoint
                         checkpoint.push(events[idx]);
                     }
                     EventView::Out { .. } => {
-                        info!(
+                        debug!(
                             "found changed event {} idx {} seq_num {} header seq num {} old seq num {}",
                             mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
                         );

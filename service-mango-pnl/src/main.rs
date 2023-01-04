@@ -119,7 +119,7 @@ fn start_pnl_updater(
                 }
 
                 let pnl_vals =
-                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account.clone()).await.unwrap();
+                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account).await.unwrap();
 
                 // Alternatively, we could prepare the sorted and limited lists for each
                 // market here. That would be faster and cause less contention on the pnl_data

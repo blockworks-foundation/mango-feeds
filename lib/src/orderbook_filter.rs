@@ -147,7 +147,6 @@ fn publish_changes(
 
         match peer {
             None => {
-                info!("level removed {}", previous_order.price);
                 update.push(OrderbookLevel {
                     price: previous_order.price,
                     size: 0f64,
@@ -203,7 +202,7 @@ fn publish_changes(
     if update.len() == 0 {
         return;
     }
-    info!("diff {} {:?}", mkt.1.name, update);
+
     orderbook_update_sender
         .try_send(OrderbookFilterMessage::Update(OrderbookUpdate {
             market: mkt.0.to_string(),
@@ -237,7 +236,6 @@ fn publish_changes_serum(
 
         match peer {
             None => {
-                info!("level removed {}", previous_order.price);
                 update.push(OrderbookLevel {
                     price: previous_order.price,
                     size: 0f64,
@@ -290,7 +288,6 @@ fn publish_changes_serum(
         None => info!("other bookside not in cache"),
     }
 
-    info!("diff {} {:?}", mkt.1.name, update);
     if update.len() > 0 {
         orderbook_update_sender
             .try_send(OrderbookFilterMessage::Update(OrderbookUpdate {
@@ -352,7 +349,6 @@ pub async fn init(
                     if !relevant_pubkeys.contains(&account_write.pubkey) {
                         continue;
                     }
-                    info!("updating account {}", &account_write.pubkey);
                     chain_cache.update_account(
                         account_write.pubkey,
                         AccountData {
@@ -470,7 +466,6 @@ pub async fn init(
                             let account = &mut account_info.account.clone();
                             let data = account.data_as_mut_slice();
                             let len = data.len();
-                            info!("side pk {} side {}", side_pk, side);
                             let inner = &mut data[5..len - 7];
                             let slab = Slab::new(&mut inner[size_of::<OrderBookStateHeader>()..]);
 

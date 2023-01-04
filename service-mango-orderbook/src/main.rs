@@ -286,10 +286,9 @@ async fn main() -> anyhow::Result<()> {
         Some(rpc_timeout),
     );
     let group_context = Arc::new(MangoGroupContext::new_from_rpc(
+        &client.rpc_async(),
         Pubkey::from_str(&config.mango_group).unwrap(),
-        client.cluster.clone(),
-        client.commitment,
-    )?);
+    ).await?);
 
     // todo: reload markets at intervals
     let market_configs: Vec<(Pubkey, MarketConfig)> = group_context
