@@ -101,7 +101,7 @@ impl Serialize for OrderbookCheckpoint {
         let mut state = serializer.serialize_struct("OrderbookCheckpoint", 3)?;
         state.serialize_field("market", &self.market)?;
         state.serialize_field("bids", &self.bids)?;
-        state.serialize_field("bids", &self.asks)?;
+        state.serialize_field("asks", &self.asks)?;
         state.serialize_field("slot", &self.slot)?;
         state.serialize_field("write_version", &self.write_version)?;
 

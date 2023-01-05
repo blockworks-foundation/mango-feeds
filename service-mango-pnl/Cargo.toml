@@ -21,7 +21,7 @@ tokio = { version = "1", features = ["full"] }
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "ckamm/accountfetcher-send" }
-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "ckamm/accountfetcher-send" }
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
 anchor-lang = "0.25.0"
 anchor-client = "0.25.0"

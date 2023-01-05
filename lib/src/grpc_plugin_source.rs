@@ -396,6 +396,8 @@ pub async fn process_events(
         metrics_sender.register_u64("grpc_account_writes".into(), MetricType::Counter);
     let mut metric_account_queue =
         metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
+    let mut metric_dedup_queue =
+        metrics_sender.register_u64("dedup_queue".into(), MetricType::Gauge);
     let mut metric_slot_queue =
         metrics_sender.register_u64("slot_update_queue".into(), MetricType::Gauge);
     let mut metric_slot_updates =
@@ -406,6 +408,7 @@ pub async fn process_events(
         metrics_sender.register_u64("grpc_snapshot_account_writes".into(), MetricType::Counter);
 
     loop {
+        metric_dedup_queue.set(msg_receiver.len() as u64);
         let msg = msg_receiver.recv().await.expect("sender must not close");
         use geyser::{subscribe_update::UpdateOneof};
         match msg {
