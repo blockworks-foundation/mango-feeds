@@ -307,6 +307,8 @@ async fn main() -> anyhow::Result<()> {
                     asks: context.market.asks,
                     base_decimals: context.market.base_decimals,
                     quote_decimals,
+                    base_lot_size: context.market.base_lot_size,
+                    quote_lot_size: context.market.quote_lot_size,
                 },
             )
         })
@@ -325,13 +327,15 @@ async fn main() -> anyhow::Result<()> {
                 None => panic!("token not found for market") // todo: default to 6 for usdc?
             };
             (
-                context.address,
+                context.market.serum_market_external,
                 MarketConfig {
                     name: context.market.name().to_owned(),
                     bids: context.bids,
                     asks: context.asks,
                     base_decimals,
                     quote_decimals,
+                    base_lot_size: context.pc_lot_size as i64,
+                    quote_lot_size: context.coin_lot_size as i64,
                 },
             )
         })

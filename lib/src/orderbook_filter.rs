@@ -15,12 +15,16 @@ use solana_sdk::{
 use std::{
     borrow::BorrowMut,
     collections::{HashMap, HashSet},
-    time::{SystemTime, UNIX_EPOCH}, mem::size_of,
+    mem::size_of,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::metrics::MetricU64;
 use anchor_lang::AccountDeserialize;
-use mango_v4::{state::{BookSide, OrderTreeType}, serum3_cpi::OrderBookStateHeader};
+use mango_v4::{
+    serum3_cpi::OrderBookStateHeader,
+    state::{BookSide, OrderTreeType},
+};
 
 #[derive(Clone, Debug)]
 pub enum OrderbookSide {
@@ -40,24 +44,7 @@ impl Serialize for OrderbookSide {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct OrderbookLevel {
-    pub price: f64,
-    pub size: f64,
-}
-
-impl Serialize for OrderbookLevel {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("OrderbookLevel", 2)?;
-        state.serialize_field("price", &self.price)?;
-        state.serialize_field("size", &self.size)?;
-
-        state.end()
-    }
-}
+pub type OrderbookLevel = [f64; 2];
 
 #[derive(Clone, Debug)]
 pub struct OrderbookUpdate {
@@ -121,11 +108,56 @@ pub struct MarketConfig {
     pub asks: Pubkey,
     pub base_decimals: u8,
     pub quote_decimals: u8,
+    pub base_lot_size: i64,
+    pub quote_lot_size: i64,
 }
 
-pub fn native_to_ui(native: i64, decimals: u8) -> f64 {
-    native as f64 / (10u64.pow(decimals.into())) as f64
+pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
+    let decimals: u32 = 3;
+    let res = native as f64 / (10i64.pow(decimals.into()) as f64);
+    //info!("res {} native {} base_d {} base ls {}", res, native, base_decimals, base_lot_size);
+    res
 }
+
+pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
+    let decimals: u32 = 4;
+    let res = native as f64 / (10i64.pow(decimals.into()) as f64);
+    //info!("res {} native {} base_d {} base ls {}", res, native, base_decimals, base_lot_size);
+    res
+}
+
+pub fn price_lots_to_ui(
+    native: i64,
+    base_decimals: u8,
+    quote_decimals: u8,
+) -> f64 {
+    let decimals = base_decimals - quote_decimals;
+    // let res = native as f64
+    //     * ((10u64.pow(decimals.into()) * quote_lot_size as u64) as f64 / base_lot_size as f64)
+    //         as f64;
+    let res = native as f64
+        / (10u64.pow(decimals.into()))
+            as f64;
+    res
+}
+
+pub fn price_lots_to_ui_perp(
+    native: i64,
+    base_decimals: u8,
+    quote_decimals: u8,
+    base_lot_size: i64,
+    quote_lot_size: i64,
+) -> f64 {
+    let decimals = base_decimals - quote_decimals;
+    let res = native as f64
+        * ((10u64.pow(decimals.into()) * quote_lot_size as u64) as f64 / base_lot_size as f64)
+            as f64;
+    // let res = native as f64
+    //     / (10u64.pow(decimals.into()))
+    //         as f64;
+    res
+}
+
 
 fn publish_changes(
     slot: u64,
@@ -143,14 +175,12 @@ fn publish_changes(
     for previous_order in previous_bookside.iter() {
         let peer = current_bookside
             .iter()
-            .find(|level| previous_order.price == level.price);
+            .find(|level| previous_order[0] == level[0]);
 
         match peer {
             None => {
-                update.push(OrderbookLevel {
-                    price: previous_order.price,
-                    size: 0f64,
-                });
+                info!("removed level {}", previous_order[0]);
+                update.push([previous_order[0], 0f64]);
             }
             _ => continue,
         }
@@ -160,21 +190,18 @@ fn publish_changes(
     for current_order in current_bookside {
         let peer = previous_bookside
             .iter()
-            .find(|item| item.price == current_order.price);
+            .find(|item| item[0] == current_order[0]);
 
         match peer {
             Some(previous_order) => {
-                if previous_order.size == current_order.size {
+                if previous_order[1] == current_order[1] {
                     continue;
                 }
-                debug!(
-                    "size changed {} -> {}",
-                    previous_order.size, current_order.size
-                );
+                info!("size changed {} -> {}", previous_order[1], current_order[1]);
                 update.push(current_order.clone());
             }
             None => {
-                debug!("new level {},{}", current_order.price, current_order.size);
+                info!("new level {},{}", current_order[0], current_order[1]);
                 update.push(current_order.clone())
             }
         }
@@ -232,14 +259,12 @@ fn publish_changes_serum(
     for previous_order in previous_bookside.iter() {
         let peer = current_bookside
             .iter()
-            .find(|level| previous_order.price == level.price);
+            .find(|level| previous_order[0] == level[0]);
 
         match peer {
             None => {
-                update.push(OrderbookLevel {
-                    price: previous_order.price,
-                    size: 0f64,
-                });
+                info!("removed level s {}", previous_order[0]);
+                update.push([previous_order[0], 0f64]);
             }
             _ => continue,
         }
@@ -249,21 +274,18 @@ fn publish_changes_serum(
     for current_order in current_bookside {
         let peer = previous_bookside
             .iter()
-            .find(|item| item.price == current_order.price);
+            .find(|item| item[0] == current_order[0]);
 
         match peer {
             Some(previous_order) => {
-                if previous_order.size == current_order.size {
+                if previous_order[1] == current_order[1] {
                     continue;
                 }
-                debug!(
-                    "size changed {} -> {}",
-                    previous_order.size, current_order.size
-                );
+                info!("size changed {} -> {}", previous_order[1], current_order[1]);
                 update.push(current_order.clone());
             }
             None => {
-                debug!("new level {},{}", current_order.price, current_order.size);
+                info!("new level {},{}", current_order[0], current_order[1]);
                 update.push(current_order.clone())
             }
         }
@@ -412,14 +434,26 @@ pub async fn init(
                                 .map(|item| (item.node.price_data() as i64, item.node.quantity))
                                 .group_by(|(price, _)| *price)
                                 .into_iter()
-                                .map(|(price, group)| OrderbookLevel {
-                                    price: native_to_ui(price, mkt.1.quote_decimals),
-                                    size: native_to_ui(group
-                                        .map(|(_, quantity)| quantity)
-                                        .fold(0, |acc, x| acc + x), mkt.1.base_decimals),
+                                .map(|(price, group)| {
+                                    [
+                                        price_lots_to_ui_perp(
+                                            price,
+                                            mkt.1.base_decimals,
+                                            mkt.1.quote_decimals,
+                                            mkt.1.base_lot_size,
+                                            mkt.1.quote_lot_size,
+                                        ),
+                                        base_lots_to_ui_perp(
+                                            group
+                                                .map(|(_, quantity)| quantity)
+                                                .fold(0, |acc, x| acc + x),
+                                            mkt.1.base_decimals,
+                                            mkt.1.base_lot_size,
+                                        ),
+                                    ]
                                 })
                                 .collect();
-                            
+
                             let other_bookside = bookside_cache.get(&other_side_pk.to_string());
 
                             match bookside_cache.get(&side_pk_string) {
@@ -471,14 +505,26 @@ pub async fn init(
 
                             let bookside: Vec<OrderbookLevel> = slab
                                 .iter(side == 0)
-                                .map(|item| (u64::from(item.price()) as i64, item.quantity() as i64))
+                                .map(|item| {
+                                    (u64::from(item.price()) as i64, item.quantity() as i64)
+                                })
                                 .group_by(|(price, _)| *price)
                                 .into_iter()
-                                .map(|(price, group)| OrderbookLevel {
-                                    price: native_to_ui(price, mkt.1.quote_decimals),
-                                    size: native_to_ui(group
-                                        .map(|(_, quantity)| quantity)
-                                        .fold(0, |acc, x| acc + x), mkt.1.base_decimals),
+                                .map(|(price, group)| {
+                                    [
+                                        price_lots_to_ui(
+                                            price,
+                                            mkt.1.base_decimals,
+                                            mkt.1.quote_decimals,
+                                        ),
+                                        base_lots_to_ui(
+                                            group
+                                                .map(|(_, quantity)| quantity)
+                                                .fold(0, |acc, x| acc + x),
+                                            mkt.1.base_decimals,
+                                            mkt.1.base_lot_size,
+                                        ),
+                                    ]
                                 })
                                 .collect();
 
@@ -504,10 +550,7 @@ pub async fn init(
                                 _ => info!("bookside_cache could not find {}", side_pk_string),
                             }
 
-                            serum_bookside_cache.insert(
-                                side_pk_string.clone(),
-                                bookside,
-                            );
+                            serum_bookside_cache.insert(side_pk_string.clone(), bookside);
                         }
                         Err(_) => info!("chain_cache could not find {}", side_pk),
                     }
