@@ -1,6 +1,6 @@
-# service-mango-fills
+# service-mango-orderbook
 
-This module parses event queues and exposes individual fills on a websocket.
+This module parses bookside accounts and exposes L2 data and updates on a websocket
 
 ## Setup
 
