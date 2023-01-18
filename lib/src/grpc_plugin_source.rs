@@ -395,11 +395,11 @@ pub async fn process_events(
     let mut metric_account_writes =
         metrics_sender.register_u64("grpc_account_writes".into(), MetricType::Counter);
     let mut metric_account_queue =
-        metrics_sender.register_u64("account_write_queue".into(), MetricType::Gauge);
+        metrics_sender.register_u64("grpc_account_write_queue".into(), MetricType::Gauge);
     let mut metric_dedup_queue =
-        metrics_sender.register_u64("dedup_queue".into(), MetricType::Gauge);
+        metrics_sender.register_u64("grpc_dedup_queue".into(), MetricType::Gauge);
     let mut metric_slot_queue =
-        metrics_sender.register_u64("slot_update_queue".into(), MetricType::Gauge);
+        metrics_sender.register_u64("grpc_slot_update_queue".into(), MetricType::Gauge);
     let mut metric_slot_updates =
         metrics_sender.register_u64("grpc_slot_updates".into(), MetricType::Counter);
     let mut metric_snapshots =
