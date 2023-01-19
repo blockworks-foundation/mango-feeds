@@ -69,7 +69,7 @@ async fn get_snapshot(
         account_config: account_info_config.clone(),
     };
 
-    info!("requesting snapshot");
+    info!("requesting snapshot {}", program_id);
     let account_snapshot = rpc_client
         .get_program_accounts(
             program_id.to_string(),
@@ -77,7 +77,7 @@ async fn get_snapshot(
         )
         .await
         .map_err_anyhow()?;
-    info!("snapshot received");
+    info!("snapshot received {}", program_id);
     Ok(account_snapshot)
 }
 
@@ -88,7 +88,6 @@ async fn feed_data_geyser(
     filter_config: &FilterConfig,
     sender: async_channel::Sender<Message>,
 ) -> anyhow::Result<()> {
-    let program_id = Pubkey::from_str(&snapshot_config.program_id)?;
     let connection_string = match &grpc_config.connection_string.chars().next().unwrap() {
         '$' => env::var(&grpc_config.connection_string[1..])
             .expect("reading connection string from env"),
@@ -217,7 +216,9 @@ async fn feed_data_geyser(
                             }
                             if snapshot_needed && max_rooted_slot - rooted_to_finalized_slots > first_full_slot {
                                 snapshot_needed = false;
-                                snapshot_future = tokio::spawn(get_snapshot(rpc_http_url.clone(), program_id)).fuse();
+                                for program_id in filter_config.program_ids.clone() {
+                                    snapshot_future = tokio::spawn(get_snapshot(rpc_http_url.clone(), Pubkey::from_str(&program_id).unwrap())).fuse();
+                                }
                             }
                         }
                     },
