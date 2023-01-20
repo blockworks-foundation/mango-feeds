@@ -43,6 +43,11 @@ type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
 type SerumCheckpointMap = Arc<Mutex<HashMap<String, SerumFillCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;
 
+// jemalloc seems to be better at keeping the memory footprint reasonable over
+// longer periods of time
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "command")]
 pub enum Command {
@@ -127,27 +132,25 @@ async fn handle_connection(
         );
     }
 
-    let receive_commands = ws_rx.try_for_each(|msg| {
-       match msg {
-            Message::Text(_) => {
-                handle_commands(
-                    addr,
-                    msg,
-                    peer_map.clone(),
-                    checkpoint_map.clone(),
-                    serum_checkpoint_map.clone(),
-                    market_ids.clone(),
-                )
-            },
-            Message::Ping(_) => {
-                let peers = peer_map.clone();
-                let mut peers_lock = peers.lock().unwrap();
-                let peer = peers_lock.get_mut(&addr).expect("peer should be in map");
-                peer.sender.unbounded_send(Message::Pong(Vec::new())).unwrap();
-                future::ready(Ok(()))
-            }
-            _ => future::ready(Ok(())),
+    let receive_commands = ws_rx.try_for_each(|msg| match msg {
+        Message::Text(_) => handle_commands(
+            addr,
+            msg,
+            peer_map.clone(),
+            checkpoint_map.clone(),
+            serum_checkpoint_map.clone(),
+            market_ids.clone(),
+        ),
+        Message::Ping(_) => {
+            let peers = peer_map.clone();
+            let mut peers_lock = peers.lock().unwrap();
+            let peer = peers_lock.get_mut(&addr).expect("peer should be in map");
+            peer.sender
+                .unbounded_send(Message::Pong(Vec::new()))
+                .unwrap();
+            future::ready(Ok(()))
         }
+        _ => future::ready(Ok(())),
     });
     let forward_updates = chan_rx.map(Ok).forward(ws_tx);
 
@@ -454,40 +457,40 @@ async fn main() -> anyhow::Result<()> {
     let try_socket = TcpListener::bind(&config.bind_ws_addr).await;
     let listener = try_socket.expect("Failed to bind");
     {
-    tokio::spawn(async move {
-        // Let's spawn the handling of each connection in a separate task.
-        while let Ok((stream, addr)) = listener.accept().await {
-            tokio::spawn(handle_connection_error(
-                checkpoints.clone(),
-                serum_checkpoints.clone(),
-                peers.clone(),
-                market_pubkey_strings.clone(),
-                stream,
-                addr,
-                metrics_opened_connections.clone(),
-                metrics_closed_connections.clone(),
-            ));
-        }
-    });
+        tokio::spawn(async move {
+            // Let's spawn the handling of each connection in a separate task.
+            while let Ok((stream, addr)) = listener.accept().await {
+                tokio::spawn(handle_connection_error(
+                    checkpoints.clone(),
+                    serum_checkpoints.clone(),
+                    peers.clone(),
+                    market_pubkey_strings.clone(),
+                    stream,
+                    addr,
+                    metrics_opened_connections.clone(),
+                    metrics_closed_connections.clone(),
+                ));
+            }
+        });
     }
 
     // keepalive
     {
-    tokio::spawn(async move {
-        let mut write_interval = time::interval(time::Duration::from_secs(30));
+        tokio::spawn(async move {
+            let mut write_interval = time::interval(time::Duration::from_secs(30));
 
-        loop {
-            write_interval.tick().await;
-            let peers_copy = peers_ref_thread1.lock().unwrap().clone();
-            for (addr, peer) in peers_copy.iter() {
-                let pl = Vec::new();
-                let result = peer.clone().sender.send(Message::Ping(pl)).await;
-                if result.is_err() {
-                    error!("ws ping could not reach {}", addr);
+            loop {
+                write_interval.tick().await;
+                let peers_copy = peers_ref_thread1.lock().unwrap().clone();
+                for (addr, peer) in peers_copy.iter() {
+                    let pl = Vec::new();
+                    let result = peer.clone().sender.send(Message::Ping(pl)).await;
+                    if result.is_err() {
+                        error!("ws ping could not reach {}", addr);
+                    }
                 }
             }
-        }
-    });
+        });
     }
     info!(
         "rpc connect: {}",
@@ -499,11 +502,11 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
+    let all_queue_pks = [perp_queue_pks.clone(), serum_queue_pks.clone()].concat();
+    let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
     let filter_config = FilterConfig {
-        program_ids: vec![
-            "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
-            "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
-        ],
+        program_ids: vec![],
+        account_ids: relevant_pubkeys,
     };
     if use_geyser {
         grpc_plugin_source::process_events(

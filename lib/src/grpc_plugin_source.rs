@@ -3,16 +3,17 @@ use geyser::geyser_client::GeyserClient;
 use jsonrpc_core::futures::StreamExt;
 use jsonrpc_core_client::transports::http;
 
-use solana_account_decoder::UiAccountEncoding;
+use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-use solana_client::rpc_response::{OptionalContext, Response, RpcKeyedAccount};
-use solana_rpc::{rpc::rpc_accounts::AccountsDataClient};
+use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
+use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
 use tonic::{
-    metadata::MetadataValue, Request,
-    transport::{Channel, Certificate, Identity, ClientTlsConfig},
+    metadata::MetadataValue,
+    transport::{Certificate, Channel, ClientTlsConfig, Identity},
+    Request,
 };
 
 use log::*;
@@ -42,16 +43,18 @@ use crate::{
 
 //use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
 
-type SnapshotData = Response<Vec<RpcKeyedAccount>>;
-
+struct SnapshotData {
+    slot: u64,
+    accounts: Vec<(String, Option<UiAccount>)>,
+}
 enum Message {
     GrpcUpdate(geyser::SubscribeUpdate),
     Snapshot(SnapshotData),
 }
 
-async fn get_snapshot(
+async fn get_snapshot_gpa(
     rpc_http_url: String,
-    program_id: Pubkey,
+    program_id: String,
 ) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
     let rpc_client = http::connect_with_options::<AccountsDataClient>(&rpc_http_url, true)
         .await
@@ -71,13 +74,34 @@ async fn get_snapshot(
 
     info!("requesting snapshot {}", program_id);
     let account_snapshot = rpc_client
-        .get_program_accounts(
-            program_id.to_string(),
-            Some(program_accounts_config.clone()),
-        )
+        .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
         .await
         .map_err_anyhow()?;
     info!("snapshot received {}", program_id);
+    Ok(account_snapshot)
+}
+
+async fn get_snapshot_gma(
+    rpc_http_url: String,
+    ids: Vec<String>,
+) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
+    let rpc_client = http::connect_with_options::<AccountsDataClient>(&rpc_http_url, true)
+        .await
+        .map_err_anyhow()?;
+
+    let account_info_config = RpcAccountInfoConfig {
+        encoding: Some(UiAccountEncoding::Base64),
+        commitment: Some(CommitmentConfig::finalized()),
+        data_slice: None,
+        min_context_slot: None,
+    };
+
+    info!("requesting snapshot {:?}", ids);
+    let account_snapshot = rpc_client
+        .get_multiple_accounts(ids.clone(), Some(account_info_config))
+        .await
+        .map_err_anyhow()?;
+    info!("snapshot received {:?}", ids);
     Ok(account_snapshot)
 }
 
@@ -107,25 +131,27 @@ async fn feed_data_geyser(
     }
     .connect()
     .await?;
-    let token: MetadataValue<_> = "dbbf36253d0b2e6a85618a4ef2fa".parse()?;
+    let token: MetadataValue<_> = "eed31807f710e4bb098779fb9f67".parse()?;
     let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
         req.metadata_mut().insert("x-token", token.clone());
         Ok(req)
     });
 
+    // If account_ids are provided, snapshot will be gMA. If only program_ids, then only the first id will be snapshot
+    // TODO: handle this better
+    if filter_config.program_ids.len() > 1 {
+        warn!("only one program id is supported for gPA snapshots")
+    }
     let mut accounts = HashMap::new();
     accounts.insert(
         "client".to_owned(),
         SubscribeRequestFilterAccounts {
-            account: Vec::new(),
+            account: filter_config.account_ids.clone(),
             owner: filter_config.program_ids.clone(),
         },
     );
     let mut slots = HashMap::new();
-    slots.insert(
-        "client".to_owned(),
-        SubscribeRequestFilterSlots {},
-    );
+    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
     let blocks = HashMap::new();
     let transactions = HashMap::new();
 
@@ -171,7 +197,8 @@ async fn feed_data_geyser(
     // which will have "finalized" commitment.
     let mut rooted_to_finalized_slots = 30;
 
-    let mut snapshot_future = future::Fuse::terminated();
+    let mut snapshot_gma = future::Fuse::terminated();
+    let mut snapshot_gpa = future::Fuse::terminated();
 
     // The plugin sends a ping every 5s or so
     let fatal_idle_timeout = Duration::from_secs(60);
@@ -214,10 +241,13 @@ async fn feed_data_geyser(
                                 // drop data for slots that are well beyond rooted
                                 slot_pubkey_writes.retain(|&k, _| k >= max_rooted_slot - max_out_of_order_slots);
                             }
+
                             if snapshot_needed && max_rooted_slot - rooted_to_finalized_slots > first_full_slot {
                                 snapshot_needed = false;
-                                for program_id in filter_config.program_ids.clone() {
-                                    snapshot_future = tokio::spawn(get_snapshot(rpc_http_url.clone(), Pubkey::from_str(&program_id).unwrap())).fuse();
+                                if filter_config.account_ids.len() > 0 {
+                                    snapshot_gma = tokio::spawn(get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone())).fuse();
+                                } else if filter_config.program_ids.len() > 0 {
+                                    snapshot_gpa = tokio::spawn(get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone())).fuse();
                                 }
                             }
                         }
@@ -243,7 +273,7 @@ async fn feed_data_geyser(
                                 continue;
                             },
                         };
-                        
+
                         let pubkey_bytes = Pubkey::new(&write.pubkey).to_bytes();
                         let write_version_mapping = pubkey_writes.entry(pubkey_bytes).or_insert(WriteVersion {
                             global: write.write_version,
@@ -266,13 +296,43 @@ async fn feed_data_geyser(
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
-            snapshot = &mut snapshot_future => {
+            snapshot = &mut snapshot_gma => {
+                let snapshot = snapshot??;
+                info!("snapshot is for slot {}, first full slot was {}", snapshot.context.slot, first_full_slot);
+                if snapshot.context.slot >= first_full_slot {
+                    let accounts: Vec<(String, Option<UiAccount>)> = filter_config.account_ids.iter().zip(snapshot.value).map(|x| (x.0.clone(), x.1)).collect();
+                    sender
+                    .send(Message::Snapshot(SnapshotData {
+                        accounts,
+                        slot: snapshot.context.slot,
+                    }))
+                    .await
+                    .expect("send success");
+                } else {
+                    info!(
+                        "snapshot is too old: has slot {}, expected {} minimum",
+                        snapshot.context.slot,
+                        first_full_slot
+                    );
+                    // try again in another 10 slots
+                    snapshot_needed = true;
+                    rooted_to_finalized_slots += 10;
+                }
+            },
+            snapshot = &mut snapshot_gpa => {
                 let snapshot = snapshot??;
                 if let OptionalContext::Context(snapshot_data) = snapshot {
                     info!("snapshot is for slot {}, first full slot was {}", snapshot_data.context.slot, first_full_slot);
                     if snapshot_data.context.slot >= first_full_slot {
+                        let accounts: Vec<(String, Option<UiAccount>)> = snapshot_data.value.iter().map(|x| {
+                            let deref = x.clone();
+                            (deref.pubkey, Some(deref.account))
+                        }).collect();
                         sender
-                        .send(Message::Snapshot(snapshot_data))
+                        .send(Message::Snapshot(SnapshotData {
+                            accounts,
+                            slot: snapshot_data.context.slot,
+                        }))
                         .await
                         .expect("send success");
                     } else {
@@ -411,7 +471,7 @@ pub async fn process_events(
     loop {
         metric_dedup_queue.set(msg_receiver.len() as u64);
         let msg = msg_receiver.recv().await.expect("sender must not close");
-        use geyser::{subscribe_update::UpdateOneof};
+        use geyser::subscribe_update::UpdateOneof;
         match msg {
             Message::GrpcUpdate(update) => {
                 match update.update_oneof.expect("invalid grpc") {
@@ -421,7 +481,7 @@ pub async fn process_events(
                             None => {
                                 // TODO: handle error
                                 continue;
-                            },
+                            }
                         };
                         assert!(update.pubkey.len() == 32);
                         assert!(update.owner.len() == 32);
@@ -460,11 +520,12 @@ pub async fn process_events(
                         metric_slot_updates.increment();
                         metric_slot_queue.set(slot_queue_sender.len() as u64);
 
-                        let status = SubscribeUpdateSlotStatus::from_i32(update.status).map(|v| match v {
-                            SubscribeUpdateSlotStatus::Processed => SlotStatus::Processed,
-                            SubscribeUpdateSlotStatus::Confirmed => SlotStatus::Confirmed,
-                            SubscribeUpdateSlotStatus::Finalized => SlotStatus::Rooted,
-                        });
+                        let status =
+                            SubscribeUpdateSlotStatus::from_i32(update.status).map(|v| match v {
+                                SubscribeUpdateSlotStatus::Processed => SlotStatus::Processed,
+                                SubscribeUpdateSlotStatus::Confirmed => SlotStatus::Confirmed,
+                                SubscribeUpdateSlotStatus::Finalized => SlotStatus::Rooted,
+                            });
                         if status.is_none() {
                             error!("unexpected slot status: {}", update.status);
                             continue;
@@ -480,24 +541,29 @@ pub async fn process_events(
                             .await
                             .expect("send success");
                     }
-                    UpdateOneof::Block(_) => {},
-                    UpdateOneof::Transaction(_) => {},
+                    UpdateOneof::Block(_) => {}
+                    UpdateOneof::Transaction(_) => {}
                 }
             }
             Message::Snapshot(update) => {
                 metric_snapshots.increment();
                 info!("processing snapshot...");
-                for keyed_account in update.value {
+                for account in update.accounts.iter() {
                     metric_snapshot_account_writes.increment();
                     metric_account_queue.set(account_write_queue_sender.len() as u64);
 
-                    // TODO: Resnapshot on invalid data?
-                    let account: Account = keyed_account.account.decode().unwrap();
-                    let pubkey = Pubkey::from_str(&keyed_account.pubkey).unwrap();
-                    account_write_queue_sender
-                        .send(AccountWrite::from(pubkey, update.context.slot, 0, account))
-                        .await
-                        .expect("send success");
+                    match account {
+                        (key, Some(ui_account)) => {
+                            // TODO: Resnapshot on invalid data?
+                            let pubkey = Pubkey::from_str(key).unwrap();
+                            let account: Account = ui_account.decode().unwrap();
+                            account_write_queue_sender
+                                .send(AccountWrite::from(pubkey, update.slot, 0, account))
+                                .await
+                                .expect("send success");
+                        }
+                        (key, None) => warn!("account not found {}", key),
+                    }
                 }
                 info!("processing snapshot done");
             }

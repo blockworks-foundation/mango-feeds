@@ -285,19 +285,23 @@ async fn main() -> anyhow::Result<()> {
         &Keypair::new(),
         Some(rpc_timeout),
     );
-    let group_context = Arc::new(MangoGroupContext::new_from_rpc(
-        &client.rpc_async(),
-        Pubkey::from_str(&config.mango_group).unwrap(),
-    ).await?);
+    let group_context = Arc::new(
+        MangoGroupContext::new_from_rpc(
+            &client.rpc_async(),
+            Pubkey::from_str(&config.mango_group).unwrap(),
+        )
+        .await?,
+    );
 
     // todo: reload markets at intervals
     let market_configs: Vec<(Pubkey, MarketConfig)> = group_context
         .perp_markets
         .iter()
         .map(|(_, context)| {
-            let quote_decimals = match group_context.tokens.get(&context.market.settle_token_index) {
+            let quote_decimals = match group_context.tokens.get(&context.market.settle_token_index)
+            {
                 Some(token) => token.decimals,
-                None => panic!("token not found for market") // todo: default to 6 for usdc?
+                None => panic!("token not found for market"), // todo: default to 6 for usdc?
             };
             (
                 context.address,
@@ -320,11 +324,11 @@ async fn main() -> anyhow::Result<()> {
         .map(|(_, context)| {
             let base_decimals = match group_context.tokens.get(&context.market.base_token_index) {
                 Some(token) => token.decimals,
-                None => panic!("token not found for market") // todo: default?
+                None => panic!("token not found for market"), // todo: default?
             };
             let quote_decimals = match group_context.tokens.get(&context.market.quote_token_index) {
                 Some(token) => token.decimals,
-                None => panic!("token not found for market") // todo: default to 6 for usdc?
+                None => panic!("token not found for market"), // todo: default to 6 for usdc?
             };
             (
                 context.market.serum_market_external,
@@ -341,13 +345,14 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let market_pubkey_strings: HashMap<String, String> = [market_configs.clone(), serum_market_configs.clone()]
-        .concat()
-        .iter()
-        .map(|market| (market.0.to_string(), market.1.name.clone()))
-        .collect::<Vec<(String, String)>>()
-        .into_iter()
-        .collect();
+    let market_pubkey_strings: HashMap<String, String> =
+        [market_configs.clone(), serum_market_configs.clone()]
+            .concat()
+            .iter()
+            .map(|market| (market.0.to_string(), market.1.name.clone()))
+            .collect::<Vec<(String, String)>>()
+            .into_iter()
+            .collect();
 
     let (account_write_queue_sender, slot_queue_sender, orderbook_receiver) =
         orderbook_filter::init(market_configs, serum_market_configs, metrics_tx.clone()).await?;
@@ -422,6 +427,7 @@ async fn main() -> anyhow::Result<()> {
                 "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
                 "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
             ],
+            account_ids: vec![],
         };
         grpc_plugin_source::process_events(
             &config.source,

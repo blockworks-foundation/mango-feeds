@@ -1,5 +1,9 @@
+use crate::metrics::{MetricType, MetricU64, Metrics};
+
 use {
-    solana_sdk::account::{AccountSharedData, ReadableAccount}, solana_sdk::pubkey::Pubkey, std::collections::HashMap,
+    solana_sdk::account::{AccountSharedData, ReadableAccount},
+    solana_sdk::pubkey::Pubkey,
+    std::collections::HashMap,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -37,10 +41,13 @@ pub struct ChainData {
     newest_processed_slot: u64,
     account_versions_stored: usize,
     account_bytes_stored: usize,
+    metric_accounts_stored: MetricU64,
+    metric_account_versions_stored: MetricU64,
+    metric_account_bytes_stored: MetricU64,
 }
 
 impl ChainData {
-    pub fn new() -> Self {
+    pub fn new(metrics_sender: Metrics) -> Self {
         Self {
             slots: HashMap::new(),
             accounts: HashMap::new(),
@@ -48,6 +55,18 @@ impl ChainData {
             newest_processed_slot: 0,
             account_versions_stored: 0,
             account_bytes_stored: 0,
+            metric_accounts_stored: metrics_sender.register_u64(
+                "fills_feed_chaindata_accounts_stored".into(),
+                MetricType::Gauge,
+            ),
+            metric_account_versions_stored: metrics_sender.register_u64(
+                "fills_feed_chaindata_account_versions_stored".into(),
+                MetricType::Gauge,
+            ),
+            metric_account_bytes_stored: metrics_sender.register_u64(
+                "fills_feed_chaindata_account_bytes_stored".into(),
+                MetricType::Gauge,
+            ),
         }
     }
 
@@ -128,15 +147,21 @@ impl ChainData {
                 writes
                     .retain(|w| w.slot == newest_rooted_write || w.slot > self.newest_rooted_slot);
                 self.account_versions_stored += writes.len();
-                self.account_bytes_stored += writes.iter().map(|w| w.account.data().len()).fold(0, |acc, l| acc + l)
+                self.account_bytes_stored += writes
+                    .iter()
+                    .map(|w| w.account.data().len())
+                    .fold(0, |acc, l| acc + l)
             }
 
             // now it's fine to drop any slots before the new rooted head
             // as account writes for non-rooted slots before it have been dropped
             self.slots.retain(|s, _| *s >= self.newest_rooted_slot);
 
-            // TODO: move this to prom
-            println!("[chain_data] account_versions_stored = {} account_bytes_stored = {}", self.account_versions_stored, self.account_bytes_stored);
+            self.metric_accounts_stored.set(self.accounts.len() as u64);
+            self.metric_account_versions_stored
+                .set(self.account_versions_stored as u64);
+            self.metric_account_bytes_stored
+                .set(self.account_bytes_stored as u64);
         }
     }
 

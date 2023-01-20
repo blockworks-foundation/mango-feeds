@@ -355,77 +355,77 @@ fn publish_changes_serum(
                     continue;
                 }
 
-                // match old_event_view {
-                //     EventView::Fill { .. } => {
-                //         // every already published event is recorded in checkpoint
-                //         checkpoint.push(events[idx]);
-                //     }
-                //     EventView::Out { .. } => {
-                //         debug!(
-                //             "found changed event {} idx {} seq_num {} header seq num {} old seq num {}",
-                //             mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
-                //         );
+                match old_event_view {
+                    EventView::Fill { .. } => {
+                        // every already published event is recorded in checkpoint
+                        checkpoint.push(events[idx]);
+                    }
+                    EventView::Out { .. } => {
+                        debug!(
+                            "found changed event {} idx {} seq_num {} header seq num {} old seq num {}",
+                            mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+                        );
 
-                //         metric_events_change.increment();
+                        metric_events_change.increment();
 
-                //         // first revoke old event
-                //         fill_update_sender
-                //             .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
-                //                 slot,
-                //                 write_version,
-                //                 event: old_events[idx],
-                //                 status: FillUpdateStatus::Revoke,
-                //                 market: mkt_pk_string.clone(),
-                //                 queue: evq_pk_string.clone(),
-                //             }))
-                //             .unwrap(); // TODO: use anyhow to bubble up error
+                        // first revoke old event
+                        fill_update_sender
+                            .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
+                                slot,
+                                write_version,
+                                event: old_events[idx],
+                                status: FillUpdateStatus::Revoke,
+                                market: mkt_pk_string.clone(),
+                                queue: evq_pk_string.clone(),
+                            }))
+                            .unwrap(); // TODO: use anyhow to bubble up error
 
-                //         // then publish new if its a fill and record in checkpoint
-                //         fill_update_sender
-                //             .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
-                //                 slot,
-                //                 write_version,
-                //                 event: events[idx],
-                //                 status: FillUpdateStatus::New,
-                //                 market: mkt_pk_string.clone(),
-                //                 queue: evq_pk_string.clone(),
-                //             }))
-                //             .unwrap(); // TODO: use anyhow to bubble up error
-                //         checkpoint.push(events[idx]);
-                //     }
-                // }
+                        // then publish new if its a fill and record in checkpoint
+                        fill_update_sender
+                            .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
+                                slot,
+                                write_version,
+                                event: events[idx],
+                                status: FillUpdateStatus::New,
+                                market: mkt_pk_string.clone(),
+                                queue: evq_pk_string.clone(),
+                            }))
+                            .unwrap(); // TODO: use anyhow to bubble up error
+                        checkpoint.push(events[idx]);
+                    }
+                }
             }
             _ => continue,
         }
     }
 
-    // // in case queue size shrunk due to a fork we need revoke all previous fills
-    // for seq_num in header_seq_num..old_seq_num {
-    //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
-    //     let old_event_view = old_events[idx].as_view().unwrap();
-    //     debug!(
-    //         "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //         mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
-    //     );
+    // in case queue size shrunk due to a fork we need revoke all previous fills
+    for seq_num in header_seq_num..old_seq_num {
+        let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
+        let old_event_view = old_events[idx].as_view().unwrap();
+        debug!(
+            "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
+            mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+        );
 
-    //     metric_events_drop.increment();
+        metric_events_drop.increment();
 
-    //     match old_event_view {
-    //         EventView::Fill { .. } => {
-    //             fill_update_sender
-    //                 .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
-    //                     slot,
-    //                     event: old_events[idx],
-    //                     write_version,
-    //                     status: FillUpdateStatus::Revoke,
-    //                     market: mkt_pk_string.clone(),
-    //                     queue: evq_pk_string.clone(),
-    //                 }))
-    //                 .unwrap(); // TODO: use anyhow to bubble up error
-    //         }
-    //         EventView::Out { .. } => { continue }
-    //     }
-    // }
+        match old_event_view {
+            EventView::Fill { .. } => {
+                fill_update_sender
+                    .try_send(FillEventFilterMessage::SerumUpdate(SerumFillUpdate {
+                        slot,
+                        event: old_events[idx],
+                        write_version,
+                        status: FillUpdateStatus::Revoke,
+                        market: mkt_pk_string.clone(),
+                        queue: evq_pk_string.clone(),
+                    }))
+                    .unwrap(); // TODO: use anyhow to bubble up error
+            }
+            EventView::Out { .. } => continue,
+        }
+    }
 
     fill_update_sender
         .try_send(FillEventFilterMessage::SerumCheckpoint(
@@ -474,7 +474,7 @@ pub async fn init(
 
     let account_write_queue_receiver_c = account_write_queue_receiver.clone();
 
-    let mut chain_cache = ChainData::new();
+    let mut chain_cache = ChainData::new(metrics_sender);
     let mut perp_events_cache: HashMap<String, EventQueueEvents> = HashMap::new();
     let mut serum_events_cache: HashMap<String, Vec<serum_dex::state::Event>> = HashMap::new();
     let mut seq_num_cache = HashMap::new();

@@ -122,6 +122,7 @@ pub struct SourceConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct FilterConfig {
     pub program_ids: Vec<String>,
+    pub account_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
