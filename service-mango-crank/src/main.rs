@@ -7,7 +7,7 @@ use anchor_client::{
     Cluster,
 };
 use anchor_lang::prelude::Pubkey;
-use bytemuck::cast_slice;
+use bytemuck::{bytes_of, cast_slice};
 use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
@@ -110,22 +110,17 @@ async fn main() -> anyhow::Result<()> {
         Some(rpc_timeout),
     );
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
-    let group_context = Arc::new(
-        MangoGroupContext::new_from_rpc(
-            &client.rpc_async(),
-            group_pk
-        )
-        .await?,
-    );
+    let group_context =
+        Arc::new(MangoGroupContext::new_from_rpc(&client.rpc_async(), group_pk).await?);
 
-    let perp_queue_pks: Vec<(Pubkey, Pubkey)> = group_context
+    let perp_queue_pks: Vec<_> = group_context
         .perp_markets
         .iter()
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
     // fetch all serum/openbook markets to find their event queues
-    let serum_market_pks: Vec<Pubkey> = group_context
+    let serum_market_pks: Vec<_> = group_context
         .serum3_markets
         .iter()
         .map(|(_, context)| context.market.serum_market_external)
@@ -136,7 +131,7 @@ async fn main() -> anyhow::Result<()> {
         .get_multiple_accounts(serum_market_pks.as_slice())
         .await?;
 
-    let serum_market_ais: Vec<&Account> = serum_market_ais
+    let serum_market_ais: Vec<_> = serum_market_ais
         .iter()
         .filter_map(|maybe_ai| match maybe_ai {
             Some(ai) => Some(ai),
@@ -144,17 +139,15 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let serum_queue_pks: Vec<(Pubkey, Pubkey)> = serum_market_ais
+    let serum_queue_pks: Vec<_> = serum_market_ais
         .iter()
         .enumerate()
         .map(|pair| {
             let market_state: serum_dex::state::MarketState = *bytemuck::from_bytes(
                 &pair.1.data[5..5 + std::mem::size_of::<serum_dex::state::MarketState>()],
             );
-            (
-                serum_market_pks[pair.0],
-                Pubkey::new(cast_slice(&identity(market_state.event_q) as &[_])),
-            )
+            let event_q = market_state.event_q;
+            (serum_market_pks[pair.0], Pubkey::new(bytes_of(&event_q)))
         })
         .collect();
 
@@ -179,11 +172,15 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
-    let all_queue_pks = [perp_queue_pks.clone(), serum_queue_pks.clone()].concat();
-    let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
+    let all_queue_pks: HashSet<Pubkey> = perp_queue_pks
+        .iter()
+        .chain(serum_queue_pks.iter())
+        .map(|mkt| mkt.1)
+        .collect();
+
     let filter_config = FilterConfig {
         program_ids: vec![],
-        account_ids: relevant_pubkeys,
+        account_ids: all_queue_pks.iter().map(|pk| pk.to_string()).collect(),
     };
     if use_geyser {
         grpc_plugin_source::process_events(
