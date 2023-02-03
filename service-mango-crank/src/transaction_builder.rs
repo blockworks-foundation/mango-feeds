@@ -7,7 +7,7 @@ use solana_geyser_connector_lib::{
     AccountWrite, SlotUpdate,
 };
 
-use anchor_lang::{solana_program::pubkey, AccountDeserialize};
+use anchor_lang::AccountDeserialize;
 use log::*;
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
@@ -17,7 +17,7 @@ use solana_sdk::{
 };
 use std::{
     borrow::BorrowMut,
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     convert::TryFrom,
     str::FromStr,
 };
@@ -112,7 +112,7 @@ pub fn init(
                             .unwrap();
 
                         if !event_queue.empty() {
-                            let mango_accounts: HashSet<_> = event_queue
+                            let mango_accounts: BTreeSet<_> = event_queue
                                 .iter()
                                 .take(10)
                                 .flat_map(|e| {
@@ -140,7 +140,6 @@ pub fn init(
                                 },
                                 None,
                             );
-
                             ams.append(
                                 &mut mango_accounts
                                     .iter()
@@ -156,7 +155,10 @@ pub fn init(
                                 ),
                             };
 
-                            info!("mango perp evq={evq_b58} count={} limit=10", event_queue.iter().count());
+                            info!(
+                                "mango perp evq={evq_b58} count={} limit=10",
+                                event_queue.iter().count()
+                            );
                             instruction_sender.send(vec![ix]).await;
                         }
                     }
@@ -195,7 +197,7 @@ pub fn init(
                                 bytemuck::cast_slice::<u8, serum_dex::state::Event>(&rest[..end]);
                             let seq_num = header.seq_num;
 
-                            let oo_pks: HashSet<_> = (0..count)
+                            let oo_pks: BTreeSet<_> = (0..count)
                                 .map(|i| {
                                     let offset = (seq_num - count + i) % events.len() as u64;
                                     let event: serum_dex::state::Event = events[offset as usize];
