@@ -1,10 +1,16 @@
+use crate::metrics::MetricU64;
 use crate::{
     chain_data::{AccountData, ChainData, SlotData},
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
 };
+use anchor_lang::AccountDeserialize;
 use itertools::Itertools;
 use log::*;
+use mango_v4::{
+    serum3_cpi::OrderBookStateHeader,
+    state::{BookSide, OrderTreeType},
+};
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serum_dex::critbit::Slab;
 use solana_sdk::{
@@ -17,12 +23,6 @@ use std::{
     collections::{HashMap, HashSet},
     mem::size_of,
     time::{SystemTime, UNIX_EPOCH},
-};
-use crate::metrics::MetricU64;
-use anchor_lang::AccountDeserialize;
-use mango_v4::{
-    serum3_cpi::OrderBookStateHeader,
-    state::{BookSide, OrderTreeType},
 };
 
 #[derive(Clone, Debug)]
@@ -126,9 +126,15 @@ pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f
     native as f64 / (10u64.pow(decimals.into())) as f64
 }
 
-pub fn spot_price_to_ui(native: i64, native_size: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
+pub fn spot_price_to_ui(
+    native: i64,
+    native_size: i64,
+    base_decimals: u8,
+    quote_decimals: u8,
+) -> f64 {
     // TODO: account for fees
-    ((native * 10i64.pow(base_decimals.into())) / (10i64.pow(quote_decimals.into()) * native_size)) as f64
+    ((native * 10i64.pow(base_decimals.into())) / (10i64.pow(quote_decimals.into()) * native_size))
+        as f64
 }
 
 pub fn price_lots_to_ui_perp(
@@ -140,8 +146,7 @@ pub fn price_lots_to_ui_perp(
 ) -> f64 {
     let decimals = base_decimals - quote_decimals;
     let multiplier = 10u64.pow(decimals.into()) as f64;
-    native as f64
-        * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
+    native as f64 * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
 }
 
 fn publish_changes(
@@ -331,7 +336,8 @@ pub async fn init(
                                 debug!("evq version slot was old");
                                 continue;
                             }
-                            if write_version.0 == last_write_version.0 && write_version.1 < last_write_version.1
+                            if write_version.0 == last_write_version.0
+                                && write_version.1 < last_write_version.1
                             {
                                 debug!("evq version slot was same and write version was old");
                                 continue;

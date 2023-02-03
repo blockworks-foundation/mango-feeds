@@ -28,8 +28,11 @@ use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
 use solana_geyser_connector_lib::{
+    fill_event_filter::FillEventType,
+    fill_event_postgres_target,
     metrics::{MetricType, MetricU64},
-    FilterConfig, StatusResponse, fill_event_postgres_target, PostgresConfig, fill_event_filter::FillEventType, orderbook_filter::MarketConfig, PostgresTlsConfig,
+    orderbook_filter::MarketConfig,
+    FilterConfig, PostgresConfig, PostgresTlsConfig, StatusResponse,
 };
 use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage},
@@ -366,7 +369,10 @@ async fn main() -> anyhow::Result<()> {
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
-    let spot_queue_pks: Vec<(Pubkey, Pubkey)> = spot_market_configs.iter().map(|x| (x.0, x.1.event_queue)).collect();
+    let spot_queue_pks: Vec<(Pubkey, Pubkey)> = spot_market_configs
+        .iter()
+        .map(|x| (x.0, x.1.event_queue))
+        .collect();
     let a: Vec<(String, String)> = group_context
         .serum3_markets
         .iter()
@@ -403,9 +409,10 @@ async fn main() -> anyhow::Result<()> {
         tls: Some(PostgresTlsConfig {
             ca_cert_path: "$PG_CA_CERT".to_owned(),
             client_key_path: "$PG_CLIENT_KEY".to_owned(),
-        })
+        }),
     };
-    let postgres_update_sender = fill_event_postgres_target::init(&pgconf, metrics_tx.clone()).await?;
+    let postgres_update_sender =
+        fill_event_postgres_target::init(&pgconf, metrics_tx.clone()).await?;
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
         perp_market_configs.clone(),
@@ -428,7 +435,10 @@ async fn main() -> anyhow::Result<()> {
             let message = fill_receiver.recv().await.unwrap();
             match message {
                 FillEventFilterMessage::Update(update) => {
-                    debug!("ws update {} {:?} {:?} fill", update.market_name, update.status, update.event.event_type);
+                    debug!(
+                        "ws update {} {:?} {:?} fill",
+                        update.market_name, update.status, update.event.event_type
+                    );
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
                         let json = serde_json::to_string(&update.clone()).unwrap();
@@ -437,7 +447,10 @@ async fn main() -> anyhow::Result<()> {
                         if peer.subscriptions.contains(&update.market_key) {
                             let result = peer.sender.send(Message::Text(json)).await;
                             if result.is_err() {
-                                error!("ws update {} fill could not reach {}", update.market_name, addr);
+                                error!(
+                                    "ws update {} fill could not reach {}",
+                                    update.market_name, addr
+                                );
                             }
                         }
                     }
@@ -450,7 +463,7 @@ async fn main() -> anyhow::Result<()> {
                                 postgres_update_sender.send(update_c).await.unwrap();
                             }
                         }
-                        _ => warn!("failed to write spot event to db")
+                        _ => warn!("failed to write spot event to db"),
                     }
                 }
                 FillEventFilterMessage::Checkpoint(checkpoint) => {

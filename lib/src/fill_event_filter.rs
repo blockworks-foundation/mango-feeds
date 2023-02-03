@@ -5,7 +5,7 @@ use crate::{
     AccountWrite, SlotUpdate,
 };
 use bytemuck::{cast_slice, Pod, Zeroable};
-use chrono::{Utc, TimeZone};
+use chrono::{TimeZone, Utc};
 use log::*;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serum_dex::state::EventView as SpotEvent;
@@ -93,7 +93,12 @@ impl Serialize for FillEvent {
         state.serialize_field("eventType", &self.event_type)?;
         state.serialize_field("maker", &self.maker)?;
         state.serialize_field("side", &self.side)?;
-        state.serialize_field("timestamp", &Utc.timestamp_opt(self.timestamp as i64, 0).unwrap().to_rfc3339())?;
+        state.serialize_field(
+            "timestamp",
+            &Utc.timestamp_opt(self.timestamp as i64, 0)
+                .unwrap()
+                .to_rfc3339(),
+        )?;
         state.serialize_field("seqNum", &self.seq_num)?;
         state.serialize_field("owner", &self.owner)?;
         state.serialize_field("orderId", &self.order_id)?;
@@ -191,7 +196,7 @@ impl FillEvent {
                         } else {
                             native_qty_paid - native_fee_or_rebate
                         };
-                        
+
                         let top = price_before_fees * base_multiplier;
                         let bottom = quote_multiplier * native_qty_received;
                         let price = top as f64 / bottom as f64;
@@ -213,8 +218,7 @@ impl FillEvent {
                     }
                 };
 
-                let fee =
-                    native_fee_or_rebate as f32 / quote_multiplier as f32;
+                let fee = native_fee_or_rebate as f32 / quote_multiplier as f32;
 
                 FillEvent {
                     event_type: FillEventType::Spot,

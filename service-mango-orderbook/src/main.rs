@@ -357,7 +357,12 @@ async fn main() -> anyhow::Result<()> {
             .collect();
 
     let (account_write_queue_sender, slot_queue_sender, orderbook_receiver) =
-        orderbook_filter::init(market_configs.clone(), serum_market_configs.clone(), metrics_tx.clone()).await?;
+        orderbook_filter::init(
+            market_configs.clone(),
+            serum_market_configs.clone(),
+            metrics_tx.clone(),
+        )
+        .await?;
 
     let checkpoints_ref_thread = checkpoints.clone();
     let peers_ref_thread = peers.clone();

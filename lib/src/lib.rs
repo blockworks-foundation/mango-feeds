@@ -5,7 +5,6 @@ pub mod grpc_plugin_source;
 pub mod memory_target;
 pub mod metrics;
 pub mod orderbook_filter;
-pub mod postgres_target;
 pub mod postgres_types_numeric;
 pub mod websocket_source;
 

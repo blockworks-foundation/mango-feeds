@@ -18,7 +18,7 @@ async fn postgres_connection(
     // openssl pkcs12 -export -in client.cer -inkey client-key.cer -out client.pks
     // base64 -i ca.cer -o ca.cer.b64 && base64 -i client.pks -o client.pks.b64
     // fly secrets set PG_CA_CERT=- < ./ca.cer.b64 -a mango-fills
-    // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills 
+    // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills
     info!("making tls config");
     let tls = match &config.tls {
         Some(tls) => {
