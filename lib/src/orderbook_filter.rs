@@ -18,7 +18,6 @@ use std::{
     mem::size_of,
     time::{SystemTime, UNIX_EPOCH},
 };
-
 use crate::metrics::MetricU64;
 use anchor_lang::AccountDeserialize;
 use mango_v4::{
@@ -106,6 +105,7 @@ pub struct MarketConfig {
     pub name: String,
     pub bids: Pubkey,
     pub asks: Pubkey,
+    pub event_queue: Pubkey,
     pub base_decimals: u8,
     pub quote_decimals: u8,
     pub base_lot_size: i64,
@@ -113,26 +113,22 @@ pub struct MarketConfig {
 }
 
 pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
-    let decimals: u32 = 3;
-    let res = native as f64 / (10i64.pow(decimals.into()) as f64);
-    //info!("res {} native {} base_d {} base ls {}", res, native, base_decimals, base_lot_size);
-    res
+    (native * base_lot_size) as f64 / 10i64.pow(base_decimals.into()) as f64
 }
 
-pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
-    let decimals: u32 = 4;
-    let res = native as f64 / (10i64.pow(decimals.into()) as f64);
-    //info!("res {} native {} base_d {} base ls {}", res, native, base_decimals, base_lot_size);
-    res
+pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
+    let decimals = base_decimals - quote_decimals;
+    native as f64 / (10i64.pow(decimals.into()) as f64)
 }
 
 pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
     let decimals = base_decimals - quote_decimals;
-    // let res = native as f64
-    //     * ((10u64.pow(decimals.into()) * quote_lot_size as u64) as f64 / base_lot_size as f64)
-    //         as f64;
-    let res = native as f64 / (10u64.pow(decimals.into())) as f64;
-    res
+    native as f64 / (10u64.pow(decimals.into())) as f64
+}
+
+pub fn spot_price_to_ui(native: i64, native_size: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
+    // TODO: account for fees
+    ((native * 10i64.pow(base_decimals.into())) / (10i64.pow(quote_decimals.into()) * native_size)) as f64
 }
 
 pub fn price_lots_to_ui_perp(
@@ -143,13 +139,9 @@ pub fn price_lots_to_ui_perp(
     quote_lot_size: i64,
 ) -> f64 {
     let decimals = base_decimals - quote_decimals;
-    let res = native as f64
-        * ((10u64.pow(decimals.into()) * quote_lot_size as u64) as f64 / base_lot_size as f64)
-            as f64;
-    // let res = native as f64
-    //     / (10u64.pow(decimals.into()))
-    //         as f64;
-    res
+    let multiplier = 10u64.pow(decimals.into()) as f64;
+    native as f64
+        * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
 }
 
 fn publish_changes(
@@ -332,8 +324,16 @@ pub async fn init(
                             let side_pk_string = side_pk.to_string();
 
                             let write_version = (account_info.slot, account_info.write_version);
-                            // todo: should this be <= so we don't overwrite with old data received late?
-                            if write_version <= *last_write_version {
+                            if write_version == *last_write_version {
+                                continue;
+                            }
+                            if write_version.0 < last_write_version.0 {
+                                debug!("evq version slot was old");
+                                continue;
+                            }
+                            if write_version.0 == last_write_version.0 && write_version.1 < last_write_version.1
+                            {
+                                debug!("evq version slot was same and write version was old");
                                 continue;
                             }
                             last_write_versions.insert(side_pk_string.clone(), write_version);
@@ -369,7 +369,7 @@ pub async fn init(
                                                 .map(|(_, quantity)| quantity)
                                                 .fold(0, |acc, x| acc + x),
                                             mkt.1.base_decimals,
-                                            mkt.1.base_lot_size,
+                                            mkt.1.quote_decimals,
                                         ),
                                     ]
                                 })
@@ -394,7 +394,7 @@ pub async fn init(
 
                             bookside_cache.insert(side_pk_string.clone(), bookside.clone());
                         }
-                        Err(_) => info!("chain_cache could not find {}", mkt_pk),
+                        Err(_) => debug!("chain_cache could not find {}", mkt_pk),
                     }
                 }
             }
@@ -417,7 +417,7 @@ pub async fn init(
                                 continue;
                             }
                             last_write_versions.insert(side_pk_string.clone(), write_version);
-                            info!("W {}", mkt.1.name);
+                            debug!("W {}", mkt.1.name);
                             let account = &mut account_info.account.clone();
                             let data = account.data_as_mut_slice();
                             let len = data.len();
@@ -473,7 +473,7 @@ pub async fn init(
 
                             serum_bookside_cache.insert(side_pk_string.clone(), bookside);
                         }
-                        Err(_) => info!("chain_cache could not find {}", side_pk),
+                        Err(_) => debug!("chain_cache could not find {}", side_pk),
                     }
                 }
             }
