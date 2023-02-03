@@ -97,7 +97,7 @@ pub fn init(
                     Ok(account_info) => {
                         // only process if the account state changed
                         let evq_version = (account_info.slot, account_info.write_version);
-                        trace!("evq={evq_b58} write_version={:?}", evq_version);
+                        trace!("mango perp evq={evq_b58} write_version={:?}", evq_version);
                         if evq_version == *last_evq_version {
                             continue;
                         }
@@ -110,7 +110,6 @@ pub fn init(
                                 account.data().borrow_mut(),
                             )
                             .unwrap();
-                        trace!("evq={evq_b58} seq_num={}", event_queue.header.seq_num);
 
                         if !event_queue.empty() {
                             let mango_accounts: HashSet<_> = event_queue
@@ -157,6 +156,7 @@ pub fn init(
                                 ),
                             };
 
+                            info!("mango perp evq={evq_b58} count={} limit=10", event_queue.iter().count());
                             instruction_sender.send(vec![ix]).await;
                         }
                     }
@@ -172,11 +172,11 @@ pub fn init(
                     Ok(account_info) => {
                         // only process if the account state changed
                         let evq_version = (account_info.slot, account_info.write_version);
-                        trace!("evq={evq_b58} write_version={:?}", evq_version);
+                        trace!("serum evq={evq_b58} write_version={:?}", evq_version);
                         if evq_version == *last_evq_version {
                             continue;
                         }
-                        last_evq_versions.insert(evq_b58, evq_version);
+                        last_evq_versions.insert(evq_b58.clone(), evq_version);
 
                         let account = &account_info.account;
 
@@ -234,6 +234,7 @@ pub fn init(
                                 data: MarketInstruction::ConsumeEvents(count as u16).pack(),
                             };
 
+                            info!("serum evq={evq_b58} count={count}");
                             instruction_sender.send(vec![ix]).await;
                         }
                     }

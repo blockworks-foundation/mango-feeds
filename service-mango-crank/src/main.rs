@@ -112,6 +112,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .expect("init transaction builder");
 
+    // TODO: throttle cranking, currently runs very fast
+    // TODO: use real keypair from config / env
     transaction_sender::init(instruction_receiver, blockhash, rpc_client, Keypair::new());
 
     info!(

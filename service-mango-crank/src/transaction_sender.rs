@@ -1,3 +1,4 @@
+use log::*;
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
 use solana_sdk::{
     hash::Hash, instruction::Instruction, signature::Keypair, signature::Signer,
@@ -12,12 +13,14 @@ pub async fn send_loop(
     client: Arc<RpcClient>,
     keypair: Keypair,
 ) {
+    info!("signing with keypair pk={:?}", keypair.pubkey());
     let cfg = RpcSendTransactionConfig {
         skip_preflight: true,
         ..RpcSendTransactionConfig::default()
     };
     loop {
         if let Ok(ixs) = ixs_rx.recv().await {
+          // TODO add priority fee
             let tx = Transaction::new_signed_with_payer(
                 &ixs,
                 Some(&keypair.pubkey()),
@@ -25,6 +28,7 @@ pub async fn send_loop(
                 *blockhash.read().unwrap(),
             );
             // TODO: collect metrics
+            info!("send tx={:?}", tx.signatures[0]);
             client.send_transaction_with_config(&tx, cfg).await;
         }
     }
@@ -36,6 +40,5 @@ pub fn init(
     client: Arc<RpcClient>,
     keypair: Keypair,
 ) {
-    // launch task
-    spawn(async move { send_loop(ixs_rx, blockhash, client, keypair) });
+    spawn(async move { send_loop(ixs_rx, blockhash, client, keypair).await });
 }

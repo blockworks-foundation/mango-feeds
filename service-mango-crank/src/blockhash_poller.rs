@@ -38,7 +38,7 @@ pub async fn init(client: Arc<RpcClient>) -> Arc<RwLock<Hash>> {
     let join_hdl = {
         // create a thread-local reference to blockhash
         let blockhash_c = blockhash.clone();
-        spawn(async move { poll_loop(blockhash_c, client) })
+        spawn(async move { poll_loop(blockhash_c, client).await })
     };
 
     return blockhash;
