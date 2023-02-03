@@ -3,69 +3,21 @@ mod transaction_builder;
 mod transaction_sender;
 
 use anchor_client::{
-    solana_sdk::{account::Account, commitment_config::CommitmentConfig, signature::Keypair},
+    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
     Cluster,
 };
 use anchor_lang::prelude::Pubkey;
-use bytemuck::{bytes_of, cast_slice};
+use bytemuck::bytes_of;
 use client::{Client, MangoGroupContext};
-use futures_channel::mpsc::{unbounded, UnboundedSender};
-use futures_util::{
-    future::{self, Ready},
-    pin_mut, SinkExt, StreamExt, TryStreamExt,
-};
 use log::*;
-use solana_client::{nonblocking::blockhash_query, nonblocking::rpc_client::RpcClient};
-use std::{
-    collections::{HashMap, HashSet},
-    convert::identity,
-    fs::File,
-    io::Read,
-    net::SocketAddr,
-    str::FromStr,
-    sync::Arc,
-    sync::{atomic::AtomicBool, Mutex},
-    time::Duration,
-};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    pin, time,
-};
-use tokio_tungstenite::tungstenite::{protocol::Message, Error};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use std::{collections::HashSet, fs::File, io::Read, str::FromStr, sync::Arc, time::Duration};
 
 use serde::Deserialize;
+use solana_geyser_connector_lib::FilterConfig;
 use solana_geyser_connector_lib::{
-    fill_event_filter::{self, FillCheckpoint},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
 };
-use solana_geyser_connector_lib::{
-    metrics::{MetricType, MetricU64},
-    FilterConfig, StatusResponse,
-};
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "command")]
-pub enum Command {
-    #[serde(rename = "subscribe")]
-    Subscribe(SubscribeCommand),
-    #[serde(rename = "unsubscribe")]
-    Unsubscribe(UnsubscribeCommand),
-    #[serde(rename = "getMarkets")]
-    GetMarkets,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SubscribeCommand {
-    pub market_id: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UnsubscribeCommand {
-    pub market_id: String,
-}
-
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,
