@@ -1,4 +1,6 @@
-mod event_queue_filter;
+mod blockhash_poller;
+mod transaction_builder;
+mod transaction_sender;
 
 use anchor_client::{
     solana_sdk::{account::Account, commitment_config::CommitmentConfig, signature::Keypair},
@@ -13,6 +15,7 @@ use futures_util::{
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
+use solana_client::{nonblocking::blockhash_query, nonblocking::rpc_client::RpcClient};
 use std::{
     collections::{HashMap, HashSet},
     convert::identity,
@@ -21,7 +24,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::Mutex,
+    sync::{Mutex, atomic::AtomicBool},
     time::Duration,
 };
 use tokio::{
@@ -74,10 +77,12 @@ pub struct Config {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    solana_logger::setup_with_default("info");
+
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Please enter a config file path argument.");
+        error!("Please enter a config file path argument.");
         return Ok(());
     }
 
@@ -88,15 +93,11 @@ async fn main() -> anyhow::Result<()> {
         toml::from_str(&contents).unwrap()
     };
 
-    solana_logger::setup_with_default("info");
+    let rpc_client = Arc::new(RpcClient::new(config.rpc_http_url.clone()));
 
-    let metrics_tx = metrics::start(config.metrics, "fills".into());
+    let blockhash = blockhash_poller::init(rpc_client.clone()).await;
 
-    let metrics_opened_connections =
-        metrics_tx.register_u64("fills_feed_opened_connections".into(), MetricType::Counter);
-
-    let metrics_closed_connections =
-        metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Counter);
+    let metrics_tx = metrics::start(config.metrics, "crank".into());
 
     let rpc_url = config.rpc_http_url;
     let ws_url = rpc_url.replace("https", "wss");
@@ -122,6 +123,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
+    // fetch all serum/openbook markets to find their event queues
     let serum_market_pks: Vec<Pubkey> = group_context
         .serum3_markets
         .iter()
@@ -132,6 +134,7 @@ async fn main() -> anyhow::Result<()> {
         .rpc_async()
         .get_multiple_accounts(serum_market_pks.as_slice())
         .await?;
+
     let serum_market_ais: Vec<&Account> = serum_market_ais
         .iter()
         .filter_map(|maybe_ai| match maybe_ai {
@@ -154,37 +157,16 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let a: Vec<(String, String)> = group_context
-        .serum3_markets
-        .iter()
-        .map(|(_, context)| {
-            (
-                context.market.serum_market_external.to_string(),
-                context.market.name().to_owned(),
-            )
-        })
-        .collect();
-    let b: Vec<(String, String)> = group_context
-        .perp_markets
-        .iter()
-        .map(|(_, context)| {
-            (
-                context.address.to_string(),
-                context.market.name().to_owned(),
-            )
-        })
-        .collect();
-    let market_pubkey_strings: HashMap<String, String> = [a, b].concat().into_iter().collect();
-
-    let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
+    let (account_write_queue_sender, slot_queue_sender, instruction_receiver) = transaction_builder::init(
         perp_queue_pks.clone(),
         serum_queue_pks.clone(),
-        metrics_tx.clone(),
-    )
-    .await?;
+        metrics_tx.clone()
+    ).expect("init transaction builder");
+
+    transaction_sender::init(instruction_receiver, blockhash, rpc_client, Keypair::new());
 
     info!(
-        "rpc connect: {}",
+        "connect: {}",
         config
             .source
             .grpc_sources
