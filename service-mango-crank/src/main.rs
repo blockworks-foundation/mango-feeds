@@ -24,7 +24,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::{Mutex, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Mutex},
     time::Duration,
 };
 use tokio::{
@@ -35,12 +35,12 @@ use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
 use solana_geyser_connector_lib::{
-    metrics::{MetricType, MetricU64},
-    FilterConfig, StatusResponse,
-};
-use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
+};
+use solana_geyser_connector_lib::{
+    metrics::{MetricType, MetricU64},
+    FilterConfig, StatusResponse,
 };
 
 #[derive(Clone, Debug, Deserialize)]
@@ -109,10 +109,11 @@ async fn main() -> anyhow::Result<()> {
         &Keypair::new(),
         Some(rpc_timeout),
     );
+    let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(
             &client.rpc_async(),
-            Pubkey::from_str(&config.mango_group).unwrap(),
+            group_pk
         )
         .await?,
     );
@@ -157,11 +158,14 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
 
-    let (account_write_queue_sender, slot_queue_sender, instruction_receiver) = transaction_builder::init(
-        perp_queue_pks.clone(),
-        serum_queue_pks.clone(),
-        metrics_tx.clone()
-    ).expect("init transaction builder");
+    let (account_write_queue_sender, slot_queue_sender, instruction_receiver) =
+        transaction_builder::init(
+            perp_queue_pks.clone(),
+            serum_queue_pks.clone(),
+            group_pk,
+            metrics_tx.clone(),
+        )
+        .expect("init transaction builder");
 
     transaction_sender::init(instruction_receiver, blockhash, rpc_client, Keypair::new());
 

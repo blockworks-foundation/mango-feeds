@@ -1,4 +1,5 @@
 use crate::Pubkey;
+use bytemuck::cast_ref;
 use solana_geyser_connector_lib::{
     chain_data::{AccountData, ChainData, SlotData},
     metrics::Metrics,
@@ -10,19 +11,19 @@ use anchor_lang::AccountDeserialize;
 use log::*;
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
+    instruction::{Instruction, AccountMeta},
     stake_history::Epoch,
-    instruction::Instruction,
 };
 use std::{
     borrow::BorrowMut,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet}, iter::{once, empty},
+    convert::TryFrom
 };
-
-pub enum EventQueueFilterMessage {}
-
+ 
 pub fn init(
     perp_queue_pks: Vec<(Pubkey, Pubkey)>,
     serum_queue_pks: Vec<(Pubkey, Pubkey)>,
+    group_pk: Pubkey,
     metrics_sender: Metrics,
 ) -> anyhow::Result<(
     async_channel::Sender<AccountWrite>,
@@ -94,13 +95,14 @@ pub fn init(
 
             for mkt in all_queue_pks.iter() {
                 let last_evq_version = last_evq_versions.get(&mkt.1.to_string()).unwrap_or(&(0, 0));
-                let mkt_pk = mkt.1;
+                let mkt_pk = mkt.0;
+                let evq_pk = mkt.1;
 
-                match chain_cache.account(&mkt_pk) {
+                match chain_cache.account(&evq_pk) {
                     Ok(account_info) => {
                         // only process if the account state changed
                         let evq_version = (account_info.slot, account_info.write_version);
-                        let evq_pk_string = mkt.1.to_string();
+                        let evq_pk_string = evq_pk.to_string();
                         trace!("evq {} write_version {:?}", evq_pk_string, evq_version);
                         if evq_version == *last_evq_version {
                             continue;
@@ -110,7 +112,7 @@ pub fn init(
                         let account = &account_info.account;
                         let is_perp = mango_v4::check_id(account.owner());
                         if is_perp {
-                            let event_queue = mango_v4::state::EventQueue::try_deserialize(
+                            let event_queue: mango_v4::state::EventQueue = mango_v4::state::EventQueue::try_deserialize(
                                 account.data().borrow_mut(),
                             )
                             .unwrap();
@@ -119,6 +121,48 @@ pub fn init(
                                 evq_pk_string,
                                 event_queue.header.seq_num
                             );
+
+                            if !event_queue.empty() {
+                                let mango_accounts: HashSet<_> = event_queue.iter().take(10).flat_map(|e|  match mango_v4::state::EventType::try_from(e.event_type).expect("mango v4 event") {
+                                    mango_v4::state::EventType::Fill => {
+                                        let fill: &mango_v4::state::FillEvent = cast_ref(e);
+                                        vec![fill.maker, fill.taker]
+                                    }
+                                    mango_v4::state::EventType::Out => {
+                                        let out: &mango_v4::state::OutEvent = cast_ref(e);
+                                        vec![out.owner]
+                                    }
+                                    mango_v4::state::EventType::Liquidate => vec![]
+                                })
+                                .collect();
+
+                                let mut ams: Vec<_> = anchor_lang::ToAccountMetas::to_account_metas(
+                                    &mango_v4::accounts::PerpConsumeEvents {
+                                        group: group_pk,
+                                        perp_market: mkt_pk,
+                                        event_queue: evq_pk,
+                                    },
+                                    None,
+                                );
+
+                                ams.append(&mut mango_accounts
+                                    .iter()
+                                    .map(|pk| AccountMeta { pubkey: *pk, is_signer: false, is_writable: true })
+                                    .collect());
+
+                                let ix = Instruction {
+                                    program_id: mango_v4::id(),
+                                    accounts: ams,
+                                    data: anchor_lang::InstructionData::data(&mango_v4::instruction::PerpConsumeEvents {
+                                        limit: 10,
+                                    }),
+                                };
+
+                                instruction_sender.send(vec![ix]).await;
+                            }
+
+
+                            
                             match seq_num_cache.get(&evq_pk_string) {
                                 Some(old_seq_num) => match perp_events_cache.get(&evq_pk_string) {
                                     Some(old_events) => {}

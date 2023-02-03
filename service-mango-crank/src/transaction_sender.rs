@@ -1,9 +1,9 @@
-use std::sync::{Arc, RwLock};
 use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
 use solana_sdk::{
     hash::Hash, instruction::Instruction, signature::Keypair, signature::Signer,
     transaction::Transaction,
 };
+use std::sync::{Arc, RwLock};
 use tokio::spawn;
 
 pub async fn send_loop(

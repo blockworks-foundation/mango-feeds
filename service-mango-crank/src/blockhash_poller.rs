@@ -1,6 +1,6 @@
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::{clock::DEFAULT_MS_PER_SLOT, hash::Hash};
+use solana_sdk::{clock::DEFAULT_MS_PER_SLOT, commitment_config::CommitmentConfig, hash::Hash};
 use std::{
     sync::{Arc, RwLock},
     time::Duration,
@@ -10,9 +10,10 @@ use tokio::{spawn, time::sleep};
 const RETRY_INTERVAL: Duration = Duration::from_millis(5 * DEFAULT_MS_PER_SLOT);
 
 pub async fn poll_loop(blockhash: Arc<RwLock<Hash>>, client: Arc<RpcClient>) {
+    let cfg = CommitmentConfig::processed();
     loop {
         let old_blockhash = *blockhash.read().unwrap();
-        if let Ok(new_blockhash) = client.get_latest_blockhash().await {
+        if let Ok((new_blockhash, _)) = client.get_latest_blockhash_with_commitment(cfg).await {
             if new_blockhash != old_blockhash {
                 debug!("new blockhash ({:?})", blockhash);
                 *blockhash.write().unwrap() = new_blockhash;
