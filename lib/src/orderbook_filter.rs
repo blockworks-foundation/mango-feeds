@@ -126,18 +126,12 @@ pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, base_lot_size: i64) 
     res
 }
 
-pub fn price_lots_to_ui(
-    native: i64,
-    base_decimals: u8,
-    quote_decimals: u8,
-) -> f64 {
+pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
     let decimals = base_decimals - quote_decimals;
     // let res = native as f64
     //     * ((10u64.pow(decimals.into()) * quote_lot_size as u64) as f64 / base_lot_size as f64)
     //         as f64;
-    let res = native as f64
-        / (10u64.pow(decimals.into()))
-            as f64;
+    let res = native as f64 / (10u64.pow(decimals.into())) as f64;
     res
 }
 
@@ -158,7 +152,6 @@ pub fn price_lots_to_ui_perp(
     res
 }
 
-
 fn publish_changes(
     slot: u64,
     write_version: u64,
@@ -172,6 +165,13 @@ fn publish_changes(
 ) {
     let mut update: Vec<OrderbookLevel> = vec![];
     // push diff for levels that are no longer present
+    if current_bookside.len() != previous_bookside.len() {
+        info!(
+            "L {}",
+            current_bookside.len() as i64 - previous_bookside.len() as i64
+        )
+    }
+
     for previous_order in previous_bookside.iter() {
         let peer = current_bookside
             .iter()
@@ -179,7 +179,7 @@ fn publish_changes(
 
         match peer {
             None => {
-                info!("removed level {}", previous_order[0]);
+                info!("R {} {}", previous_order[0], previous_order[1]);
                 update.push([previous_order[0], 0f64]);
             }
             _ => continue,
@@ -197,11 +197,14 @@ fn publish_changes(
                 if previous_order[1] == current_order[1] {
                     continue;
                 }
-                info!("size changed {} -> {}", previous_order[1], current_order[1]);
+                info!(
+                    "C {} {} -> {}",
+                    current_order[0], previous_order[1], current_order[1]
+                );
                 update.push(current_order.clone());
             }
             None => {
-                info!("new level {},{}", current_order[0], current_order[1]);
+                info!("A {} {}", current_order[0], current_order[1]);
                 update.push(current_order.clone())
             }
         }
@@ -242,88 +245,6 @@ fn publish_changes(
     metric_updates.increment();
 }
 
-fn publish_changes_serum(
-    slot: u64,
-    write_version: u64,
-    mkt: &(Pubkey, MarketConfig),
-    side: OrderbookSide,
-    current_bookside: &Vec<OrderbookLevel>,
-    previous_bookside: &Vec<OrderbookLevel>,
-    maybe_other_bookside: Option<&Vec<OrderbookLevel>>,
-    orderbook_update_sender: &async_channel::Sender<OrderbookFilterMessage>,
-    metric_updates: &mut MetricU64,
-) {
-    let mut update: Vec<OrderbookLevel> = vec![];
-
-    // push diff for levels that are no longer present
-    for previous_order in previous_bookside.iter() {
-        let peer = current_bookside
-            .iter()
-            .find(|level| previous_order[0] == level[0]);
-
-        match peer {
-            None => {
-                info!("removed level s {}", previous_order[0]);
-                update.push([previous_order[0], 0f64]);
-            }
-            _ => continue,
-        }
-    }
-
-    // push diff where there's a new level or size has changed
-    for current_order in current_bookside {
-        let peer = previous_bookside
-            .iter()
-            .find(|item| item[0] == current_order[0]);
-
-        match peer {
-            Some(previous_order) => {
-                if previous_order[1] == current_order[1] {
-                    continue;
-                }
-                info!("size changed {} -> {}", previous_order[1], current_order[1]);
-                update.push(current_order.clone());
-            }
-            None => {
-                info!("new level {},{}", current_order[0], current_order[1]);
-                update.push(current_order.clone())
-            }
-        }
-    }
-
-    match maybe_other_bookside {
-        Some(other_bookside) => {
-            let (bids, asks) = match side {
-                OrderbookSide::Bid => (current_bookside, other_bookside),
-                OrderbookSide::Ask => (other_bookside, current_bookside),
-            };
-            orderbook_update_sender
-                .try_send(OrderbookFilterMessage::Checkpoint(OrderbookCheckpoint {
-                    slot,
-                    write_version,
-                    bids: bids.clone(),
-                    asks: asks.clone(),
-                    market: mkt.0.to_string(),
-                }))
-                .unwrap()
-        }
-        None => info!("other bookside not in cache"),
-    }
-
-    if update.len() > 0 {
-        orderbook_update_sender
-            .try_send(OrderbookFilterMessage::Update(OrderbookUpdate {
-                market: mkt.0.to_string(),
-                side: side.clone(),
-                update,
-                slot,
-                write_version,
-            }))
-            .unwrap(); // TODO: use anyhow to bubble up error
-        metric_updates.increment();
-    }
-}
-
 pub async fn init(
     market_configs: Vec<(Pubkey, MarketConfig)>,
     serum_market_configs: Vec<(Pubkey, MarketConfig)>,
@@ -352,7 +273,7 @@ pub async fn init(
 
     let account_write_queue_receiver_c = account_write_queue_receiver.clone();
 
-    let mut chain_cache = ChainData::new();
+    let mut chain_cache = ChainData::new(metrics_sender);
     let mut bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
     let mut serum_bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
     let mut last_write_versions = HashMap::<String, (u64, u64)>::new();
@@ -412,7 +333,7 @@ pub async fn init(
 
                             let write_version = (account_info.slot, account_info.write_version);
                             // todo: should this be <= so we don't overwrite with old data received late?
-                            if write_version == *last_write_version {
+                            if write_version <= *last_write_version {
                                 continue;
                             }
                             last_write_versions.insert(side_pk_string.clone(), write_version);
@@ -492,11 +413,11 @@ pub async fn init(
 
                             let write_version = (account_info.slot, account_info.write_version);
                             // todo: should this be <= so we don't overwrite with old data received late?
-                            if write_version == *last_write_version {
+                            if write_version <= *last_write_version {
                                 continue;
                             }
                             last_write_versions.insert(side_pk_string.clone(), write_version);
-
+                            info!("W {}", mkt.1.name);
                             let account = &mut account_info.account.clone();
                             let data = account.data_as_mut_slice();
                             let len = data.len();
@@ -532,7 +453,7 @@ pub async fn init(
                                 serum_bookside_cache.get(&other_side_pk.to_string());
 
                             match serum_bookside_cache.get(&side_pk_string) {
-                                Some(old_bookside) => publish_changes_serum(
+                                Some(old_bookside) => publish_changes(
                                     account_info.slot,
                                     account_info.write_version,
                                     mkt,

@@ -33,7 +33,7 @@ pub async fn init(
         async_channel::unbounded::<EventQueueFilterMessage>();
 
 
-    let mut chain_cache = ChainData::new();
+    let mut chain_cache = ChainData::new(metrics_sender);
     let mut perp_events_cache = HashMap::<String, [mango_v4::state::AnyEvent; mango_v4::state::MAX_NUM_EVENTS as usize]>::new();
     let mut serum_events_cache = HashMap::<String, Vec<serum_dex::state::Event>>::new();
     let mut seq_num_cache = HashMap::<String, u64>::new();

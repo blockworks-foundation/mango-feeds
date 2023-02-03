@@ -23,6 +23,7 @@ async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 bytemuck = "1.7.2"
+jemallocator = "0.3.2"
 
 mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
 client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }

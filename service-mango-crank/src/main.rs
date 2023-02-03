@@ -32,7 +32,6 @@ use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
 use solana_geyser_connector_lib::{
-    fill_event_filter::SerumFillCheckpoint,
     metrics::{MetricType, MetricU64},
     FilterConfig, StatusResponse,
 };
@@ -40,9 +39,6 @@ use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint},
     grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
 };
-
-type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
-type SerumCheckpointMap = Arc<Mutex<HashMap<String, SerumFillCheckpoint>>>;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "command")]
@@ -197,11 +193,11 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
+    let all_queue_pks = [perp_queue_pks.clone(), serum_queue_pks.clone()].concat();
+    let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
     let filter_config = FilterConfig {
-        program_ids: vec![
-            "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
-            "srmqPvymJeFKQ4zGQed1GFppgkRHL9kaELCbyksJtPX".into(),
-        ],
+        program_ids: vec![],
+        account_ids: relevant_pubkeys,
     };
     if use_geyser {
         grpc_plugin_source::process_events(

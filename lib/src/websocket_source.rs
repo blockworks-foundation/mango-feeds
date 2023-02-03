@@ -6,9 +6,7 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{OptionalContext, Response, RpcKeyedAccount},
 };
-use solana_rpc::{
-    rpc::rpc_accounts::AccountsDataClient, rpc_pubsub::RpcSolPubSubClient,
-};
+use solana_rpc::{rpc::rpc_accounts::AccountsDataClient, rpc_pubsub::RpcSolPubSubClient};
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use log::*;

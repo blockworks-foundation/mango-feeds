@@ -119,7 +119,9 @@ fn start_pnl_updater(
                 }
 
                 let pnl_vals =
-                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account).await.unwrap();
+                    compute_pnl(context.clone(), account_fetcher.clone(), &mango_account)
+                        .await
+                        .unwrap();
 
                 // Alternatively, we could prepare the sorted and limited lists for each
                 // market here. That would be faster and cause less contention on the pnl_data
@@ -247,10 +249,13 @@ async fn main() -> anyhow::Result<()> {
         &Keypair::new(),
         Some(rpc_timeout),
     );
-    let group_context = Arc::new(MangoGroupContext::new_from_rpc(
-        &client.rpc_async(),
-        Pubkey::from_str(&config.pnl.mango_group).unwrap(),
-    ).await?);
+    let group_context = Arc::new(
+        MangoGroupContext::new_from_rpc(
+            &client.rpc_async(),
+            Pubkey::from_str(&config.pnl.mango_group).unwrap(),
+        )
+        .await?,
+    );
     let chain_data = Arc::new(RwLock::new(chain_data::ChainData::new()));
     let account_fetcher = Arc::new(chain_data::AccountFetcher {
         chain_data: chain_data.clone(),
@@ -265,7 +270,7 @@ async fn main() -> anyhow::Result<()> {
         metrics_tx.register_u64("pnl_jsonrpc_reqs_invalid_total".into(), MetricType::Counter);
     let metrics_pnls_tracked = metrics_tx.register_u64("pnl_num_tracked".into(), MetricType::Gauge);
 
-    let chain_data = Arc::new(RwLock::new(ChainData::new()));
+    let chain_data = Arc::new(RwLock::new(ChainData::new(metrics_tx.clone())));
     let pnl_data = Arc::new(RwLock::new(PnlData::new()));
 
     start_pnl_updater(
@@ -288,9 +293,8 @@ async fn main() -> anyhow::Result<()> {
     // start filling chain_data from the grpc plugin source
     let (account_write_queue_sender, slot_queue_sender) = memory_target::init(chain_data).await?;
     let filter_config = FilterConfig {
-        program_ids: vec![
-            "4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into(),
-        ],
+        program_ids: vec!["4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into()],
+        account_ids: vec![],
     };
     grpc_plugin_source::process_events(
         &config.source,
