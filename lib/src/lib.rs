@@ -6,6 +6,7 @@ pub mod memory_target;
 pub mod metrics;
 pub mod postgres_target;
 pub mod postgres_types_numeric;
+pub mod serum;
 pub mod websocket_source;
 
 pub use chain_data::SlotStatus;

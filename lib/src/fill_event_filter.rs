@@ -1,9 +1,8 @@
 use crate::{
     chain_data::{AccountData, ChainData, SlotData},
     metrics::{MetricType, Metrics},
-    AccountWrite, SlotUpdate,
+    AccountWrite, SlotUpdate, serum::SerumEventQueueHeader,
 };
-use bytemuck::{Pod, Zeroable};
 use log::*;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serum_dex::state::EventView;
@@ -49,17 +48,6 @@ pub struct SerumFillUpdate {
     pub slot: u64,
     pub write_version: u64,
 }
-
-#[derive(Copy, Clone, Debug)]
-#[repr(packed)]
-pub struct SerumEventQueueHeader {
-    _account_flags: u64, // Initialized, EventQueue
-    _head: u64,
-    count: u64,
-    seq_num: u64,
-}
-unsafe impl Zeroable for SerumEventQueueHeader {}
-unsafe impl Pod for SerumEventQueueHeader {}
 
 impl Serialize for FillUpdate {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
