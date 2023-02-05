@@ -113,7 +113,6 @@ async fn main() -> anyhow::Result<()> {
         )
         .expect("init transaction builder");
 
-    // TODO: throttle cranking, currently runs very fast
     transaction_sender::init(
         instruction_receiver,
         blockhash,
