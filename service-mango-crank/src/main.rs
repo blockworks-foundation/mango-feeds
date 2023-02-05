@@ -25,6 +25,7 @@ pub struct Config {
     pub bind_ws_addr: String,
     pub rpc_http_url: String,
     pub mango_group: String,
+    pub keypair: Vec<u8>,
 }
 
 #[tokio::main]
@@ -32,7 +33,6 @@ async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
 
     let args: Vec<String> = std::env::args().collect();
-
     if args.len() < 2 {
         error!("Please enter a config file path argument.");
         return Ok(());
@@ -60,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::processed(),
         &Keypair::new(),
         Some(rpc_timeout),
-        0
+        0,
     );
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
     let group_context =
@@ -114,8 +114,12 @@ async fn main() -> anyhow::Result<()> {
         .expect("init transaction builder");
 
     // TODO: throttle cranking, currently runs very fast
-    // TODO: use real keypair from config / env
-    transaction_sender::init(instruction_receiver, blockhash, rpc_client, Keypair::new());
+    transaction_sender::init(
+        instruction_receiver,
+        blockhash,
+        rpc_client,
+        Keypair::from_bytes(&config.keypair).expect("valid keyair in config"),
+    );
 
     info!(
         "connect: {}",
