@@ -77,7 +77,6 @@ pub struct FillEvent {
     pub timestamp: u64,
     pub seq_num: u64,
     pub owner: String,
-    pub order_id: u128,
     pub client_order_id: u64,
     pub fee: f32,
     pub price: f64,
@@ -101,7 +100,6 @@ impl Serialize for FillEvent {
         )?;
         state.serialize_field("seqNum", &self.seq_num)?;
         state.serialize_field("owner", &self.owner)?;
-        state.serialize_field("orderId", &self.order_id)?;
         state.serialize_field("clientOrderId", &self.client_order_id)?;
         state.serialize_field("fee", &self.fee)?;
         state.serialize_field("price", &self.price)?;
@@ -137,9 +135,8 @@ impl FillEvent {
                 timestamp: event.timestamp,
                 seq_num: event.seq_num,
                 owner: event.maker.to_string(),
-                order_id: event.maker_order_id,
-                client_order_id: 0u64,
-                fee: event.maker_fee.to_num(),
+                client_order_id: event.maker_client_order_id,
+                fee: event.maker_fee,
                 price: price,
                 quantity: quantity,
             },
@@ -150,9 +147,8 @@ impl FillEvent {
                 timestamp: event.timestamp,
                 seq_num: event.seq_num,
                 owner: event.taker.to_string(),
-                order_id: event.taker_order_id,
                 client_order_id: event.taker_client_order_id,
-                fee: event.taker_fee.to_num(),
+                fee: event.taker_fee,
                 price: price,
                 quantity: quantity,
             },
@@ -171,7 +167,6 @@ impl FillEvent {
                 native_qty_paid,
                 native_qty_received,
                 native_fee_or_rebate,
-                order_id,
                 owner,
                 client_order_id,
                 ..
@@ -227,7 +222,6 @@ impl FillEvent {
                     timestamp,
                     seq_num,
                     owner: Pubkey::new(cast_slice(&identity(owner) as &[_])).to_string(),
-                    order_id: order_id,
                     client_order_id: client_order_id,
                     fee,
                     price,
@@ -524,8 +518,14 @@ fn publish_changes_serum(
                 }
 
                 match old_event_view {
-                    SpotEvent::Fill { order_id, .. } => {
-                        if order_id != fill.order_id {
+                    SpotEvent::Fill {
+                        client_order_id, ..
+                    } => {
+                        let client_order_id = match client_order_id {
+                            Some(id) => id.into(),
+                            None => 0u64,
+                        };
+                        if client_order_id != fill.client_order_id {
                             debug!(
                                 "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
                                 mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num

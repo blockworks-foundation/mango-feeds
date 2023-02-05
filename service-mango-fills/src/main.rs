@@ -300,6 +300,7 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::processed(),
         &Keypair::new(),
         Some(rpc_timeout),
+        0,
     );
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(
