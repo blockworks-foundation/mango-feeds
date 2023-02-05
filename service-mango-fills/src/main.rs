@@ -1,9 +1,8 @@
 use anchor_client::{
-    solana_sdk::{account::Account, commitment_config::CommitmentConfig, signature::Keypair},
+    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
     Cluster,
 };
 use anchor_lang::prelude::Pubkey;
-use bytemuck::cast_slice;
 use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
@@ -13,7 +12,6 @@ use futures_util::{
 use log::*;
 use std::{
     collections::{HashMap, HashSet},
-    convert::identity,
     fs::File,
     io::Read,
     net::SocketAddr,
@@ -30,8 +28,11 @@ use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
 use solana_geyser_connector_lib::{
+    fill_event_filter::FillEventType,
+    fill_event_postgres_target,
     metrics::{MetricType, MetricU64},
-    FilterConfig, StatusResponse,
+    orderbook_filter::MarketConfig,
+    FilterConfig, PostgresConfig, PostgresTlsConfig, StatusResponse,
 };
 use solana_geyser_connector_lib::{
     fill_event_filter::{self, FillCheckpoint, FillEventFilterMessage},
@@ -299,6 +300,7 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::processed(),
         &Keypair::new(),
         Some(rpc_timeout),
+        0,
     );
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(
@@ -308,44 +310,70 @@ async fn main() -> anyhow::Result<()> {
         .await?,
     );
 
+    // todo: reload markets at intervals
+    let perp_market_configs: Vec<(Pubkey, MarketConfig)> = group_context
+        .perp_markets
+        .iter()
+        .map(|(_, context)| {
+            let quote_decimals = match group_context.tokens.get(&context.market.settle_token_index)
+            {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market"), // todo: default to 6 for usdc?
+            };
+            (
+                context.address,
+                MarketConfig {
+                    name: context.market.name().to_owned(),
+                    bids: context.market.bids,
+                    asks: context.market.asks,
+                    event_queue: context.market.event_queue,
+                    base_decimals: context.market.base_decimals,
+                    quote_decimals,
+                    base_lot_size: context.market.base_lot_size,
+                    quote_lot_size: context.market.quote_lot_size,
+                },
+            )
+        })
+        .collect();
+
+    let spot_market_configs: Vec<(Pubkey, MarketConfig)> = group_context
+        .serum3_markets
+        .iter()
+        .map(|(_, context)| {
+            let base_decimals = match group_context.tokens.get(&context.market.base_token_index) {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market"), // todo: default?
+            };
+            let quote_decimals = match group_context.tokens.get(&context.market.quote_token_index) {
+                Some(token) => token.decimals,
+                None => panic!("token not found for market"), // todo: default to 6 for usdc?
+            };
+            (
+                context.market.serum_market_external,
+                MarketConfig {
+                    name: context.market.name().to_owned(),
+                    bids: context.bids,
+                    asks: context.asks,
+                    event_queue: context.event_q,
+                    base_decimals,
+                    quote_decimals,
+                    base_lot_size: context.pc_lot_size as i64,
+                    quote_lot_size: context.coin_lot_size as i64,
+                },
+            )
+        })
+        .collect();
+
     let perp_queue_pks: Vec<(Pubkey, Pubkey)> = group_context
         .perp_markets
         .iter()
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
-    let serum_market_pks: Vec<Pubkey> = group_context
-        .serum3_markets
+    let spot_queue_pks: Vec<(Pubkey, Pubkey)> = spot_market_configs
         .iter()
-        .map(|(_, context)| context.market.serum_market_external)
+        .map(|x| (x.0, x.1.event_queue))
         .collect();
-
-    let serum_market_ais = client
-        .rpc_async()
-        .get_multiple_accounts(serum_market_pks.as_slice())
-        .await?;
-    let serum_market_ais: Vec<&Account> = serum_market_ais
-        .iter()
-        .filter_map(|maybe_ai| match maybe_ai {
-            Some(ai) => Some(ai),
-            None => None,
-        })
-        .collect();
-
-    let serum_queue_pks: Vec<(Pubkey, Pubkey)> = serum_market_ais
-        .iter()
-        .enumerate()
-        .map(|pair| {
-            let market_state: serum_dex::state::MarketState = *bytemuck::from_bytes(
-                &pair.1.data[5..5 + std::mem::size_of::<serum_dex::state::MarketState>()],
-            );
-            (
-                serum_market_pks[pair.0],
-                Pubkey::new(cast_slice(&identity(market_state.event_q) as &[_])),
-            )
-        })
-        .collect();
-
     let a: Vec<(String, String)> = group_context
         .serum3_markets
         .iter()
@@ -368,9 +396,28 @@ async fn main() -> anyhow::Result<()> {
         .collect();
     let market_pubkey_strings: HashMap<String, String> = [a, b].concat().into_iter().collect();
 
+    // TODO: read all this from config
+    let pgconf = PostgresConfig {
+        connection_string: "$PG_CONNECTION_STRING".to_owned(),
+        connection_count: 1,
+        max_batch_size: 1,
+        max_queue_size: 50_000,
+        retry_query_max_count: 10,
+        retry_query_sleep_secs: 2,
+        retry_connection_sleep_secs: 10,
+        fatal_connection_timeout_secs: 120,
+        allow_invalid_certs: true,
+        tls: Some(PostgresTlsConfig {
+            ca_cert_path: "$PG_CA_CERT".to_owned(),
+            client_key_path: "$PG_CLIENT_KEY".to_owned(),
+        }),
+    };
+    let postgres_update_sender =
+        fill_event_postgres_target::init(&pgconf, metrics_tx.clone()).await?;
+
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
-        perp_queue_pks.clone(),
-        serum_queue_pks.clone(),
+        perp_market_configs.clone(),
+        spot_market_configs.clone(),
         metrics_tx.clone(),
     )
     .await?;
@@ -389,18 +436,35 @@ async fn main() -> anyhow::Result<()> {
             let message = fill_receiver.recv().await.unwrap();
             match message {
                 FillEventFilterMessage::Update(update) => {
-                    debug!("ws update {} {:?} {:?} fill", update.market, update.status, update.event.event_type);
+                    debug!(
+                        "ws update {} {:?} {:?} fill",
+                        update.market_name, update.status, update.event.event_type
+                    );
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
-                        let json = serde_json::to_string(&update).unwrap();
+                        let json = serde_json::to_string(&update.clone()).unwrap();
 
                         // only send updates if the peer is subscribed
-                        if peer.subscriptions.contains(&update.market) {
+                        if peer.subscriptions.contains(&update.market_key) {
                             let result = peer.sender.send(Message::Text(json)).await;
                             if result.is_err() {
-                                error!("ws update {} fill could not reach {}", update.market, addr);
+                                error!(
+                                    "ws update {} fill could not reach {}",
+                                    update.market_name, addr
+                                );
                             }
                         }
+                    }
+                    // send taker fills to db
+                    let update_c = update.clone();
+                    match update_c.event.event_type {
+                        FillEventType::Perp => {
+                            if !update_c.event.maker {
+                                debug!("{:?}", update_c);
+                                postgres_update_sender.send(update_c).await.unwrap();
+                            }
+                        }
+                        _ => warn!("failed to write spot event to db"),
                     }
                 }
                 FillEventFilterMessage::Checkpoint(checkpoint) => {
@@ -461,7 +525,7 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
-    let all_queue_pks = [perp_queue_pks.clone(), serum_queue_pks.clone()].concat();
+    let all_queue_pks = [perp_queue_pks.clone()].concat();
     let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
     let filter_config = FilterConfig {
         program_ids: vec![],

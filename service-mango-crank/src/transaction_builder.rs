@@ -111,7 +111,7 @@ pub fn init(
                             )
                             .unwrap();
 
-                        if !event_queue.empty() {
+                        if !event_queue.is_empty() {
                             let mango_accounts: BTreeSet<_> = event_queue
                                 .iter()
                                 .take(10)

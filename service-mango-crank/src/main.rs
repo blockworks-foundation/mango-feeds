@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
         CommitmentConfig::processed(),
         &Keypair::new(),
         Some(rpc_timeout),
+        0
     );
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
     let group_context =

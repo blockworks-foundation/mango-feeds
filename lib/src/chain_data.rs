@@ -55,18 +55,14 @@ impl ChainData {
             newest_processed_slot: 0,
             account_versions_stored: 0,
             account_bytes_stored: 0,
-            metric_accounts_stored: metrics_sender.register_u64(
-                "chaindata_accounts_stored".into(),
-                MetricType::Gauge,
-            ),
+            metric_accounts_stored: metrics_sender
+                .register_u64("chaindata_accounts_stored".into(), MetricType::Gauge),
             metric_account_versions_stored: metrics_sender.register_u64(
                 "chaindata_account_versions_stored".into(),
                 MetricType::Gauge,
             ),
-            metric_account_bytes_stored: metrics_sender.register_u64(
-                "chaindata_account_bytes_stored".into(),
-                MetricType::Gauge,
-            ),
+            metric_account_bytes_stored: metrics_sender
+                .register_u64("chaindata_account_bytes_stored".into(), MetricType::Gauge),
         }
     }
 
