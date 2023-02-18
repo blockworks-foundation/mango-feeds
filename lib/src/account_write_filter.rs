@@ -6,7 +6,6 @@ use crate::{
 
 use anchor_lang::prelude::Pubkey;
 use async_trait::async_trait;
-use log::*;
 use solana_sdk::{account::WritableAccount, stake_history::Epoch};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -119,7 +118,7 @@ pub fn init(
                                         },
                                     );
                                 }
-                                Err(skip_reason) => {
+                                Err(_skip_reason) => {
                                     // todo: metrics
                                 }
                             }

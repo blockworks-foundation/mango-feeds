@@ -17,7 +17,6 @@ use solana_sdk::{
 };
 
 use bytemuck::cast_ref;
-use mango_v4::state::FillEvent;
 
 use anchor_lang::AccountDeserialize;
 

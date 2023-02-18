@@ -28,8 +28,7 @@ pub async fn send_loop(
                 *blockhash.read().unwrap(),
             );
             // TODO: collect metrics
-            info!("send tx={:?}", tx.signatures[0]);
-            client.send_transaction_with_config(&tx, cfg).await;
+            info!("send tx={:?} ok={:?}", tx.signatures[0], client.send_transaction_with_config(&tx, cfg).await);
         }
     }
 }

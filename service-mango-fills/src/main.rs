@@ -370,10 +370,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
-    let spot_queue_pks: Vec<(Pubkey, Pubkey)> = spot_market_configs
-        .iter()
-        .map(|x| (x.0, x.1.event_queue))
-        .collect();
+
     let a: Vec<(String, String)> = group_context
         .serum3_markets
         .iter()

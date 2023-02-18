@@ -1,35 +1,15 @@
-use bytemuck::cast_ref;
-use mango_v4::state::FillEvent;
-use serum_dex::{instruction::MarketInstruction, state::EventView};
 use solana_geyser_connector_lib::{
     account_write_filter::{self, AccountWriteRoute},
-    chain_data::{AccountData, ChainData, SlotData},
     metrics::Metrics,
-    serum::SerumEventQueueHeader,
     AccountWrite, SlotUpdate,
 };
 
-use anchor_lang::AccountDeserialize;
-use log::*;
-use solana_sdk::{
-    account::{ReadableAccount, WritableAccount},
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
-    stake_history::Epoch,
-};
-use std::{
-    borrow::BorrowMut,
-    collections::{BTreeSet, HashMap, HashSet},
-    convert::TryFrom,
-    str::FromStr,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
+use std::{sync::Arc, time::Duration};
 
-use crate::{openbook_crank_sink::OpenbookCrankSink, mango_v4_perp_crank_sink::MangoV4PerpCrankSink};
-
-const MAX_BACKLOG: usize = 2;
-const TIMEOUT_INTERVAL: Duration = Duration::from_millis(400);
+use crate::{
+    mango_v4_perp_crank_sink::MangoV4PerpCrankSink, openbook_crank_sink::OpenbookCrankSink,
+};
 
 pub fn init(
     perp_queue_pks: Vec<(Pubkey, Pubkey)>,
