@@ -1,5 +1,5 @@
 [package]
-name = "solana-geyser-connector-lib"
+name = "solana-geyser-connector-data-streams"
 version = "0.1.0"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
@@ -8,8 +8,6 @@ edition = "2021"
 
 
 [dependencies]
-solana-geyser-connector-data-streams = { file = "0.1.0", path = "../data-streams" }
-
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
@@ -18,23 +16,15 @@ solana-client = "~1.14.9"
 solana-account-decoder = "~1.14.9"
 solana-sdk = "~1.14.9"
 
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev", features = ["client"] }
 arrayref = "*"
 bytemuck = "*"
 fixed = { version = "*", features = ["serde"] }
 
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"
-tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
-tokio-postgres-rustls = "0.9.0"
-postgres-types = { version = "0.2", features = ["array-impls", "derive", "with-chrono-0_4"] }
-postgres-native-tls = "0.5"
 native-tls = "0.2"
 rustls = "0.20.8"
 rustls-pemfile = "1.0.2"
-
-# postgres_query hasn't updated its crate in a while
-postgres_query = { git = "https://github.com/nolanderc/rust-postgres-query", rev = "b4422051c8a31fbba4a35f88004c1cefb1878dd5" }
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
@@ -61,10 +51,6 @@ async-channel = "1.6"
 async-trait = "0.1"
 
 warp = "0.3"
-
-anchor-lang = "0.25.0"
-
-serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = ["compression"] }

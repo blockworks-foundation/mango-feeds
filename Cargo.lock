@@ -5844,6 +5844,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-geyser-connector-data-streams"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arrayref",
+ "async-channel",
+ "async-stream 0.2.1",
+ "async-trait",
+ "base64 0.9.3",
+ "bs58 0.3.1",
+ "bytemuck",
+ "bytes 1.4.0",
+ "chrono",
+ "fixed",
+ "futures 0.3.26",
+ "futures-core",
+ "futures-util",
+ "itertools 0.10.5",
+ "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-core-client",
+ "log 0.4.17",
+ "native-tls",
+ "prost 0.9.0",
+ "rand 0.7.3",
+ "rustls 0.20.8",
+ "rustls-pemfile 1.0.2",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-rpc",
+ "solana-sdk",
+ "tokio",
+ "tokio-stream",
+ "tonic 0.6.2",
+ "tonic-build 0.6.2",
+ "warp",
+]
+
+[[package]]
 name = "solana-geyser-connector-lib"
 version = "0.1.0"
 dependencies = [
@@ -5881,6 +5922,7 @@ dependencies = [
  "serum_dex 0.5.10 (git+https://github.com/jup-ag/openbook-program?branch=feat/expose-things)",
  "solana-account-decoder",
  "solana-client",
+ "solana-geyser-connector-data-streams",
  "solana-rpc",
  "solana-sdk",
  "tokio",

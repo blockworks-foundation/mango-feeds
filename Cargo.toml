@@ -1,5 +1,6 @@
 [workspace]
 members = [
+        "data-streams",
         "lib",
         "service-mango-crank",
         "service-mango-fills",

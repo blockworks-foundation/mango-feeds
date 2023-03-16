@@ -4,9 +4,8 @@ use crate::{
     AccountWrite, SlotUpdate,
 };
 
-use anchor_lang::prelude::Pubkey;
 use async_trait::async_trait;
-use solana_sdk::{account::WritableAccount, stake_history::Epoch};
+use solana_sdk::{account::WritableAccount, stake_history::Epoch, pubkey::Pubkey};
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,

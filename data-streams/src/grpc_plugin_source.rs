@@ -37,7 +37,7 @@ pub use solana::storage::confirmed_block::*;
 use crate::FilterConfig;
 use crate::{
     metrics::{MetricType, Metrics},
-    AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotStatus, SlotUpdate, SnapshotSourceConfig,
+    AccountWrite, AnyhowWrap, GrpcSourceConfig, chain_data::SlotStatus, SlotUpdate, SnapshotSourceConfig,
     SourceConfig, TlsConfig,
 };
 
