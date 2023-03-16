@@ -403,7 +403,13 @@ pub async fn process_events(
         let f = filter_config.clone();
 
         // Make TLS config if configured
-        let tls_config = grpc_source.tls.as_ref().map(make_tls_config);
+        let tls_config = grpc_source.tls.as_ref().map(make_tls_config).or_else(|| {
+            if grpc_source.connection_string.starts_with(&"https") {
+                Some(ClientTlsConfig::new())
+            } else {
+                None
+            }
+        });
 
         tokio::spawn(async move {
             let mut metric_retries = metrics_sender.register_u64(
