@@ -370,7 +370,6 @@ async fn main() -> anyhow::Result<()> {
         .map(|(_, context)| (context.address, context.market.event_queue))
         .collect();
 
-
     let a: Vec<(String, String)> = group_context
         .serum3_markets
         .iter()

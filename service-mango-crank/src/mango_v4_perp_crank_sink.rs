@@ -29,7 +29,11 @@ pub struct MangoV4PerpCrankSink {
 }
 
 impl MangoV4PerpCrankSink {
-    pub fn new(pks: Vec<(Pubkey, Pubkey)>, group_pk: Pubkey, instruction_sender: Sender<Vec<Instruction>>) -> Self {
+    pub fn new(
+        pks: Vec<(Pubkey, Pubkey)>,
+        group_pk: Pubkey,
+        instruction_sender: Sender<Vec<Instruction>>,
+    ) -> Self {
         Self {
             pks: pks.iter().map(|e| e.clone()).collect(),
             group_pk,
@@ -52,7 +56,7 @@ impl AccountWriteSink for MangoV4PerpCrankSink {
             .is_some();
         let has_backlog = event_queue.iter().count() > MAX_BACKLOG;
         if !contains_fill_events && !has_backlog {
-            return Err("throttled".into())
+            return Err("throttled".into());
         }
 
         let mango_accounts: BTreeSet<_> = event_queue
@@ -100,10 +104,7 @@ impl AccountWriteSink for MangoV4PerpCrankSink {
             }),
         };
 
-        info!(
-            "evq={pk:?} count={} limit=10",
-            event_queue.iter().count()
-        );
+        info!("evq={pk:?} count={} limit=10", event_queue.iter().count());
 
         if let Err(e) = self.instruction_sender.send(vec![ix]).await {
             return Err(e.to_string());

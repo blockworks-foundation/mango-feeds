@@ -102,7 +102,7 @@ impl AccountWriteSink for OpenbookCrankSink {
 
         info!("evq={pk:?} count={count}");
         if let Err(e) = self.instruction_sender.send(vec![ix]).await {
-          return Err(e.to_string())
+            return Err(e.to_string());
         }
 
         Ok(())

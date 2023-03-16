@@ -5,7 +5,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use solana_sdk::{account::WritableAccount, stake_history::Epoch, pubkey::Pubkey};
+use solana_sdk::{account::WritableAccount, pubkey::Pubkey, stake_history::Epoch};
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,

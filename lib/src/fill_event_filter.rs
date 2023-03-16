@@ -2,9 +2,10 @@ use crate::{
     chain_data::{AccountData, ChainData, SlotData},
     metrics::{MetricType, Metrics},
     orderbook_filter::{base_lots_to_ui_perp, price_lots_to_ui_perp, MarketConfig, OrderbookSide},
-    AccountWrite, SlotUpdate, serum::SerumEventQueueHeader,
+    serum::SerumEventQueueHeader,
+    AccountWrite, SlotUpdate,
 };
-use bytemuck::{cast_slice};
+use bytemuck::cast_slice;
 use chrono::{TimeZone, Utc};
 use log::*;
 use serde::{ser::SerializeStruct, Serialize, Serializer};

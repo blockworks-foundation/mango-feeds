@@ -36,9 +36,10 @@ pub use solana::storage::confirmed_block::*;
 
 use crate::FilterConfig;
 use crate::{
+    chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
-    AccountWrite, AnyhowWrap, GrpcSourceConfig, chain_data::SlotStatus, SlotUpdate, SnapshotSourceConfig,
-    SourceConfig, TlsConfig,
+    AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
+    TlsConfig,
 };
 
 //use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;

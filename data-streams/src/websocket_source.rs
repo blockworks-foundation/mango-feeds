@@ -16,7 +16,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{AccountWrite, AnyhowWrap, chain_data::SlotStatus, SlotUpdate, SourceConfig};
+use crate::{chain_data::SlotStatus, AccountWrite, AnyhowWrap, SlotUpdate, SourceConfig};
 
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),

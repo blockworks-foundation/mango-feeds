@@ -20,7 +20,7 @@ pub async fn send_loop(
     };
     loop {
         if let Ok(ixs) = ixs_rx.recv().await {
-          // TODO add priority fee
+            // TODO add priority fee
             let tx = Transaction::new_signed_with_payer(
                 &ixs,
                 Some(&keypair.pubkey()),
@@ -28,7 +28,11 @@ pub async fn send_loop(
                 *blockhash.read().unwrap(),
             );
             // TODO: collect metrics
-            info!("send tx={:?} ok={:?}", tx.signatures[0], client.send_transaction_with_config(&tx, cfg).await);
+            info!(
+                "send tx={:?} ok={:?}",
+                tx.signatures[0],
+                client.send_transaction_with_config(&tx, cfg).await
+            );
         }
     }
 }

@@ -1,8 +1,8 @@
 pub mod account_write_filter;
 pub mod chain_data;
 pub mod grpc_plugin_source;
-pub mod websocket_source;
 pub mod metrics;
+pub mod websocket_source;
 
 use {
     serde_derive::Deserialize,
