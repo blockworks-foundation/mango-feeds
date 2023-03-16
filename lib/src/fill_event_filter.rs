@@ -1,5 +1,5 @@
 use crate::{
-    chain_data::{AccountData, ChainData, SlotData},
+    chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::{MetricType, Metrics},
     orderbook_filter::{base_lots_to_ui_perp, price_lots_to_ui_perp, MarketConfig, OrderbookSide},
     serum::SerumEventQueueHeader,
@@ -662,7 +662,8 @@ pub async fn init(
 
     let account_write_queue_receiver_c = account_write_queue_receiver.clone();
 
-    let mut chain_cache = ChainData::new(metrics_sender);
+    let mut chain_cache = ChainData::new();
+    let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
     let mut perp_events_cache: HashMap<String, EventQueueEvents> = HashMap::new();
     let mut serum_events_cache: HashMap<String, Vec<serum_dex::state::Event>> = HashMap::new();
     let mut seq_num_cache = HashMap::new();
@@ -720,6 +721,8 @@ pub async fn init(
                     warn!("write update channel err {:?}", e);
                 }
             }
+
+            chain_data_metrics.report(&chain_cache);
 
             for mkt in all_market_configs.iter() {
                 let evq_pk = mkt.1.event_queue;

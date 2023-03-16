@@ -1,10 +1,10 @@
-use crate::metrics::{MetricType, MetricU64, Metrics};
-
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };
+
+use crate::metrics::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SlotStatus {
@@ -42,13 +42,10 @@ pub struct ChainData {
     best_chain_slot: u64,
     account_versions_stored: usize,
     account_bytes_stored: usize,
-    metric_accounts_stored: MetricU64,
-    metric_account_versions_stored: MetricU64,
-    metric_account_bytes_stored: MetricU64,
 }
 
 impl ChainData {
-    pub fn new(metrics_sender: Metrics) -> Self {
+    pub fn new() -> Self {
         Self {
             slots: HashMap::new(),
             accounts: HashMap::new(),
@@ -57,14 +54,6 @@ impl ChainData {
             best_chain_slot: 0,
             account_versions_stored: 0,
             account_bytes_stored: 0,
-            metric_accounts_stored: metrics_sender
-                .register_u64("chaindata_accounts_stored".into(), MetricType::Gauge),
-            metric_account_versions_stored: metrics_sender.register_u64(
-                "chaindata_account_versions_stored".into(),
-                MetricType::Gauge,
-            ),
-            metric_account_bytes_stored: metrics_sender
-                .register_u64("chaindata_account_bytes_stored".into(), MetricType::Gauge),
         }
     }
 
@@ -164,12 +153,6 @@ impl ChainData {
             // now it's fine to drop any slots before the new rooted head
             // as account writes for non-rooted slots before it have been dropped
             self.slots.retain(|s, _| *s >= self.newest_rooted_slot);
-
-            self.metric_accounts_stored.set(self.accounts.len() as u64);
-            self.metric_account_versions_stored
-                .set(self.account_versions_stored as u64);
-            self.metric_account_bytes_stored
-                .set(self.account_bytes_stored as u64);
         }
     }
 
@@ -274,5 +257,53 @@ impl ChainData {
 
     pub fn newest_rooted_slot(&self) -> u64 {
         self.newest_rooted_slot
+    }
+}
+
+pub struct ChainDataMetrics {
+    slots_stored: MetricU64,
+    accounts_stored: MetricU64,
+    account_versions_stored: MetricU64,
+    account_bytes_stored: MetricU64,
+}
+
+impl ChainDataMetrics {
+    pub fn new(metrics: &Metrics) -> Self {
+        Self {
+            slots_stored: metrics.register_u64("chaindata_slots_stored".into(), MetricType::Gauge),
+            accounts_stored: metrics
+                .register_u64("chaindata_accounts_stored".into(), MetricType::Gauge),
+            account_versions_stored: metrics.register_u64(
+                "chaindata_account_versions_stored".into(),
+                MetricType::Gauge,
+            ),
+            account_bytes_stored: metrics
+                .register_u64("chaindata_account_bytes_stored".into(), MetricType::Gauge),
+        }
+    }
+
+    pub fn report(&mut self, chain: &ChainData) {
+        self.slots_stored.set(chain.slots_count() as u64);
+        self.accounts_stored.set(chain.accounts_count() as u64);
+        self.account_versions_stored
+            .set(chain.account_writes_count() as u64);
+        self.account_bytes_stored.set(chain.account_bytes() as u64);
+    }
+
+    pub fn spawn_report_job(
+        chain: std::sync::Arc<std::sync::RwLock<ChainData>>,
+        metrics: &Metrics,
+        interval: std::time::Duration,
+    ) {
+        let mut m = Self::new(metrics);
+
+        let mut interval = tokio::time::interval(interval);
+        tokio::spawn(async move {
+            loop {
+                interval.tick().await;
+                let chain_lock = chain.read().unwrap();
+                m.report(&chain_lock);
+            }
+        });
     }
 }

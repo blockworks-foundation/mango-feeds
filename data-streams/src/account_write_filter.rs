@@ -1,5 +1,5 @@
 use crate::{
-    chain_data::{AccountData, ChainData, SlotData},
+    chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::Metrics,
     AccountWrite, SlotUpdate,
 };
@@ -46,7 +46,9 @@ pub fn init(
     // there they'll flow into the postgres sending thread.
     let (slot_queue_sender, slot_queue_receiver) = async_channel::unbounded::<SlotUpdate>();
 
-    let mut chain_data = ChainData::new(metrics_sender);
+    let mut chain_data = ChainData::new();
+    let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
+
     let mut last_updated = HashMap::<String, AcountWriteRecord>::new();
 
     let all_queue_pks: BTreeSet<Pubkey> = routes
@@ -89,6 +91,8 @@ pub fn init(
 
                 }
             }
+
+            chain_data_metrics.report(&chain_data);
 
             for route in routes.iter() {
                 for pk in route.matched_pubkeys.iter() {

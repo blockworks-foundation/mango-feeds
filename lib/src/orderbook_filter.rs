@@ -1,6 +1,6 @@
 use crate::metrics::MetricU64;
 use crate::{
-    chain_data::{AccountData, ChainData, SlotData},
+    chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
 };
@@ -270,7 +270,8 @@ pub async fn init(
 
     let account_write_queue_receiver_c = account_write_queue_receiver.clone();
 
-    let mut chain_cache = ChainData::new(metrics_sender);
+    let mut chain_cache = ChainData::new();
+    let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
     let mut bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
     let mut serum_bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
     let mut last_write_versions = HashMap::<String, (u64, u64)>::new();
@@ -314,6 +315,8 @@ pub async fn init(
 
                 }
             }
+
+            chain_data_metrics.report(&chain_cache);
 
             for mkt in market_configs.iter() {
                 for side in 0..2 {
