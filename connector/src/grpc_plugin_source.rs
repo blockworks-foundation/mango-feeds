@@ -1,5 +1,4 @@
 use futures::stream::once;
-use geyser::geyser_client::GeyserClient;
 use jsonrpc_core::futures::StreamExt;
 use jsonrpc_core_client::transports::http;
 
@@ -13,26 +12,16 @@ use futures::{future, future::FutureExt};
 use tonic::{
     metadata::MetadataValue,
     transport::{Certificate, Channel, ClientTlsConfig, Identity},
-    Request,
 };
 
 use log::*;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
-pub mod geyser {
-    tonic::include_proto!("geyser");
-}
-
-pub mod solana {
-    pub mod storage {
-        pub mod confirmed_block {
-            tonic::include_proto!("solana.storage.confirmed_block");
-        }
-    }
-}
-
-pub use geyser::*;
-pub use solana::storage::confirmed_block::*;
+use yellowstone_grpc_proto::prelude::{
+    geyser_client::GeyserClient, subscribe_update, SubscribeRequest,
+    SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate,
+    SubscribeUpdateSlotStatus,
+};
 
 use crate::FilterConfig;
 use crate::{
@@ -42,14 +31,12 @@ use crate::{
     TlsConfig,
 };
 
-//use solana_geyser_connector_plugin_grpc::compression::zstd_decompress;
-
 struct SnapshotData {
     slot: u64,
     accounts: Vec<(String, Option<UiAccount>)>,
 }
 enum Message {
-    GrpcUpdate(geyser::SubscribeUpdate),
+    GrpcUpdate(SubscribeUpdate),
     Snapshot(SnapshotData),
 }
 
@@ -133,7 +120,7 @@ async fn feed_data_geyser(
     .connect()
     .await?;
     let token: MetadataValue<_> = "eed31807f710e4bb098779fb9f67".parse()?;
-    let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
+    let mut client = GeyserClient::with_interceptor(channel, move |mut req: tonic::Request<()>| {
         req.metadata_mut().insert("x-token", token.clone());
         Ok(req)
     });
@@ -154,11 +141,13 @@ async fn feed_data_geyser(
     let mut slots = HashMap::new();
     slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
     let blocks = HashMap::new();
+    let blocks_meta = HashMap::new();
     let transactions = HashMap::new();
 
     let request = SubscribeRequest {
         accounts,
         blocks,
+        blocks_meta,
         slots,
         transactions,
     };
@@ -226,7 +215,7 @@ async fn feed_data_geyser(
     loop {
         tokio::select! {
             update = update_stream.next() => {
-                use geyser::{subscribe_update::UpdateOneof};
+                use subscribe_update::UpdateOneof;
                 let mut update = update.ok_or(anyhow::anyhow!("geyser plugin has closed the stream"))??;
                 match update.update_oneof.as_mut().expect("invalid grpc") {
                     UpdateOneof::Slot(slot_update) => {
@@ -294,6 +283,8 @@ async fn feed_data_geyser(
                     },
                     UpdateOneof::Block(_) => {},
                     UpdateOneof::Transaction(_) => {},
+                    UpdateOneof::BlockMeta(_) => {},
+                    UpdateOneof::Ping(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -478,9 +469,9 @@ pub async fn process_events(
     loop {
         metric_dedup_queue.set(msg_receiver.len() as u64);
         let msg = msg_receiver.recv().await.expect("sender must not close");
-        use geyser::subscribe_update::UpdateOneof;
         match msg {
             Message::GrpcUpdate(update) => {
+                use subscribe_update::UpdateOneof;
                 match update.update_oneof.expect("invalid grpc") {
                     UpdateOneof::Account(info) => {
                         let update = match info.account.clone() {
@@ -550,6 +541,8 @@ pub async fn process_events(
                     }
                     UpdateOneof::Block(_) => {}
                     UpdateOneof::Transaction(_) => {}
+                    UpdateOneof::BlockMeta(_) => {}
+                    UpdateOneof::Ping(_) => {}
                 }
             }
             Message::Snapshot(update) => {

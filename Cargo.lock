@@ -2403,9 +2403,9 @@ checksum = "1788965e61b367cd03a62950836d5cd41560c3577d90e40e0819373194d1661c"
 dependencies = [
  "http",
  "hyper 0.14.24",
- "rustls 0.20.8",
+ "rustls",
  "tokio",
- "tokio-rustls 0.23.4",
+ "tokio-rustls",
 ]
 
 [[package]]
@@ -3054,7 +3054,6 @@ dependencies = [
  "bytemuck",
  "bytes 1.4.0",
  "chrono",
- "fixed",
  "futures 0.3.26",
  "futures-core",
  "futures-util",
@@ -3063,9 +3062,8 @@ dependencies = [
  "jsonrpc-core-client",
  "log 0.4.17",
  "native-tls",
- "prost 0.9.0",
  "rand 0.7.3",
- "rustls 0.20.8",
+ "rustls",
  "rustls-pemfile 1.0.2",
  "serde",
  "serde_derive",
@@ -3076,9 +3074,9 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "tokio-stream",
- "tonic 0.6.2",
- "tonic-build 0.6.2",
+ "tonic",
  "warp",
+ "yellowstone-grpc-proto",
 ]
 
 [[package]]
@@ -3110,9 +3108,8 @@ dependencies = [
  "postgres-native-tls",
  "postgres-types",
  "postgres_query",
- "prost 0.9.0",
  "rand 0.7.3",
- "rustls 0.20.8",
+ "rustls",
  "rustls-pemfile 1.0.2",
  "serde",
  "serde_derive",
@@ -3126,9 +3123,7 @@ dependencies = [
  "tokio-postgres",
  "tokio-postgres-rustls",
  "tokio-stream",
- "tonic 0.6.2",
  "tonic-build 0.6.2",
- "warp",
 ]
 
 [[package]]
@@ -4327,11 +4322,11 @@ dependencies = [
  "fxhash",
  "quinn-proto",
  "quinn-udp",
- "rustls 0.20.8",
+ "rustls",
  "thiserror",
  "tokio",
  "tracing",
- "webpki 0.22.0",
+ "webpki",
 ]
 
 [[package]]
@@ -4344,14 +4339,14 @@ dependencies = [
  "fxhash",
  "rand 0.8.5",
  "ring",
- "rustls 0.20.8",
+ "rustls",
  "rustls-native-certs",
  "rustls-pemfile 0.2.1",
  "slab",
  "thiserror",
  "tinyvec",
  "tracing",
- "webpki 0.22.0",
+ "webpki",
 ]
 
 [[package]]
@@ -4717,14 +4712,14 @@ dependencies = [
  "once_cell",
  "percent-encoding 2.2.0",
  "pin-project-lite",
- "rustls 0.20.8",
+ "rustls",
  "rustls-pemfile 1.0.2",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
- "tokio-rustls 0.23.4",
+ "tokio-rustls",
  "tokio-util 0.7.2",
  "tower-service",
  "url 2.3.1",
@@ -4875,27 +4870,14 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35edb675feee39aec9c99fa5ff985081995a06d594114ae14cbe797ad7b7a6d7"
-dependencies = [
- "base64 0.13.1",
- "log 0.4.17",
- "ring",
- "sct 0.6.1",
- "webpki 0.21.4",
-]
-
-[[package]]
-name = "rustls"
 version = "0.20.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fff78fc74d175294f4e83b28343315ffcfb114b156f0185e9741cb5570f50e2f"
 dependencies = [
  "log 0.4.17",
  "ring",
- "sct 0.7.0",
- "webpki 0.22.0",
+ "sct",
+ "webpki",
 ]
 
 [[package]]
@@ -5030,16 +5012,6 @@ dependencies = [
  "proc-macro2 1.0.50",
  "quote 1.0.23",
  "syn 1.0.107",
-]
-
-[[package]]
-name = "sct"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b362b83898e0e69f38515b82ee15aa80636befe47c3b6d3d89a911e78fc228ce"
-dependencies = [
- "ring",
- "untrusted",
 ]
 
 [[package]]
@@ -5792,7 +5764,7 @@ dependencies = [
  "rand_chacha 0.2.2",
  "rayon",
  "reqwest",
- "rustls 0.20.8",
+ "rustls",
  "semver 1.0.16",
  "serde",
  "serde_derive",
@@ -6510,7 +6482,7 @@ dependencies = [
  "solana-transaction-status",
  "thiserror",
  "tokio",
- "tonic 0.8.3",
+ "tonic",
  "zstd",
 ]
 
@@ -6551,7 +6523,7 @@ dependencies = [
  "quinn",
  "rand 0.7.3",
  "rcgen",
- "rustls 0.20.8",
+ "rustls",
  "solana-metrics",
  "solana-perf",
  "solana-sdk",
@@ -7234,10 +7206,10 @@ checksum = "606f2b73660439474394432239c82249c0d45eb5f23d91f401be1e33590444a7"
 dependencies = [
  "futures 0.3.26",
  "ring",
- "rustls 0.20.8",
+ "rustls",
  "tokio",
  "tokio-postgres",
- "tokio-rustls 0.23.4",
+ "tokio-rustls",
 ]
 
 [[package]]
@@ -7261,24 +7233,13 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc6844de72e57df1980054b38be3a9f4702aba4858be64dd700181a8a6d0e1b6"
-dependencies = [
- "rustls 0.19.1",
- "tokio",
- "webpki 0.21.4",
-]
-
-[[package]]
-name = "tokio-rustls"
 version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c43ee83903113e03984cb9e5cebe6c04a5116269e900e3ddba8f068a62adda59"
 dependencies = [
- "rustls 0.20.8",
+ "rustls",
  "tokio",
- "webpki 0.22.0",
+ "webpki",
 ]
 
 [[package]]
@@ -7335,11 +7296,11 @@ checksum = "f714dd15bead90401d77e04243611caec13726c2408afd5b31901dfcdcb3b181"
 dependencies = [
  "futures-util",
  "log 0.4.17",
- "rustls 0.20.8",
+ "rustls",
  "tokio",
- "tokio-rustls 0.23.4",
+ "tokio-rustls",
  "tungstenite",
- "webpki 0.22.0",
+ "webpki",
  "webpki-roots",
 ]
 
@@ -7434,39 +7395,6 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff08f4649d10a70ffa3522ca559031285d8e421d727ac85c60825761818f5d0a"
-dependencies = [
- "async-stream 0.3.3",
- "async-trait",
- "base64 0.13.1",
- "bytes 1.4.0",
- "flate2 1.0.25",
- "futures-core",
- "futures-util",
- "h2",
- "http",
- "http-body",
- "hyper 0.14.24",
- "hyper-timeout",
- "percent-encoding 2.2.0",
- "pin-project",
- "prost 0.9.0",
- "prost-derive 0.9.0",
- "tokio",
- "tokio-rustls 0.22.0",
- "tokio-stream",
- "tokio-util 0.6.10",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
- "tracing-futures",
-]
-
-[[package]]
-name = "tonic"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f219fad3b929bef19b1f86fbc0358d35daed8f2cac972037ac0dc10bbb8d5fb"
@@ -7489,7 +7417,7 @@ dependencies = [
  "prost-derive 0.11.6",
  "rustls-pemfile 1.0.2",
  "tokio",
- "tokio-rustls 0.23.4",
+ "tokio-rustls",
  "tokio-stream",
  "tokio-util 0.7.2",
  "tower",
@@ -7649,12 +7577,12 @@ dependencies = [
  "httparse",
  "log 0.4.17",
  "rand 0.8.5",
- "rustls 0.20.8",
+ "rustls",
  "sha-1 0.10.1",
  "thiserror",
  "url 2.3.1",
  "utf-8",
- "webpki 0.22.0",
+ "webpki",
  "webpki-roots",
 ]
 
@@ -8017,16 +7945,6 @@ dependencies = [
 
 [[package]]
 name = "webpki"
-version = "0.21.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8e38c0608262c46d4a56202ebabdeb094cef7e560ca7a226c6bf055188aa4ea"
-dependencies = [
- "ring",
- "untrusted",
-]
-
-[[package]]
-name = "webpki"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f095d78192e208183081cc07bc5515ef55216397af48b873e5edcd72637fa1bd"
@@ -8041,7 +7959,7 @@ version = "0.22.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c71e40d7d2c34a5106301fb632274ca37242cd0c9d3e64dbece371a40a2d87"
 dependencies = [
- "webpki 0.22.0",
+ "webpki",
 ]
 
 [[package]]
@@ -8316,6 +8234,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aed2e7a52e3744ab4d0c05c20aa065258e84c49fd4226f5191b2ed29712710b4"
 dependencies = [
  "time 0.3.17",
+]
+
+[[package]]
+name = "yellowstone-grpc-proto"
+version = "1.0.0+solana.1.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a09cfb7c53735b0a4ce8151ec1ed75214fd14b278dc239421bb2539d494fe7fa"
+dependencies = [
+ "anyhow",
+ "prost 0.11.6",
+ "protobuf-src",
+ "tonic",
+ "tonic-build 0.8.4",
 ]
 
 [[package]]
