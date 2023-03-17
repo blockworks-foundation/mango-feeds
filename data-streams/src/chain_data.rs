@@ -175,7 +175,7 @@ impl ChainData {
                     .unwrap_or(v.len());
                 let pos = v.len() - rev_pos;
                 if pos < v.len() && v[pos].slot == account.slot {
-                    if v[pos].write_version < account.write_version {
+                    if v[pos].write_version <= account.write_version {
                         v[pos] = account;
                     }
                 } else {
