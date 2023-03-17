@@ -15,11 +15,9 @@ use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::{collections::HashSet, fs::File, io::Read, str::FromStr, sync::Arc, time::Duration};
 
+use mango_feeds_lib::FilterConfig;
+use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
 use serde::Deserialize;
-use solana_geyser_connector_lib::FilterConfig;
-use solana_geyser_connector_lib::{
-    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
-};
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,

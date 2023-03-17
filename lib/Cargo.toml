@@ -1,5 +1,5 @@
 [package]
-name = "solana-geyser-connector-lib"
+name = "mango-feeds-lib"
 version = "0.1.0"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
@@ -8,7 +8,7 @@ edition = "2021"
 
 
 [dependencies]
-solana-geyser-connector-data-streams = { file = "0.1.0", path = "../data-streams" }
+mango-feeds-connector = { path = "../connector" }
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }

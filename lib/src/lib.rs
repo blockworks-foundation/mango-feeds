@@ -8,7 +8,7 @@ pub mod serum;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_derive::Deserialize;
 
-pub use solana_geyser_connector_data_streams::*;
+pub use mango_feeds_connector::*;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PostgresConfig {

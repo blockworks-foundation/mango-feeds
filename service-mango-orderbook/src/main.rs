@@ -26,15 +26,13 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
-use serde::Deserialize;
-use solana_geyser_connector_lib::{
-    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
-};
-use solana_geyser_connector_lib::{
+use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
+use mango_feeds_lib::{
     metrics::{MetricType, MetricU64},
     orderbook_filter::{self, MarketConfig, OrderbookCheckpoint, OrderbookFilterMessage},
     FilterConfig, StatusResponse,
 };
+use serde::Deserialize;
 
 type CheckpointMap = Arc<Mutex<HashMap<String, OrderbookCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;

@@ -7,9 +7,7 @@ use std::{
 use async_channel::Sender;
 use async_trait::async_trait;
 use log::*;
-use solana_geyser_connector_lib::{
-    account_write_filter::AccountWriteSink, chain_data::AccountData,
-};
+use mango_feeds_lib::{account_write_filter::AccountWriteSink, chain_data::AccountData};
 use solana_sdk::{
     account::ReadableAccount,
     instruction::{AccountMeta, Instruction},

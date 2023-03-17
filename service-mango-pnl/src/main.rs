@@ -1,8 +1,8 @@
 use {
     log::*,
+    mango_feeds_lib::chain_data::ChainData,
+    mango_feeds_lib::*,
     serde_derive::{Deserialize, Serialize},
-    solana_geyser_connector_lib::chain_data::ChainData,
-    solana_geyser_connector_lib::*,
     solana_sdk::pubkey::Pubkey,
     std::str::FromStr,
     std::{
@@ -18,8 +18,8 @@ use anchor_client::Cluster;
 use anchor_lang::Discriminator;
 use client::{chain_data, health_cache, AccountFetcher, Client, MangoGroupContext};
 use fixed::types::I80F48;
+use mango_feeds_lib::metrics::*;
 use mango_v4::state::{MangoAccount, MangoAccountValue, PerpMarketIndex};
-use solana_geyser_connector_lib::metrics::*;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::{account::ReadableAccount, signature::Keypair};
 #[derive(Clone, Debug, Deserialize)]

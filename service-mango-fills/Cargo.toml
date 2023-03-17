@@ -5,7 +5,7 @@ authors = ["Christian Kamm <mail@ckamm.de>", "Maximilian Schneider <max@mango.ma
 edition = "2018"
 
 [dependencies]
-solana-geyser-connector-lib = { path = "../lib" }
+mango-feeds-lib = { path = "../lib" }
 solana-logger = "*"
 bs58 = "*"
 log = "*"
