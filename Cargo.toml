@@ -11,7 +11,7 @@ members = [
 
 [patch.crates-io]
 # for gzip encoded responses
-jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip" }
+jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
 # force usage of mango-v4 submodules with 1.14.9 support
 anchor-spl = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
 anchor-lang = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }

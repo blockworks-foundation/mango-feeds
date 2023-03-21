@@ -2207,7 +2207,7 @@ dependencies = [
  "http",
  "httpdate",
  "mime 0.3.16",
- "sha1",
+ "sha1 0.10.5",
 ]
 
 [[package]]
@@ -2628,18 +2628,19 @@ dependencies = [
 [[package]]
 name = "jsonrpc-client-transports"
 version = "18.0.0"
-source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip#3e83f454313b218a75be25d3d4cfc2c4e76bb8bd"
+source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0#48566963667af263622724e2ea3971847141269c"
 dependencies = [
  "derive_more",
  "flate2 0.2.20",
  "futures 0.3.26",
  "hyper 0.14.24",
- "jsonrpc-core 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip)",
- "jsonrpc-pubsub 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip)",
+ "jsonrpc-core 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0)",
+ "jsonrpc-pubsub 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0)",
  "log 0.4.17",
  "serde",
  "serde_json",
  "tokio",
+ "url 1.7.2",
  "websocket",
 ]
 
@@ -2661,7 +2662,7 @@ dependencies = [
 [[package]]
 name = "jsonrpc-core"
 version = "18.0.0"
-source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip#3e83f454313b218a75be25d3d4cfc2c4e76bb8bd"
+source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0#48566963667af263622724e2ea3971847141269c"
 dependencies = [
  "futures 0.3.26",
  "futures-executor",
@@ -2675,7 +2676,7 @@ dependencies = [
 [[package]]
 name = "jsonrpc-core-client"
 version = "18.0.0"
-source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip#3e83f454313b218a75be25d3d4cfc2c4e76bb8bd"
+source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0#48566963667af263622724e2ea3971847141269c"
 dependencies = [
  "futures 0.3.26",
  "jsonrpc-client-transports",
@@ -2727,10 +2728,10 @@ dependencies = [
 [[package]]
 name = "jsonrpc-pubsub"
 version = "18.0.0"
-source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip#3e83f454313b218a75be25d3d4cfc2c4e76bb8bd"
+source = "git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0#48566963667af263622724e2ea3971847141269c"
 dependencies = [
  "futures 0.3.26",
- "jsonrpc-core 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip)",
+ "jsonrpc-core 18.0.0 (git+https://github.com/ckamm/jsonrpc.git?branch=ckamm/http-with-gzip-default-v18.0.0)",
  "lazy_static",
  "log 0.4.17",
  "parking_lot 0.11.2",
@@ -5424,6 +5425,15 @@ dependencies = [
 
 [[package]]
 name = "sha1"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1da05c97445caa12d05e848c4a4fcbbea29e748ac28f7e80e9b010392063770"
+dependencies = [
+ "sha1_smol",
+]
+
+[[package]]
+name = "sha1"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f04293dc80c3993519f2d7f6f511707ee7094fe0c6d3406feb330cdb3540eba3"
@@ -5432,6 +5442,12 @@ dependencies = [
  "cpufeatures",
  "digest 0.10.6",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
 
 [[package]]
 name = "sha2"
@@ -7964,9 +7980,9 @@ dependencies = [
 
 [[package]]
 name = "websocket"
-version = "0.26.5"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92aacab060eea423e4036820ddd28f3f9003b2c4d8048cbda985e5a14e18038d"
+checksum = "413b37840b9e27b340ce91b319ede10731de8c72f5bc4cb0206ec1ca4ce581d0"
 dependencies = [
  "bytes 0.4.12",
  "futures 0.1.31",
@@ -7985,9 +8001,9 @@ dependencies = [
 
 [[package]]
 name = "websocket-base"
-version = "0.26.5"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49aec794b07318993d1db16156d5a9c750120597a5ee40c6b928d416186cb138"
+checksum = "5e3810f0d00c4dccb54c30a4eee815e703232819dec7b007db115791c42aa374"
 dependencies = [
  "base64 0.10.1",
  "bitflags",
@@ -7996,7 +8012,7 @@ dependencies = [
  "futures 0.1.31",
  "native-tls",
  "rand 0.6.5",
- "sha-1 0.8.2",
+ "sha1 0.6.1",
  "tokio-codec",
  "tokio-io",
  "tokio-tcp",

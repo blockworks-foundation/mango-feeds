@@ -44,7 +44,7 @@ async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect_with_options::<AccountsDataClient>(&rpc_http_url, true)
+    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
@@ -73,7 +73,7 @@ async fn get_snapshot_gma(
     rpc_http_url: String,
     ids: Vec<String>,
 ) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
-    let rpc_client = http::connect_with_options::<AccountsDataClient>(&rpc_http_url, true)
+    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
