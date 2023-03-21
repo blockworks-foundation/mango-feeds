@@ -16,32 +16,19 @@ solana-client = "~1.14.9"
 solana-account-decoder = "~1.14.9"
 solana-sdk = "~1.14.9"
 
-arrayref = "*"
-bytemuck = "*"
-
 tokio = { version = "1", features = ["full"] }
 rustls = "0.20.8"
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
-serde_json = "1.0.68"
 
 tonic = "0.8"
 
-bs58 = "*"
-base64 = "*"
 log = "0.4"
-rand = "0.7"
 anyhow = "1.0"
-bytes = "1.0"
-itertools = "0.10.5"
-chrono = "0.4.23"
 
 futures = "0.3.17"
-futures-core = "0.3"
-futures-util = "0.3"
 
-async-stream = "0.2"
 async-channel = "1.6"
 async-trait = "0.1"
 

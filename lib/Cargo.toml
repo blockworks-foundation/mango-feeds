@@ -19,7 +19,6 @@ solana-account-decoder = "~1.14.9"
 solana-sdk = "~1.14.9"
 
 mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev", features = ["client"] }
-arrayref = "*"
 bytemuck = "*"
 fixed = { version = "*", features = ["serde"] }
 
@@ -48,9 +47,7 @@ chrono = "0.4.23"
 
 futures = "0.3.17"
 futures-core = "0.3"
-futures-util = "0.3"
 
-async-stream = "0.2"
 async-channel = "1.6"
 async-trait = "0.1"
 
