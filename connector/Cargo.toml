@@ -20,16 +20,13 @@ arrayref = "*"
 bytemuck = "*"
 
 tokio = { version = "1", features = ["full"] }
-tokio-stream = "0.1"
-native-tls = "0.2"
 rustls = "0.20.8"
-rustls-pemfile = "1.0.2"
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
 serde_json = "1.0.68"
 
-tonic = { version = "0.8" }
+tonic = "0.8"
 
 bs58 = "*"
 base64 = "*"
