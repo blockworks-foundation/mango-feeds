@@ -9,9 +9,10 @@ use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
-use tonic::{
+use yellowstone_grpc_proto::tonic::{
     metadata::MetadataValue,
     transport::{Certificate, Channel, ClientTlsConfig, Identity},
+    Request,
 };
 
 use log::*;
@@ -120,7 +121,7 @@ async fn feed_data_geyser(
     .connect()
     .await?;
     let token: MetadataValue<_> = "eed31807f710e4bb098779fb9f67".parse()?;
-    let mut client = GeyserClient::with_interceptor(channel, move |mut req: tonic::Request<()>| {
+    let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
         req.metadata_mut().insert("x-token", token.clone());
         Ok(req)
     });

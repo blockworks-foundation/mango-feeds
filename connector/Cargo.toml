@@ -22,8 +22,6 @@ rustls = "0.20.8"
 serde = "1.0.130"
 serde_derive = "1.0.130"
 
-tonic = "0.8"
-
 log = "0.4"
 anyhow = "1.0"
 
@@ -34,4 +32,4 @@ async-trait = "0.1"
 
 warp = "0.3"
 
-yellowstone-grpc-proto = "1.0.0"
+yellowstone-grpc-proto = "1.0.1"
