@@ -3,7 +3,7 @@ name = "mango-feeds-connector"
 version = "0.1.0"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
-license = "MIT"
+license = "AGPL-3.0-or-later"
 description = "Listen to Solana account updates via geyser or websockets"
 
 [lib]

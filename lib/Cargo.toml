@@ -3,6 +3,7 @@ name = "mango-feeds-lib"
 version = "0.1.0"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [lib]
 

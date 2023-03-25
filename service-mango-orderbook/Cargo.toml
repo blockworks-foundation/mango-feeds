@@ -3,6 +3,7 @@ name = "service-mango-orderbook"
 version = "0.1.0"
 authors = ["Riordan Panayides <riordan@panayid.es>"]
 edition = "2021"
+license = "AGPL-3.0-or-later"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }

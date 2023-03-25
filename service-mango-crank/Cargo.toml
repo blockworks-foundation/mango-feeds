@@ -2,6 +2,7 @@
 name = "service-mango-crank"
 version = "0.1.0"
 authors = ["Maximilian Schneider <max@mango.markets>"]
+license = "AGPL-3.0-or-later"
 edition = "2018"
 
 [dependencies]
