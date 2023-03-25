@@ -3,7 +3,7 @@ use log::*;
 use native_tls::{Certificate, Identity, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 use postgres_query::Caching;
-use std::{env, fs, time::Duration};
+use std::{env, fs, time::Duration, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use tokio_postgres::Client;
 
 use crate::{fill_event_filter::FillUpdate, metrics::*, PostgresConfig};
@@ -12,6 +12,7 @@ async fn postgres_connection(
     config: &PostgresConfig,
     metric_retries: MetricU64,
     metric_live: MetricU64,
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<async_channel::Receiver<Option<tokio_postgres::Client>>> {
     let (tx, rx) = async_channel::unbounded();
 
@@ -59,16 +60,26 @@ async fn postgres_connection(
     };
 
     let config = config.clone();
-    let mut initial = Some(tokio_postgres::connect(&config.connection_string, tls.clone()).await?);
+    let connection_string = match &config.connection_string.chars().next().unwrap() {
+        '$' => env::var(&config.connection_string[1..])
+            .expect("reading connection string from env"),
+        _ => config.connection_string.clone(),
+    };
+    let mut initial = Some(tokio_postgres::connect(&connection_string, tls.clone()).await?);
     let mut metric_retries = metric_retries;
     let mut metric_live = metric_live;
     tokio::spawn(async move {
         loop {
+            // don't acquire a new connection if we're shutting down
+            if exit.load(Ordering::Relaxed) {
+                break;
+            }
             let (client, connection) = match initial.take() {
                 Some(v) => v,
                 None => {
+                    info!("creating new connection");
                     let result =
-                        tokio_postgres::connect(&config.connection_string, tls.clone()).await;
+                        tokio_postgres::connect(&connection_string, tls.clone()).await;
                     match result {
                         Ok(v) => v,
                         Err(err) => {
@@ -95,6 +106,7 @@ async fn postgres_connection(
             warn!("postgres connection error: {:?}", result);
             tokio::time::sleep(Duration::from_secs(config.retry_connection_sleep_secs)).await;
         }
+        warn!("exiting postgres_connection");
     });
 
     Ok(rx)
@@ -153,6 +165,7 @@ async fn process_update(client: &Caching<Client>, update: &FillUpdate) -> anyhow
 pub async fn init(
     config: &PostgresConfig,
     metrics_sender: Metrics,
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<async_channel::Sender<FillUpdate>> {
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (fill_update_queue_sender, fill_update_queue_receiver) =
@@ -168,7 +181,7 @@ pub async fn init(
     // postgres fill update sending worker threads
     for _ in 0..config.connection_count {
         let postgres_account_writes =
-            postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone())
+            postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone(), exit.clone())
                 .await?;
         let fill_update_queue_receiver_c = fill_update_queue_receiver.clone();
         let config = config.clone();

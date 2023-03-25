@@ -20,7 +20,7 @@ use std::{
     cmp::max,
     collections::{HashMap, HashSet},
     convert::identity,
-    time::SystemTime,
+    //time::SystemTime,
 };
 
 use crate::metrics::MetricU64;
@@ -73,13 +73,15 @@ impl Serialize for FillEventType {
 #[derive(Clone, Debug)]
 pub struct FillEvent {
     pub event_type: FillEventType,
-    pub maker: bool,
-    pub side: OrderbookSide,
-    pub timestamp: u64,
+    pub maker: String,
+    pub taker: String,
+    pub taker_side: OrderbookSide,
+    pub timestamp: u64, // make all strings
     pub seq_num: u64,
-    pub owner: String,
-    pub client_order_id: u64,
-    pub fee: f32,
+    pub maker_client_order_id: u64,
+    pub taker_client_order_id: u64,
+    pub maker_fee: f32,
+    pub taker_fee: f32,
     pub price: f64,
     pub quantity: f64,
 }
@@ -88,36 +90,34 @@ impl Serialize for FillEvent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("FillEvent", 12)?;
-        state.serialize_field("eventType", &self.event_type)?;
-        state.serialize_field("maker", &self.maker)?;
-        state.serialize_field("side", &self.side)?;
-        state.serialize_field(
-            "timestamp",
-            &Utc.timestamp_opt(self.timestamp as i64, 0)
-                .unwrap()
-                .to_rfc3339(),
-        )?;
-        state.serialize_field("seqNum", &self.seq_num)?;
-        state.serialize_field("owner", &self.owner)?;
-        state.serialize_field("clientOrderId", &self.client_order_id)?;
-        state.serialize_field("fee", &self.fee)?;
-        state.serialize_field("price", &self.price)?;
-        state.serialize_field("quantity", &self.quantity)?;
-        state.end()
-    }
+        {
+            let mut state = serializer.serialize_struct("FillEvent", 12)?;
+            state.serialize_field("eventType", &self.event_type)?;
+            state.serialize_field("maker", &self.maker)?;
+            state.serialize_field("taker", &self.taker)?;
+            state.serialize_field("takerSide", &self.taker_side)?;
+            state.serialize_field(
+                "timestamp",
+                &Utc.timestamp_opt(self.timestamp as i64, 0)
+                    .unwrap()
+                    .to_rfc3339(),
+            )?;
+            state.serialize_field("seqNum", &self.seq_num)?;
+            state.serialize_field("makerClientOrderId", &self.maker_client_order_id)?;
+            state.serialize_field("takerClientOrderId", &self.taker_client_order_id)?; // make string
+            state.serialize_field("makerFee", &self.maker_fee)?;
+            state.serialize_field("takerFee", &self.taker_fee)?;
+            state.serialize_field("price", &self.price)?;
+            state.serialize_field("quantity", &self.quantity)?;
+            state.end()
+        }
 }
 
 impl FillEvent {
-    pub fn new_from_perp(event: PerpFillEvent, config: &MarketConfig) -> [Self; 2] {
+    pub fn new_from_perp(event: PerpFillEvent, config: &MarketConfig) -> Self {
         let taker_side = match event.taker_side() {
             Side::Ask => OrderbookSide::Ask,
             Side::Bid => OrderbookSide::Bid,
-        };
-        let maker_side = match event.taker_side() {
-            Side::Ask => OrderbookSide::Bid,
-            Side::Bid => OrderbookSide::Ask,
         };
         let price = price_lots_to_ui_perp(
             event.price,
@@ -128,56 +128,60 @@ impl FillEvent {
         );
         let quantity =
             base_lots_to_ui_perp(event.quantity, config.base_decimals, config.quote_decimals);
-        [
-            FillEvent {
-                event_type: FillEventType::Perp,
-                maker: true,
-                side: maker_side,
-                timestamp: event.timestamp,
-                seq_num: event.seq_num,
-                owner: event.maker.to_string(),
-                client_order_id: event.maker_client_order_id,
-                fee: event.maker_fee,
-                price: price,
-                quantity: quantity,
-            },
-            FillEvent {
-                event_type: FillEventType::Perp,
-                maker: false,
-                side: taker_side,
-                timestamp: event.timestamp,
-                seq_num: event.seq_num,
-                owner: event.taker.to_string(),
-                client_order_id: event.taker_client_order_id,
-                fee: event.taker_fee,
-                price: price,
-                quantity: quantity,
-            },
-        ]
+        FillEvent {
+            event_type: FillEventType::Perp,
+            maker: event.maker.to_string(),
+            taker: event.taker.to_string(),
+            taker_side: taker_side,
+            timestamp: event.timestamp,
+            seq_num: event.seq_num,
+            maker_client_order_id: event.maker_client_order_id,
+            taker_client_order_id: event.taker_client_order_id,
+            maker_fee: event.maker_fee,
+            taker_fee: event.taker_fee,
+            price: price,
+            quantity: quantity,
+        }
     }
+
     pub fn new_from_spot(
-        event: SpotEvent,
+        maker_event: SpotEvent,
+        taker_event: SpotEvent,
         timestamp: u64,
         seq_num: u64,
         config: &MarketConfig,
     ) -> Self {
-        match event {
-            SpotEvent::Fill {
-                side,
-                maker,
-                native_qty_paid,
-                native_qty_received,
-                native_fee_or_rebate,
-                owner,
-                client_order_id,
-                ..
-            } => {
-                let side = match side as u8 {
+        match (maker_event, taker_event) {
+            (SpotEvent::Fill { 
+                side: maker_side, 
+                client_order_id: maker_client_order_id,
+                native_qty_paid: maker_native_qty_paid,
+                native_fee_or_rebate: maker_native_fee_or_rebate,
+                native_qty_received: maker_native_qty_received,
+                owner: maker_owner,
+                .. 
+            }, SpotEvent::Fill {
+                side: taker_side,
+                client_order_id: taker_client_order_id,
+                native_fee_or_rebate: taker_native_fee_or_rebate,
+                owner: taker_owner,
+                .. 
+            }) => {
+                let maker_side = match maker_side as u8 {
                     0 => OrderbookSide::Bid,
                     1 => OrderbookSide::Ask,
                     _ => panic!("invalid side"),
                 };
-                let client_order_id: u64 = match client_order_id {
+                let taker_side = match taker_side as u8 {
+                    0 => OrderbookSide::Bid,
+                    1 => OrderbookSide::Ask,
+                    _ => panic!("invalid side"),
+                };
+                let maker_client_order_id: u64 = match maker_client_order_id {
+                    Some(id) => id.into(),
+                    None => 0u64,
+                };
+                let taker_client_order_id: u64 = match taker_client_order_id {
                     Some(id) => id.into(),
                     None => 0u64,
                 };
@@ -185,51 +189,46 @@ impl FillEvent {
                 let base_multiplier = 10u64.pow(config.base_decimals.into()) as u64;
                 let quote_multiplier = 10u64.pow(config.quote_decimals.into()) as u64;
 
-                let (price, quantity) = match side {
+                let (price, quantity) = match maker_side {
                     OrderbookSide::Bid => {
-                        let price_before_fees = if maker {
-                            native_qty_paid + native_fee_or_rebate
-                        } else {
-                            native_qty_paid - native_fee_or_rebate
-                        };
+                        let price_before_fees = maker_native_qty_paid + maker_native_fee_or_rebate;
 
                         let top = price_before_fees * base_multiplier;
-                        let bottom = quote_multiplier * native_qty_received;
+                        let bottom = quote_multiplier * maker_native_qty_received;
                         let price = top as f64 / bottom as f64;
-                        let quantity = native_qty_received as f64 / base_multiplier as f64;
+                        let quantity = maker_native_qty_received as f64 / base_multiplier as f64;
                         (price, quantity)
                     }
                     OrderbookSide::Ask => {
-                        let price_before_fees = if maker {
-                            native_qty_received - native_fee_or_rebate
-                        } else {
-                            native_qty_received + native_fee_or_rebate
-                        };
+                        let price_before_fees = maker_native_qty_received - maker_native_fee_or_rebate;
 
                         let top = price_before_fees * base_multiplier;
-                        let bottom = quote_multiplier * native_qty_paid;
+                        let bottom = quote_multiplier * maker_native_qty_paid;
                         let price = top as f64 / bottom as f64;
-                        let quantity = native_qty_paid as f64 / base_multiplier as f64;
+                        let quantity = maker_native_qty_paid as f64 / base_multiplier as f64;
                         (price, quantity)
                     }
                 };
 
-                let fee = native_fee_or_rebate as f32 / quote_multiplier as f32;
+                let maker_fee = maker_native_fee_or_rebate as f32 / quote_multiplier as f32;
+                let taker_fee = taker_native_fee_or_rebate as f32 / quote_multiplier as f32;
 
                 FillEvent {
                     event_type: FillEventType::Spot,
-                    maker: maker,
-                    side,
+                    maker: Pubkey::new(cast_slice(&identity(maker_owner) as &[_])).to_string(),
+                    taker: Pubkey::new(cast_slice(&identity(taker_owner) as &[_])).to_string(),
+                    taker_side: taker_side,
                     timestamp,
                     seq_num,
-                    owner: Pubkey::new(cast_slice(&identity(owner) as &[_])).to_string(),
-                    client_order_id: client_order_id,
-                    fee,
+                    maker_client_order_id,
+                    taker_client_order_id,
+                    taker_fee,
+                    maker_fee,
                     price,
                     quantity,
                 }
             }
-            SpotEvent::Out { .. } => {
+            (_, _) => {
                 panic!("Can't build FillEvent from SpotEvent::Out")
             }
         }
@@ -335,21 +334,19 @@ fn publish_changes_perp(
             // new fills are published and recorded in checkpoint
             if events[idx].event_type == EventType::Fill as u8 {
                 let fill: PerpFillEvent = bytemuck::cast(events[idx]);
-                let fills = FillEvent::new_from_perp(fill, &mkt.1);
-                // send event for both maker and taker
-                for fill in fills {
-                    fill_update_sender
-                        .try_send(FillEventFilterMessage::Update(FillUpdate {
-                            slot,
-                            write_version,
-                            event: fill.clone(),
-                            status: FillUpdateStatus::New,
-                            market_key: mkt_pk_string.clone(),
-                            market_name: mkt.1.name.clone(),
-                        }))
-                        .unwrap(); // TODO: use anyhow to bubble up error
-                    checkpoint.push(fill);
-                }
+                let fill = FillEvent::new_from_perp(fill, &mkt.1);
+
+                fill_update_sender
+                    .try_send(FillEventFilterMessage::Update(FillUpdate {
+                        slot,
+                        write_version,
+                        event: fill.clone(),
+                        status: FillUpdateStatus::New,
+                        market_key: mkt_pk_string.clone(),
+                        market_name: mkt.1.name.clone(),
+                    }))
+                    .unwrap(); // TODO: use anyhow to bubble up error
+                checkpoint.push(fill);
             }
         } else if old_events[idx].event_type != events[idx].event_type
             || old_events[idx].padding != events[idx].padding
@@ -364,47 +361,41 @@ fn publish_changes_perp(
             // first revoke old event if a fill
             if old_events[idx].event_type == EventType::Fill as u8 {
                 let fill: PerpFillEvent = bytemuck::cast(old_events[idx]);
-                let fills = FillEvent::new_from_perp(fill, &mkt.1);
-                for fill in fills {
-                    fill_update_sender
-                        .try_send(FillEventFilterMessage::Update(FillUpdate {
-                            slot,
-                            write_version,
-                            event: fill,
-                            status: FillUpdateStatus::Revoke,
-                            market_key: mkt_pk_string.clone(),
-                            market_name: mkt.1.name.clone(),
-                        }))
-                        .unwrap(); // TODO: use anyhow to bubble up error
-                }
+                let fill = FillEvent::new_from_perp(fill, &mkt.1);
+                fill_update_sender
+                    .try_send(FillEventFilterMessage::Update(FillUpdate {
+                        slot,
+                        write_version,
+                        event: fill,
+                        status: FillUpdateStatus::Revoke,
+                        market_key: mkt_pk_string.clone(),
+                        market_name: mkt.1.name.clone(),
+                    }))
+                    .unwrap(); // TODO: use anyhow to bubble up error
             }
 
             // then publish new if its a fill and record in checkpoint
             if events[idx].event_type == EventType::Fill as u8 {
                 let fill: PerpFillEvent = bytemuck::cast(events[idx]);
-                let fills = FillEvent::new_from_perp(fill, &mkt.1);
-                for fill in fills {
-                    fill_update_sender
-                        .try_send(FillEventFilterMessage::Update(FillUpdate {
-                            slot,
-                            write_version,
-                            event: fill.clone(),
-                            status: FillUpdateStatus::New,
-                            market_key: mkt_pk_string.clone(),
-                            market_name: mkt.1.name.clone(),
-                        }))
-                        .unwrap(); // TODO: use anyhow to bubble up error
-                    checkpoint.push(fill);
-                }
+                let fill = FillEvent::new_from_perp(fill, &mkt.1);
+                fill_update_sender
+                    .try_send(FillEventFilterMessage::Update(FillUpdate {
+                        slot,
+                        write_version,
+                        event: fill.clone(),
+                        status: FillUpdateStatus::New,
+                        market_key: mkt_pk_string.clone(),
+                        market_name: mkt.1.name.clone(),
+                    }))
+                    .unwrap(); // TODO: use anyhow to bubble up error
+                checkpoint.push(fill);
             }
         } else {
             // every already published event is recorded in checkpoint if a fill
             if events[idx].event_type == EventType::Fill as u8 {
                 let fill: PerpFillEvent = bytemuck::cast(events[idx]);
-                let fills = FillEvent::new_from_perp(fill, &mkt.1);
-                for fill in fills {
-                    checkpoint.push(fill);
-                }
+                let fill = FillEvent::new_from_perp(fill, &mkt.1);
+                checkpoint.push(fill);
             }
         }
     }
@@ -421,19 +412,17 @@ fn publish_changes_perp(
 
         if old_events[idx].event_type == EventType::Fill as u8 {
             let fill: PerpFillEvent = bytemuck::cast(old_events[idx]);
-            let fills = FillEvent::new_from_perp(fill, &mkt.1);
-            for fill in fills {
-                fill_update_sender
-                    .try_send(FillEventFilterMessage::Update(FillUpdate {
-                        slot,
-                        event: fill,
-                        write_version,
-                        status: FillUpdateStatus::Revoke,
-                        market_key: mkt_pk_string.clone(),
-                        market_name: mkt.1.name.clone(),
-                    }))
-                    .unwrap(); // TODO: use anyhow to bubble up error
-            }
+            let fill = FillEvent::new_from_perp(fill, &mkt.1);
+            fill_update_sender
+                .try_send(FillEventFilterMessage::Update(FillUpdate {
+                    slot,
+                    event: fill,
+                    write_version,
+                    status: FillUpdateStatus::Revoke,
+                    market_key: mkt_pk_string.clone(),
+                    market_name: mkt.1.name.clone(),
+                }))
+                .unwrap(); // TODO: use anyhow to bubble up error
         }
     }
 
@@ -449,179 +438,179 @@ fn publish_changes_perp(
 }
 
 fn publish_changes_serum(
-    slot: u64,
-    write_version: u64,
-    mkt: &(Pubkey, MarketConfig),
-    header: &SerumEventQueueHeader,
-    events: &[serum_dex::state::Event],
-    old_seq_num: u64,
-    old_events: &[serum_dex::state::Event],
-    fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
-    metric_events_new: &mut MetricU64,
-    metric_events_change: &mut MetricU64,
-    metric_events_drop: &mut MetricU64,
+    _slot: u64,
+    _write_version: u64,
+    _mkt: &(Pubkey, MarketConfig),
+    _header: &SerumEventQueueHeader,
+    _events: &[serum_dex::state::Event],
+    _old_seq_num: u64,
+    _old_events: &[serum_dex::state::Event],
+    _fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
+    _metric_events_new: &mut MetricU64,
+    _metric_events_change: &mut MetricU64,
+    _metric_events_drop: &mut MetricU64,
 ) {
-    // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    let start_seq_num = max(old_seq_num, header.seq_num)
-        .checked_sub(MAX_NUM_EVENTS as u64)
-        .unwrap_or(0);
-    let mut checkpoint = Vec::new();
-    let mkt_pk_string = mkt.0.to_string();
-    let evq_pk_string = mkt.1.event_queue.to_string();
-    let header_seq_num = header.seq_num;
-    debug!("start seq {} header seq {}", start_seq_num, header_seq_num);
+    // // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
+    // let start_seq_num = max(old_seq_num, header.seq_num)
+    //     .checked_sub(MAX_NUM_EVENTS as u64)
+    //     .unwrap_or(0);
+    // let mut checkpoint = Vec::new();
+    // let mkt_pk_string = mkt.0.to_string();
+    // let evq_pk_string = mkt.1.event_queue.to_string();
+    // let header_seq_num = header.seq_num;
+    // debug!("start seq {} header seq {}", start_seq_num, header_seq_num);
 
-    // Timestamp for spot events is time scraped
-    let timestamp = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    for seq_num in start_seq_num..header_seq_num {
-        let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
-        let event_view = events[idx].as_view().unwrap();
-        let old_event_view = old_events[idx].as_view().unwrap();
+    // // Timestamp for spot events is time scraped
+    // let timestamp = SystemTime::now()
+    //     .duration_since(SystemTime::UNIX_EPOCH)
+    //     .unwrap()
+    //     .as_secs();
+    // for seq_num in start_seq_num..header_seq_num {
+    //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
+    //     let event_view = events[idx].as_view().unwrap();
+    //     let old_event_view = old_events[idx].as_view().unwrap();
 
-        match event_view {
-            SpotEvent::Fill { .. } => {
-                // there are three possible cases:
-                // 1) the event is past the old seq num, hence guaranteed new event
-                // 2) the event is not matching the old event queue
-                // 3) all other events are matching the old event queue
-                // the order of these checks is important so they are exhaustive
-                let fill = FillEvent::new_from_spot(event_view, timestamp, seq_num, &mkt.1);
-                if seq_num >= old_seq_num {
-                    debug!("found new serum fill {} idx {}", mkt_pk_string, idx,);
+    //     match event_view {
+    //         SpotEvent::Fill { .. } => {
+    //             // there are three possible cases:
+    //             // 1) the event is past the old seq num, hence guaranteed new event
+    //             // 2) the event is not matching the old event queue
+    //             // 3) all other events are matching the old event queue
+    //             // the order of these checks is important so they are exhaustive
+    //             let fill = FillEvent::new_from_spot(event_view, timestamp, seq_num, &mkt.1);
+    //             if seq_num >= old_seq_num {
+    //                 debug!("found new serum fill {} idx {}", mkt_pk_string, idx,);
 
-                    metric_events_new.increment();
-                    fill_update_sender
-                        .try_send(FillEventFilterMessage::Update(FillUpdate {
-                            slot,
-                            write_version,
-                            event: fill.clone(),
-                            status: FillUpdateStatus::New,
-                            market_key: mkt_pk_string.clone(),
-                            market_name: mkt.1.name.clone(),
-                        }))
-                        .unwrap(); // TODO: use anyhow to bubble up error
-                    checkpoint.push(fill);
-                    continue;
-                }
+    //                 metric_events_new.increment();
+    //                 fill_update_sender
+    //                     .try_send(FillEventFilterMessage::Update(FillUpdate {
+    //                         slot,
+    //                         write_version,
+    //                         event: fill.clone(),
+    //                         status: FillUpdateStatus::New,
+    //                         market_key: mkt_pk_string.clone(),
+    //                         market_name: mkt.1.name.clone(),
+    //                     }))
+    //                     .unwrap(); // TODO: use anyhow to bubble up error
+    //                 checkpoint.push(fill);
+    //                 continue;
+    //             }
 
-                match old_event_view {
-                    SpotEvent::Fill {
-                        client_order_id, ..
-                    } => {
-                        let client_order_id = match client_order_id {
-                            Some(id) => id.into(),
-                            None => 0u64,
-                        };
-                        if client_order_id != fill.client_order_id {
-                            debug!(
-                                "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
-                                mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
-                            );
+    //             match old_event_view {
+    //                 SpotEvent::Fill {
+    //                     client_order_id, ..
+    //                 } => {
+    //                     let client_order_id = match client_order_id {
+    //                         Some(id) => id.into(),
+    //                         None => 0u64,
+    //                     };
+    //                     if client_order_id != fill.client_order_id {
+    //                         debug!(
+    //                             "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
+    //                             mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //                         );
 
-                            metric_events_change.increment();
+    //                         metric_events_change.increment();
 
-                            let old_fill = FillEvent::new_from_spot(
-                                old_event_view,
-                                timestamp,
-                                seq_num,
-                                &mkt.1,
-                            );
-                            // first revoke old event
-                            fill_update_sender
-                                .try_send(FillEventFilterMessage::Update(FillUpdate {
-                                    slot,
-                                    write_version,
-                                    event: old_fill,
-                                    status: FillUpdateStatus::Revoke,
-                                    market_key: mkt_pk_string.clone(),
-                                    market_name: mkt.1.name.clone(),
-                                }))
-                                .unwrap(); // TODO: use anyhow to bubble up error
+    //                         let old_fill = FillEvent::new_from_spot(
+    //                             old_event_view,
+    //                             timestamp,
+    //                             seq_num,
+    //                             &mkt.1,
+    //                         );
+    //                         // first revoke old event
+    //                         fill_update_sender
+    //                             .try_send(FillEventFilterMessage::Update(FillUpdate {
+    //                                 slot,
+    //                                 write_version,
+    //                                 event: old_fill,
+    //                                 status: FillUpdateStatus::Revoke,
+    //                                 market_key: mkt_pk_string.clone(),
+    //                                 market_name: mkt.1.name.clone(),
+    //                             }))
+    //                             .unwrap(); // TODO: use anyhow to bubble up error
 
-                            // then publish new
-                            fill_update_sender
-                                .try_send(FillEventFilterMessage::Update(FillUpdate {
-                                    slot,
-                                    write_version,
-                                    event: fill.clone(),
-                                    status: FillUpdateStatus::New,
-                                    market_key: mkt_pk_string.clone(),
-                                    market_name: mkt.1.name.clone(),
-                                }))
-                                .unwrap(); // TODO: use anyhow to bubble up error
-                        }
+    //                         // then publish new
+    //                         fill_update_sender
+    //                             .try_send(FillEventFilterMessage::Update(FillUpdate {
+    //                                 slot,
+    //                                 write_version,
+    //                                 event: fill.clone(),
+    //                                 status: FillUpdateStatus::New,
+    //                                 market_key: mkt_pk_string.clone(),
+    //                                 market_name: mkt.1.name.clone(),
+    //                             }))
+    //                             .unwrap(); // TODO: use anyhow to bubble up error
+    //                     }
 
-                        // record new event in checkpoint
-                        checkpoint.push(fill);
-                    }
-                    SpotEvent::Out { .. } => {
-                        debug!(
-                            "found changed type event {} idx {} seq_num {} header seq num {} old seq num {}",
-                            mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
-                        );
+    //                     // record new event in checkpoint
+    //                     checkpoint.push(fill);
+    //                 }
+    //                 SpotEvent::Out { .. } => {
+    //                     debug!(
+    //                         "found changed type event {} idx {} seq_num {} header seq num {} old seq num {}",
+    //                         mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //                     );
 
-                        metric_events_change.increment();
+    //                     metric_events_change.increment();
 
-                        // publish new fill and record in checkpoint
-                        fill_update_sender
-                            .try_send(FillEventFilterMessage::Update(FillUpdate {
-                                slot,
-                                write_version,
-                                event: fill.clone(),
-                                status: FillUpdateStatus::New,
-                                market_key: mkt_pk_string.clone(),
-                                market_name: mkt.1.name.clone(),
-                            }))
-                            .unwrap(); // TODO: use anyhow to bubble up error
-                        checkpoint.push(fill);
-                    }
-                }
-            }
-            _ => continue,
-        }
-    }
+    //                     // publish new fill and record in checkpoint
+    //                     fill_update_sender
+    //                         .try_send(FillEventFilterMessage::Update(FillUpdate {
+    //                             slot,
+    //                             write_version,
+    //                             event: fill.clone(),
+    //                             status: FillUpdateStatus::New,
+    //                             market_key: mkt_pk_string.clone(),
+    //                             market_name: mkt.1.name.clone(),
+    //                         }))
+    //                         .unwrap(); // TODO: use anyhow to bubble up error
+    //                     checkpoint.push(fill);
+    //                 }
+    //             }
+    //         }
+    //         _ => continue,
+    //     }
+    // }
 
-    // in case queue size shrunk due to a fork we need revoke all previous fills
-    for seq_num in header_seq_num..old_seq_num {
-        let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
-        let old_event_view = old_events[idx].as_view().unwrap();
-        debug!(
-            "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
-            mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
-        );
+    // // in case queue size shrunk due to a fork we need revoke all previous fills
+    // for seq_num in header_seq_num..old_seq_num {
+    //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
+    //     let old_event_view = old_events[idx].as_view().unwrap();
+    //     debug!(
+    //         "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
+    //         mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //     );
 
-        metric_events_drop.increment();
+    //     metric_events_drop.increment();
 
-        match old_event_view {
-            SpotEvent::Fill { .. } => {
-                let old_fill = FillEvent::new_from_spot(old_event_view, timestamp, seq_num, &mkt.1);
-                fill_update_sender
-                    .try_send(FillEventFilterMessage::Update(FillUpdate {
-                        slot,
-                        event: old_fill,
-                        write_version,
-                        status: FillUpdateStatus::Revoke,
-                        market_key: mkt_pk_string.clone(),
-                        market_name: mkt.1.name.clone(),
-                    }))
-                    .unwrap(); // TODO: use anyhow to bubble up error
-            }
-            SpotEvent::Out { .. } => continue,
-        }
-    }
+    //     match old_event_view {
+    //         SpotEvent::Fill { .. } => {
+    //             let old_fill = FillEvent::new_from_spot(old_event_view, timestamp, seq_num, &mkt.1);
+    //             fill_update_sender
+    //                 .try_send(FillEventFilterMessage::Update(FillUpdate {
+    //                     slot,
+    //                     event: old_fill,
+    //                     write_version,
+    //                     status: FillUpdateStatus::Revoke,
+    //                     market_key: mkt_pk_string.clone(),
+    //                     market_name: mkt.1.name.clone(),
+    //                 }))
+    //                 .unwrap(); // TODO: use anyhow to bubble up error
+    //         }
+    //         SpotEvent::Out { .. } => continue,
+    //     }
+    // }
 
-    fill_update_sender
-        .try_send(FillEventFilterMessage::Checkpoint(FillCheckpoint {
-            slot,
-            write_version,
-            events: checkpoint,
-            market: mkt_pk_string,
-            queue: evq_pk_string,
-        }))
-        .unwrap()
+    // fill_update_sender
+    //     .try_send(FillEventFilterMessage::Checkpoint(FillCheckpoint {
+    //         slot,
+    //         write_version,
+    //         events: checkpoint,
+    //         market: mkt_pk_string,
+    //         queue: evq_pk_string,
+    //     }))
+    //     .unwrap()
 }
 
 pub async fn init(

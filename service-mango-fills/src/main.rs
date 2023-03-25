@@ -17,7 +17,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::Mutex,
+    sync::{Mutex, atomic::{AtomicBool, Ordering}},
     time::Duration,
 };
 use tokio::{
@@ -267,6 +267,7 @@ pub struct Config {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
     if args.len() < 2 {
         eprintln!("Please enter a config file path argument.");
@@ -408,8 +409,8 @@ async fn main() -> anyhow::Result<()> {
             client_key_path: "$PG_CLIENT_KEY".to_owned(),
         }),
     };
-    let postgres_update_sender =
-        fill_event_postgres_target::init(&pgconf, metrics_tx.clone()).await?;
+    // let postgres_update_sender =
+    //     fill_event_postgres_target::init(&pgconf, metrics_tx.clone(), exit.clone()).await?;
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
         perp_market_configs.clone(),
@@ -451,14 +452,12 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
                     }
-                    // send taker fills to db
+                    // send fills to db
                     let update_c = update.clone();
                     match update_c.event.event_type {
                         FillEventType::Perp => {
-                            if !update_c.event.maker {
-                                debug!("{:?}", update_c);
-                                postgres_update_sender.send(update_c).await.unwrap();
-                            }
+                            debug!("{:?}", update_c);
+                            //postgres_update_sender.send(update_c).await.unwrap();
                         }
                         _ => warn!("failed to write spot event to db"),
                     }
@@ -473,6 +472,7 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // websocket listener
     info!("ws listen: {}", config.bind_ws_addr);
     let try_socket = TcpListener::bind(&config.bind_ws_addr).await;
     let listener = try_socket.expect("Failed to bind");
@@ -511,6 +511,17 @@ async fn main() -> anyhow::Result<()> {
             }
         });
     }
+
+    // handle sigint
+    {
+        let exit = exit.clone();
+        tokio::spawn(async move {
+            tokio::signal::ctrl_c().await.unwrap();
+            info!("Received SIGINT, shutting down...");
+            exit.store(true, Ordering::Relaxed);
+        });
+    }
+
     info!(
         "rpc connect: {}",
         config
@@ -534,6 +545,7 @@ async fn main() -> anyhow::Result<()> {
             account_write_queue_sender,
             slot_queue_sender,
             metrics_tx.clone(),
+            exit.clone(),
         )
         .await;
     } else {

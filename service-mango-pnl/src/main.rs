@@ -9,7 +9,7 @@ use {
         fs::File,
         io::Read,
         mem::size_of,
-        sync::{Arc, RwLock},
+        sync::{Arc, RwLock, atomic::AtomicBool},
         time::Duration,
     },
 };
@@ -222,6 +222,8 @@ fn start_jsonrpc_server(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         println!("requires a config file argument");
@@ -304,6 +306,7 @@ async fn main() -> anyhow::Result<()> {
         account_write_queue_sender,
         slot_queue_sender,
         metrics_tx.clone(),
+        exit.clone(),
     )
     .await;
 

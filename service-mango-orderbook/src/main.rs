@@ -17,7 +17,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::Mutex,
+    sync::{Mutex, atomic::AtomicBool},
     time::Duration,
 };
 use tokio::{
@@ -246,6 +246,7 @@ fn handle_commands(
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
     if args.len() < 2 {
         eprintln!("Please enter a config file path argument");
@@ -443,6 +444,7 @@ async fn main() -> anyhow::Result<()> {
             account_write_queue_sender,
             slot_queue_sender,
             metrics_tx.clone(),
+            exit.clone(),
         )
         .await;
     } else {
