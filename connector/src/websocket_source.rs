@@ -6,7 +6,7 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{OptionalContext, Response, RpcKeyedAccount},
 };
-use solana_rpc::{rpc::rpc_accounts::AccountsDataClient, rpc_pubsub::RpcSolPubSubClient};
+use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use log::*;
@@ -35,9 +35,10 @@ async fn feed_data(
     let connect = ws::try_connect::<RpcSolPubSubClient>(&config.rpc_ws_url).map_err_anyhow()?;
     let client = connect.await.map_err_anyhow()?;
 
-    let rpc_client = http::connect::<AccountsDataClient>(&config.snapshot.rpc_http_url)
-        .await
-        .map_err_anyhow()?;
+    let rpc_client =
+        http::connect::<crate::GetProgramAccountsClient>(&config.snapshot.rpc_http_url)
+            .await
+            .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
