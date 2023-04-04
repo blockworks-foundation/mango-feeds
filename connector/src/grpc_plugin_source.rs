@@ -45,7 +45,7 @@ async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
+    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 

@@ -9,6 +9,16 @@ use {
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
 
+#[cfg(all(feature = "solana-1-14", feature = "solana-1-15"))]
+compile_error!(
+    "feature \"solana-1-14\" and feature \"solana-1-15\" cannot be enabled at the same time"
+);
+
+#[cfg(feature = "solana-1-14")]
+use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClient;
+#[cfg(feature = "solana-1-15")]
+use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
+
 trait AnyhowWrap {
     type Value;
     fn map_err_anyhow(self) -> anyhow::Result<Self::Value>;
