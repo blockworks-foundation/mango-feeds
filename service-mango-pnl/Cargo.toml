@@ -7,8 +7,8 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
-solana-logger = "~1.14.9"
-solana-sdk = "~1.14.9"
+solana-logger = "1.14.9"
+solana-sdk = "1.14.9"
 log = "0.4"
 anyhow = "1.0"
 toml = "0.5"
