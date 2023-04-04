@@ -35,7 +35,7 @@ async fn feed_data(
     let connect = ws::try_connect::<RpcSolPubSubClient>(&config.rpc_ws_url).map_err_anyhow()?;
     let client = connect.await.map_err_anyhow()?;
 
-    let rpc_client = http::connect::<AccountsDataClient>(&config.snapshot.rpc_http_url)
+    let rpc_client = http::connect::<AccountsScanClient>(&config.snapshot.rpc_http_url)
         .await
         .map_err_anyhow()?;
 

@@ -45,7 +45,7 @@ async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
+    let rpc_client = http::connect::<AccountsScanClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
@@ -137,6 +137,7 @@ async fn feed_data_geyser(
         SubscribeRequestFilterAccounts {
             account: filter_config.account_ids.clone(),
             owner: filter_config.program_ids.clone(),
+            filters: vec![],
         },
     );
     let mut slots = HashMap::new();
