@@ -6,7 +6,7 @@ use postgres_query::Caching;
 use std::{env, fs, time::Duration, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use tokio_postgres::Client;
 
-use crate::{fill_event_filter::FillUpdate, metrics::*, PostgresConfig};
+use crate::{fill_event_filter::{FillUpdate, FillUpdateStatus}, metrics::*, PostgresConfig};
 
 async fn postgres_connection(
     config: &PostgresConfig,
@@ -20,7 +20,6 @@ async fn postgres_connection(
     // base64 -i ca.cer -o ca.cer.b64 && base64 -i client.pks -o client.pks.b64
     // fly secrets set PG_CA_CERT=- < ./ca.cer.b64 -a mango-fills
     // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills
-    info!("making tls config");
     let tls = match &config.tls {
         Some(tls) => {
             use base64::{engine::general_purpose, Engine as _};
@@ -32,7 +31,7 @@ async fn postgres_connection(
                             .into_bytes(),
                     )
                     .expect("decoding client cert"),
-                _ => fs::read(&tls.client_key_path).expect("reading client key from file"),
+                _ => fs::read(&tls.ca_cert_path).expect("reading client cert from file"),
             };
             let client_key = match &tls.client_key_path.chars().next().unwrap() {
                 '$' => general_purpose::STANDARD
@@ -78,7 +77,6 @@ async fn postgres_connection(
             let (client, connection) = match initial.take() {
                 Some(v) => v,
                 None => {
-                    info!("creating new connection");
                     let result =
                         tokio_postgres::connect(&connection_string, tls.clone()).await;
                     match result {
@@ -107,7 +105,6 @@ async fn postgres_connection(
             warn!("postgres connection error: {:?}", result);
             tokio::time::sleep(Duration::from_secs(config.retry_connection_sleep_secs)).await;
         }
-        warn!("exiting postgres_connection");
     });
 
     Ok(rx)
@@ -142,23 +139,36 @@ async fn process_update(client: &Caching<Client>, update: &FillUpdate) -> anyhow
     let slot = update.slot as i64;
     let write_version = update.write_version as i64;
 
-    let query = postgres_query::query!(
-        "INSERT INTO transactions_v4.perp_fills_feed_events
-        (market, seq_num, fill_timestamp, price,
-         quantity, slot, write_version)
-        VALUES
-        ($market, $seq_num, $fill_timestamp, $price,
-         $quantity, $slot, $write_version)
-        ON CONFLICT (market, seq_num) DO NOTHING",
-        market,
-        seq_num,
-        fill_timestamp,
-        price,
-        quantity,
-        slot,
-        write_version,
-    );
-    let _ = query.execute(&client).await?;
+    if update.status == FillUpdateStatus::New {
+        // insert new events
+        let query = postgres_query::query!(
+            "INSERT INTO transactions_v4.perp_fills_feed_events
+            (market, seq_num, fill_timestamp, price,
+            quantity, slot, write_version)
+            VALUES
+            ($market, $seq_num, $fill_timestamp, $price,
+            $quantity, $slot, $write_version)
+            ON CONFLICT (market, seq_num) DO NOTHING",
+            market,
+            seq_num,
+            fill_timestamp,
+            price,
+            quantity,
+            slot,
+            write_version,
+        );
+        let _ = query.execute(&client).await?;
+    } else {
+        // delete revoked events
+        let query = postgres_query::query!(
+            "DELETE FROM transactions_v4.perp_fills_feed_events
+            WHERE market=$market
+            AND seq_num=$seq_num",
+            market,
+            seq_num,
+        );
+        let _ = query.execute(&client).await?;
+    }
 
     Ok(())
 }
