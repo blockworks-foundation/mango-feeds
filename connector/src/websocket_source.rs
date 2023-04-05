@@ -7,7 +7,7 @@ use solana_client::{
     rpc_response::{OptionalContext, Response, RpcKeyedAccount},
 };
 use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
-use solana_rpc::rpc::rpc_accounts::AccountsScanClient;
+use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use log::*;

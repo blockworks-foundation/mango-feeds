@@ -5,7 +5,7 @@ use jsonrpc_core_client::transports::http;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
-use solana_rpc::rpc::rpc_accounts::AccountsScanClient;
+use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
