@@ -72,6 +72,7 @@ async fn postgres_connection(
         loop {
             // don't acquire a new connection if we're shutting down
             if exit.load(Ordering::Relaxed) {
+                warn!("shutting down fill_event_postgres_target...");
                 break;
             }
             let (client, connection) = match initial.take() {

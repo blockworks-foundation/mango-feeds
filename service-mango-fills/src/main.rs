@@ -416,6 +416,7 @@ async fn main() -> anyhow::Result<()> {
         perp_market_configs.clone(),
         spot_market_configs.clone(),
         metrics_tx.clone(),
+        exit.clone(),
     )
     .await?;
 

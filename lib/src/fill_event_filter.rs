@@ -19,7 +19,7 @@ use std::{
     borrow::BorrowMut,
     cmp::max,
     collections::{HashMap, HashSet},
-    convert::identity,
+    convert::identity, sync::{Arc, atomic::{AtomicBool, Ordering}},
     //time::SystemTime,
 };
 
@@ -30,7 +30,7 @@ use mango_v4::state::{
     MAX_NUM_EVENTS,
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum FillUpdateStatus {
     New,
     Revoke,
@@ -617,6 +617,7 @@ pub async fn init(
     perp_market_configs: Vec<(Pubkey, MarketConfig)>,
     spot_market_configs: Vec<(Pubkey, MarketConfig)>,
     metrics_sender: Metrics,
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<(
     async_channel::Sender<AccountWrite>,
     async_channel::Sender<SlotUpdate>,
@@ -673,6 +674,10 @@ pub async fn init(
     // update handling thread, reads both sloths and account updates
     tokio::spawn(async move {
         loop {
+            if exit.load(Ordering::Relaxed) {
+                warn!("shutting down fill_event_filter...");
+                break;
+            }
             tokio::select! {
                 Ok(account_write) = account_write_queue_receiver_c.recv() => {
                     if !all_queue_pks.contains(&account_write.pubkey) {
