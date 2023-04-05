@@ -61,7 +61,10 @@ pub enum Command {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeCommand {
-    pub market_id: String,
+    pub market_id: Option<String>,
+    pub market_ids: Option<Vec<String>>,
+    pub account_ids: Option<Vec<String>>,
+    pub consumed_events: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -73,7 +76,8 @@ pub struct UnsubscribeCommand {
 #[derive(Clone, Debug)]
 pub struct Peer {
     pub sender: UnboundedSender<Message>,
-    pub subscriptions: HashSet<String>,
+    pub market_subscriptions: HashSet<String>,
+    pub account_subscriptions: HashSet<String>,
 }
 
 async fn handle_connection_error(
@@ -123,7 +127,8 @@ async fn handle_connection(
             addr,
             Peer {
                 sender: chan_tx,
-                subscriptions: HashSet::<String>::new(),
+                market_subscriptions: HashSet::<String>::new(),
+                account_subscriptions: HashSet::<String>::new(),
             },
         );
     }
@@ -168,57 +173,140 @@ fn handle_commands(
     let command: Result<Command, serde_json::Error> = serde_json::from_str(&msg_str);
     let mut peers = peer_map.lock().unwrap();
     let peer = peers.get_mut(&addr).expect("peer should be in map");
+
     match command {
         Ok(Command::Subscribe(cmd)) => {
-            let market_id = cmd.clone().market_id;
-            match market_ids.get(&market_id) {
-                None => {
-                    let res = StatusResponse {
-                        success: false,
-                        message: "market not found",
+            let mut wildcard = true;
+            // DEPRECATED
+            match cmd.market_id {
+                Some(market_id) => {
+                    wildcard = false;
+                    match market_ids.get(&market_id) {
+                        None => {
+                            let res = StatusResponse {
+                                success: false,
+                                message: "market not found",
+                            };
+                            peer.sender
+                                .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                                .unwrap();
+                            return future::ok(());
+                        }
+                        _ => {}
+                    }
+                    let subscribed = peer.market_subscriptions.insert(market_id.clone());
+        
+                    let res = if subscribed {
+                        StatusResponse {
+                            success: true,
+                            message: "subscribed",
+                        }
+                    } else {
+                        StatusResponse {
+                            success: false,
+                            message: "already subscribed",
+                        }
                     };
                     peer.sender
                         .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
                         .unwrap();
-                    return future::ok(());
+        
+                    if subscribed {
+                        let checkpoint_map = checkpoint_map.lock().unwrap();
+                        let checkpoint = checkpoint_map.get(&market_id);
+                        match checkpoint {
+                            Some(checkpoint) => {
+                                peer.sender
+                                    .unbounded_send(Message::Text(
+                                        serde_json::to_string(&checkpoint).unwrap(),
+                                    ))
+                                    .unwrap();
+                            }
+                            None => info!("no checkpoint available on client subscription for market {}", &market_id),
+                        };
+                    }
                 }
-                _ => {}
+                None => {}
             }
-            let subscribed = peer.subscriptions.insert(market_id.clone());
-
-            let res = if subscribed {
-                StatusResponse {
-                    success: true,
-                    message: "subscribed",
-                }
-            } else {
-                StatusResponse {
-                    success: false,
-                    message: "already subscribed",
-                }
-            };
-            peer.sender
-                .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
-                .unwrap();
-
-            if subscribed {
-                let checkpoint_map = checkpoint_map.lock().unwrap();
-                let checkpoint = checkpoint_map.get(&market_id);
-                match checkpoint {
-                    Some(checkpoint) => {
+            match cmd.market_ids {
+                Some(cmd_market_ids) => {
+                    wildcard = false;
+                    for market_id in cmd_market_ids {
+                        match market_ids.get(&market_id) {
+                            None => {
+                                let res = StatusResponse {
+                                    success: false,
+                                    message: &format!("market {} not found", &market_id),
+                                };
+                                peer.sender
+                                    .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                                    .unwrap();
+                                return future::ok(());
+                            }
+                            _ => {}
+                        }
+                        if peer.market_subscriptions.insert(market_id.clone()) {
+                            let checkpoint_map = checkpoint_map.lock().unwrap();
+                            let checkpoint = checkpoint_map.get(&market_id);
+                            let res = StatusResponse {
+                                success: true,
+                                message: &format!("subscribed to market {}", &market_id),
+                            };
+        
+                            peer.sender
+                                .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                                .unwrap();
+                            match checkpoint {
+                                Some(checkpoint) => {
+                                    peer.sender
+                                        .unbounded_send(Message::Text(
+                                            serde_json::to_string(&checkpoint).unwrap(),
+                                        ))
+                                        .unwrap();
+                                }
+                                None => info!("no checkpoint available on client subscription for market {}", &market_id),
+                            };
+                        }
+                    }
+                },
+                None => {}
+            }
+            match cmd.account_ids {
+                Some(account_ids) => {
+                    wildcard = false;
+                    for account_id in account_ids {
+                        if peer.account_subscriptions.insert(account_id.clone()) {
+                            let res = StatusResponse {
+                                success: true,
+                                message: &format!("subscribed to account {}", &account_id),
+                            };
+        
+                            peer.sender
+                                .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                                .unwrap();
+                        }
+                    }
+                },
+                None => {}
+            }
+            if wildcard {
+                for (market_id, market_name) in market_ids {
+                    if peer.market_subscriptions.insert(market_id.clone()) {
+                        let res = StatusResponse {
+                            success: true,
+                            message: &format!("subscribed to market {}", &market_name),
+                        };
+    
                         peer.sender
-                            .unbounded_send(Message::Text(
-                                serde_json::to_string(&checkpoint).unwrap(),
-                            ))
+                            .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
                             .unwrap();
                     }
-                    None => info!("no checkpoint available on client subscription"),
-                };
+                }
             }
         }
         Ok(Command::Unsubscribe(cmd)) => {
             info!("unsubscribe {}", cmd.market_id);
-            let unsubscribed = peer.subscriptions.remove(&cmd.market_id);
+            let unsubscribed = peer.market_subscriptions.remove(&cmd.market_id);
             let res = if unsubscribed {
                 StatusResponse {
                     success: true,
@@ -391,7 +479,7 @@ async fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
-    let market_pubkey_strings: HashMap<String, String> = [a, b].concat().into_iter().collect();
+    let market_pubkey_strings: HashMap<String, String> = [b].concat().into_iter().collect();
 
     // TODO: read all this from config
     let pgconf = PostgresConfig {
@@ -409,8 +497,8 @@ async fn main() -> anyhow::Result<()> {
             client_key_path: "$PG_CLIENT_KEY".to_owned(),
         }),
     };
-    // let postgres_update_sender =
-    //     fill_event_postgres_target::init(&pgconf, metrics_tx.clone(), exit.clone()).await?;
+    let postgres_update_sender =
+        fill_event_postgres_target::init(&pgconf, metrics_tx.clone(), exit.clone()).await?;
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
         perp_market_configs.clone(),
@@ -443,7 +531,7 @@ async fn main() -> anyhow::Result<()> {
                         let json = serde_json::to_string(&update.clone()).unwrap();
 
                         // only send updates if the peer is subscribed
-                        if peer.subscriptions.contains(&update.market_key) {
+                        if peer.market_subscriptions.contains(&update.market_key) {
                             let result = peer.sender.send(Message::Text(json)).await;
                             if result.is_err() {
                                 error!(
@@ -457,8 +545,7 @@ async fn main() -> anyhow::Result<()> {
                     let update_c = update.clone();
                     match update_c.event.event_type {
                         FillEventType::Perp => {
-                            debug!("{:?}", update_c);
-                            //postgres_update_sender.send(update_c).await.unwrap();
+                            postgres_update_sender.send(update_c).await.unwrap();
                         }
                         _ => warn!("failed to write spot event to db"),
                     }
