@@ -5,6 +5,7 @@ use jsonrpc_core_client::transports::http;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
+use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient;
 use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
 
@@ -45,7 +46,7 @@ async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
+    let rpc_client = http::connect::<AccountsScanClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
@@ -74,7 +75,7 @@ async fn get_snapshot_gma(
     rpc_http_url: String,
     ids: Vec<String>,
 ) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
-    let rpc_client = http::connect::<AccountsScanClient>(&rpc_http_url)
+    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
