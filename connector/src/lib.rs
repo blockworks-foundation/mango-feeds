@@ -19,6 +19,8 @@ use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClien
 #[cfg(feature = "solana-1-15")]
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
+pub use solana_sdk;
+
 trait AnyhowWrap {
     type Value;
     fn map_err_anyhow(self) -> anyhow::Result<Self::Value>;
