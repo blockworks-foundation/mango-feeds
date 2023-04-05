@@ -52,7 +52,7 @@ impl Serialize for FillUpdateStatus {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum FillEventType {
     Spot,
     Perp,
@@ -127,7 +127,7 @@ impl FillEvent {
             config.quote_lot_size,
         );
         let quantity =
-            base_lots_to_ui_perp(event.quantity, config.base_decimals, config.quote_decimals);
+            base_lots_to_ui_perp(event.quantity, config.base_decimals, config.base_lot_size);
         FillEvent {
             event_type: FillEventType::Perp,
             maker: event.maker.to_string(),

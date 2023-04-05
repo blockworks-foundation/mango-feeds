@@ -116,9 +116,8 @@ pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f6
     (native * base_lot_size) as f64 / 10i64.pow(base_decimals.into()) as f64
 }
 
-pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
-    let decimals = base_decimals - quote_decimals;
-    native as f64 / (10i64.pow(decimals.into()) as f64)
+pub fn base_lots_to_ui_perp(native: i64, decimals: u8, base_lot_size: i64) -> f64 {
+    native as f64 * (base_lot_size as f64 / (10i64.pow(decimals.into()) as f64))
 }
 
 pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
@@ -378,7 +377,7 @@ pub async fn init(
                                                 .map(|(_, quantity)| quantity)
                                                 .fold(0, |acc, x| acc + x),
                                             mkt.1.base_decimals,
-                                            mkt.1.quote_decimals,
+                                            mkt.1.base_lot_size,
                                         ),
                                     ]
                                 })
