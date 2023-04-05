@@ -139,6 +139,7 @@ async fn feed_data_geyser(
         SubscribeRequestFilterAccounts {
             account: filter_config.account_ids.clone(),
             owner: filter_config.program_ids.clone(),
+            filters: vec![],
         },
     );
     let mut slots = HashMap::new();
