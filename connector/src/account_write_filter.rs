@@ -5,6 +5,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use log::*;
 use solana_sdk::{account::WritableAccount, pubkey::Pubkey, stake_history::Epoch};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -62,7 +63,10 @@ pub fn init(
             tokio::select! {
                 Ok(account_write) = account_write_queue_receiver.recv() => {
                     if all_queue_pks.contains(&account_write.pubkey) {
+                        trace!("account write skipped {:?}", account_write.pubkey);
                         continue;
+                    } else {
+                        trace!("account write processed {:?}", account_write.pubkey);
                     }
 
                     chain_data.update_account(
@@ -81,7 +85,8 @@ pub fn init(
                     );
                 }
                 Ok(slot_update) = slot_queue_receiver.recv() => {
-                  chain_data.update_slot(SlotData {
+                    trace!("slot update processed {:?}", slot_update);
+                    chain_data.update_slot(SlotData {
                         slot: slot_update.slot,
                         parent: slot_update.parent,
                         status: slot_update.status,
@@ -121,11 +126,13 @@ pub fn init(
                                     );
                                 }
                                 Err(_skip_reason) => {
+                                    debug!("sink process pk {:?} skipped {:?}", pk, _skip_reason);
                                     // todo: metrics
                                 }
                             }
                         }
                         Err(_) => {
+                            debug!("could not find pk in chain data {:?}", pk);
                             // todo: metrics
                         }
                     }

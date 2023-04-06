@@ -29,6 +29,8 @@ async fn feed_data(
     config: &SourceConfig,
     sender: async_channel::Sender<WebsocketMessage>,
 ) -> anyhow::Result<()> {
+    debug!("feed_data {config:?}");
+
     let program_id = Pubkey::from_str(&config.snapshot.program_id)?;
     let snapshot_duration = Duration::from_secs(300);
 
