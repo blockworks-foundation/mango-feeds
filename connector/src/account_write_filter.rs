@@ -62,7 +62,7 @@ pub fn init(
         loop {
             tokio::select! {
                 Ok(account_write) = account_write_queue_receiver.recv() => {
-                    if all_queue_pks.contains(&account_write.pubkey) {
+                    if !all_queue_pks.contains(&account_write.pubkey) {
                         trace!("account write skipped {:?}", account_write.pubkey);
                         continue;
                     } else {
