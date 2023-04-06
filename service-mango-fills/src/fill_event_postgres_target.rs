@@ -1,12 +1,22 @@
 use chrono::{TimeZone, Utc};
 use log::*;
+use mango_feeds_lib::{
+    metrics::{MetricType, MetricU64, Metrics},
+    *,
+};
 use native_tls::{Certificate, Identity, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 use postgres_query::Caching;
-use std::{env, fs, time::Duration, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use service_mango_fills::*;
+use std::{
+    env, fs,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio_postgres::Client;
-
-use crate::{fill_event_filter::{FillUpdate, FillUpdateStatus}, metrics::*, PostgresConfig};
 
 async fn postgres_connection(
     config: &PostgresConfig,
@@ -60,8 +70,9 @@ async fn postgres_connection(
 
     let config = config.clone();
     let connection_string = match &config.connection_string.chars().next().unwrap() {
-        '$' => env::var(&config.connection_string[1..])
-            .expect("reading connection string from env"),
+        '$' => {
+            env::var(&config.connection_string[1..]).expect("reading connection string from env")
+        }
         _ => config.connection_string.clone(),
     };
     let mut initial = Some(tokio_postgres::connect(&connection_string, tls.clone()).await?);
@@ -77,8 +88,7 @@ async fn postgres_connection(
             let (client, connection) = match initial.take() {
                 Some(v) => v,
                 None => {
-                    let result =
-                        tokio_postgres::connect(&connection_string, tls.clone()).await;
+                    let result = tokio_postgres::connect(&connection_string, tls.clone()).await;
                     match result {
                         Ok(v) => v,
                         Err(err) => {
@@ -191,9 +201,13 @@ pub async fn init(
 
     // postgres fill update sending worker threads
     for _ in 0..config.connection_count {
-        let postgres_account_writes =
-            postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone(), exit.clone())
-                .await?;
+        let postgres_account_writes = postgres_connection(
+            config,
+            metric_con_retries.clone(),
+            metric_con_live.clone(),
+            exit.clone(),
+        )
+        .await?;
         let fill_update_queue_receiver_c = fill_update_queue_receiver.clone();
         let config = config.clone();
         let mut metric_retries =

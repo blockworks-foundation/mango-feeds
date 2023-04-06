@@ -13,7 +13,14 @@ use bytemuck::bytes_of;
 use client::{Client, MangoGroupContext};
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use std::{collections::HashSet, fs::File, io::Read, str::FromStr, sync::{Arc, atomic::AtomicBool}, time::Duration};
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::Read,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use mango_feeds_lib::FilterConfig;
 use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};

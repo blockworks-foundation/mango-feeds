@@ -1,10 +1,8 @@
-pub mod fill_event_filter;
-pub mod fill_event_postgres_target;
 pub mod memory_target;
-pub mod orderbook_filter;
 pub mod postgres_types_numeric;
 pub mod serum;
 
+use anchor_lang::prelude::Pubkey;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_derive::Deserialize;
 
@@ -40,6 +38,13 @@ pub struct PostgresTlsConfig {
     pub client_key_path: String,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct Config {
+    pub postgres_target: PostgresConfig,
+    pub source: SourceConfig,
+    pub metrics: MetricsConfig,
+}
+
 #[derive(Clone, Debug)]
 pub struct StatusResponse<'a> {
     pub success: bool,
@@ -59,9 +64,68 @@ impl<'a> Serialize for StatusResponse<'a> {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-pub struct Config {
-    pub postgres_target: PostgresConfig,
-    pub source: SourceConfig,
-    pub metrics: MetricsConfig,
+#[derive(Clone, Debug)]
+pub enum OrderbookSide {
+    Bid = 0,
+    Ask = 1,
+}
+
+impl Serialize for OrderbookSide {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match *self {
+            OrderbookSide::Bid => serializer.serialize_unit_variant("Side", 0, "bid"),
+            OrderbookSide::Ask => serializer.serialize_unit_variant("Side", 1, "ask"),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct MarketConfig {
+    pub name: String,
+    pub bids: Pubkey,
+    pub asks: Pubkey,
+    pub event_queue: Pubkey,
+    pub base_decimals: u8,
+    pub quote_decimals: u8,
+    pub base_lot_size: i64,
+    pub quote_lot_size: i64,
+}
+
+pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
+    (native * base_lot_size) as f64 / 10i64.pow(base_decimals.into()) as f64
+}
+
+pub fn base_lots_to_ui_perp(native: i64, decimals: u8, base_lot_size: i64) -> f64 {
+    native as f64 * (base_lot_size as f64 / (10i64.pow(decimals.into()) as f64))
+}
+
+pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
+    let decimals = base_decimals - quote_decimals;
+    native as f64 / (10u64.pow(decimals.into())) as f64
+}
+
+pub fn spot_price_to_ui(
+    native: i64,
+    native_size: i64,
+    base_decimals: u8,
+    quote_decimals: u8,
+) -> f64 {
+    // TODO: account for fees
+    ((native * 10i64.pow(base_decimals.into())) / (10i64.pow(quote_decimals.into()) * native_size))
+        as f64
+}
+
+pub fn price_lots_to_ui_perp(
+    native: i64,
+    base_decimals: u8,
+    quote_decimals: u8,
+    base_lot_size: i64,
+    quote_lot_size: i64,
+) -> f64 {
+    let decimals = base_decimals - quote_decimals;
+    let multiplier = 10u64.pow(decimals.into()) as f64;
+    native as f64 * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
 }

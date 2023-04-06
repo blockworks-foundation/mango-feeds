@@ -23,9 +23,12 @@ async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 bytemuck = "1.7.2"
+itertools = "0.10.5"
+
+solana-sdk = "~1.14.9"
 
 mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
 client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-serum_dex = { git = "https://github.com/openbook-dex/program", branch = "master" }
+serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
 anchor-lang = "0.25.0"
 anchor-client = "0.25.0"
