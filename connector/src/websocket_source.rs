@@ -75,6 +75,7 @@ async fn feed_data(
                 )
                 .await
                 .map_err_anyhow()?;
+            debug!("fetched new snapshot");
             if let OptionalContext::Context(account_snapshot_response) = account_snapshot {
                 sender
                     .send(WebsocketMessage::SnapshotUpdate(account_snapshot_response))

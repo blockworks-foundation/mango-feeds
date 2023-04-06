@@ -109,6 +109,7 @@ pub fn init(
                                 let is_throttled =
                                     record.timestamp.elapsed() < route.timeout_interval;
                                 if is_unchanged || is_throttled {
+                                    trace!("skipped is_unchanged={is_unchanged} is_throttled={is_throttled} pk={pk_b58}");
                                     continue;
                                 }
                             };
@@ -125,14 +126,14 @@ pub fn init(
                                         },
                                     );
                                 }
-                                Err(_skip_reason) => {
-                                    debug!("sink process pk {:?} skipped {:?}", pk, _skip_reason);
+                                Err(skip_reason) => {
+                                    debug!("sink process skipped reason={skip_reason} pk={pk_b58}");
                                     // todo: metrics
                                 }
                             }
                         }
                         Err(_) => {
-                            debug!("could not find pk in chain data {:?}", pk);
+                            debug!("could not find pk in chain data pk={:?}", pk);
                             // todo: metrics
                         }
                     }
