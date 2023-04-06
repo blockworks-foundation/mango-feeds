@@ -9,7 +9,7 @@ use {
         fs::File,
         io::Read,
         mem::size_of,
-        sync::{Arc, RwLock, atomic::AtomicBool},
+        sync::{atomic::AtomicBool, Arc, RwLock},
         time::Duration,
     },
 };

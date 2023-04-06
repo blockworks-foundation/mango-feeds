@@ -16,8 +16,8 @@ use yellowstone_grpc_proto::tonic::{
 };
 
 use log::*;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
 use yellowstone_grpc_proto::prelude::{

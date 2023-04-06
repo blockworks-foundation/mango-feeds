@@ -4,7 +4,7 @@ use bytemuck::{Pod, Zeroable};
 #[repr(packed)]
 pub struct SerumEventQueueHeader {
     pub _account_flags: u64, // Initialized, EventQueue
-    pub _head: u64,
+    pub head: u64,
     pub count: u64,
     pub seq_num: u64,
 }
