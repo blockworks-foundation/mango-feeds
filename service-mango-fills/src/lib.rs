@@ -248,8 +248,28 @@ impl Serialize for FillUpdate {
 pub struct HeadUpdate {
     pub head_old: u64,
     pub head_new: u64,
+    pub status: FillUpdateStatus,
+    pub market_key: String,
+    pub market_name: String,
     pub slot: u64,
     pub write_version: u64,
+}
+impl Serialize for HeadUpdate {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("HeadUpdate", 6)?;
+        state.serialize_field("head", &self.head_new)?;
+        state.serialize_field("previousHead", &self.head_old)?;
+        state.serialize_field("marketKey", &self.market_key)?;
+        state.serialize_field("marketName", &self.market_name)?;
+        state.serialize_field("status", &self.status)?;
+        state.serialize_field("slot", &self.slot)?;
+        state.serialize_field("writeVersion", &self.write_version)?;
+
+        state.end()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -300,7 +320,7 @@ pub struct SubscribeCommand {
     pub market_id: Option<String>,
     pub market_ids: Option<Vec<String>>,
     pub account_ids: Option<Vec<String>>,
-    pub consumed_events: Option<bool>,
+    pub head_updates: Option<bool>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

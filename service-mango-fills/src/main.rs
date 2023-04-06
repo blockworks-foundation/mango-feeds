@@ -54,6 +54,7 @@ pub struct Peer {
     pub sender: UnboundedSender<Message>,
     pub market_subscriptions: HashSet<String>,
     pub account_subscriptions: HashSet<String>,
+    pub head_updates: bool,
 }
 
 async fn handle_connection_error(
@@ -105,6 +106,7 @@ async fn handle_connection(
                 sender: chan_tx,
                 market_subscriptions: HashSet::<String>::new(),
                 account_subscriptions: HashSet::<String>::new(),
+                head_updates: false,
             },
         );
     }
@@ -286,6 +288,9 @@ fn handle_commands(
                             .unwrap();
                     }
                 }
+            }
+            if let Some(head_updates) = cmd.head_updates {
+                peer.head_updates = head_updates;
             }
         }
         Ok(Command::Unsubscribe(cmd)) => {
@@ -540,7 +545,29 @@ async fn main() -> anyhow::Result<()> {
                         .unwrap()
                         .insert(checkpoint.queue.clone(), checkpoint);
                 }
-                _ => {}
+                FillEventFilterMessage::HeadUpdate(update) => {
+                    debug!(
+                        "ws update {} {:?} {}  {} head",
+                        update.market_name, update.status, update.head_new, update.head_old
+                    );
+                    let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
+                    for (addr, peer) in peer_copy.iter_mut() {
+                        let json = serde_json::to_string(&update.clone()).unwrap();
+
+                        // only send updates if the peer is subscribed
+                        if peer.head_updates
+                            && peer.market_subscriptions.contains(&update.market_key)
+                        {
+                            let result = peer.sender.send(Message::Text(json)).await;
+                            if result.is_err() {
+                                error!(
+                                    "ws update {} head could not reach {}",
+                                    update.market_name, addr
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
     });

@@ -39,11 +39,14 @@ fn publish_changes_perp(
     header: &EventQueueHeader,
     events: &EventQueueEvents,
     old_seq_num: u64,
+    old_head: u64,
     old_events: &EventQueueEvents,
     fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
     metric_events_new: &mut MetricU64,
     metric_events_change: &mut MetricU64,
     metric_events_drop: &mut MetricU64,
+    metric_head_update: &mut MetricU64,
+    metric_head_revoke: &mut MetricU64,
 ) {
     // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
     let start_seq_num = max(old_seq_num, header.seq_num)
@@ -161,6 +164,41 @@ fn publish_changes_perp(
                 }))
                 .unwrap(); // TODO: use anyhow to bubble up error
         }
+    }
+
+    let head = header.head() as u64;
+    // publish a head update event if the head increased
+    if head > old_head {
+        metric_head_update.increment();
+
+        fill_update_sender
+            .try_send(FillEventFilterMessage::HeadUpdate(HeadUpdate {
+                head_old: old_head,
+                head_new: head,
+                status: FillUpdateStatus::New,
+                market_key: mkt_pk_string.clone(),
+                market_name: mkt.1.name.clone(),
+                slot,
+                write_version,
+            }))
+            .unwrap(); // TODO: use anyhow to bubble up error
+    }
+
+    // revoke head update event if it decreased
+    if head < old_head {
+        metric_head_revoke.increment();
+
+        fill_update_sender
+            .try_send(FillEventFilterMessage::HeadUpdate(HeadUpdate {
+                head_old: old_head,
+                head_new: head,
+                status: FillUpdateStatus::Revoke,
+                market_key: mkt_pk_string.clone(),
+                market_name: mkt.1.name.clone(),
+                slot,
+                write_version,
+            }))
+            .unwrap(); // TODO: use anyhow to bubble up error
     }
 
     fill_update_sender
@@ -374,6 +412,10 @@ pub async fn init(
         metrics_sender.register_u64("fills_feed_events_drop".into(), MetricType::Counter);
     let mut metrics_events_drop_serum =
         metrics_sender.register_u64("fills_feed_events_drop_serum".into(), MetricType::Counter);
+    let mut metrics_head_update =
+        metrics_sender.register_u64("fills_feed_head_update".into(), MetricType::Counter);
+    let mut metrics_head_revoke =
+        metrics_sender.register_u64("fills_feed_head_revoke".into(), MetricType::Counter);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =
@@ -487,8 +529,13 @@ pub async fn init(
                             let event_queue =
                                 EventQueue::try_deserialize(account.data().borrow_mut()).unwrap();
 
-                            match seq_num_cache.get(&evq_pk_string) {
-                                Some(old_seq_num) => match perp_events_cache.get(&evq_pk_string) {
+                            match (
+                                seq_num_cache.get(&evq_pk_string),
+                                head_cache.get(&evq_pk_string),
+                            ) {
+                                (Some(old_seq_num), Some(old_head)) => match perp_events_cache
+                                    .get(&evq_pk_string)
+                                {
                                     Some(old_events) => publish_changes_perp(
                                         account_info.slot,
                                         account_info.write_version,
@@ -496,17 +543,20 @@ pub async fn init(
                                         &event_queue.header,
                                         &event_queue.buf,
                                         *old_seq_num,
+                                        *old_head,
                                         old_events,
                                         &fill_update_sender,
                                         &mut metric_events_new,
                                         &mut metric_events_change,
                                         &mut metrics_events_drop,
+                                        &mut metrics_head_update,
+                                        &mut metrics_head_revoke,
                                     ),
                                     _ => {
                                         info!("perp_events_cache could not find {}", evq_pk_string)
                                     }
                                 },
-                                _ => info!("seq_num_cache could not find {}", evq_pk_string),
+                                _ => info!("seq_num/head cache could not find {}", evq_pk_string),
                             }
 
                             seq_num_cache
