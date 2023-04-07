@@ -79,7 +79,7 @@ If the fill ocurred on a fork, an event will be sent with the 'status' field set
 ## Local
 1. Prepare the connector configuration file.
 
-   [Here is an example](service-mango-fills/example-config.toml).
+   [Here is an example](service-mango-fills/conf/example-config.toml).
 
    - `bind_ws_addr` is the listen port for the websocket clients
    - `rpc_ws_url` is unused and can stay empty.
