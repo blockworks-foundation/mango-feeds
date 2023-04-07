@@ -2,8 +2,81 @@
 
 This module parses event queues and exposes individual fills on a websocket.
 
+Public API: `https://api.mngo.cloud/fills/v1/`
+
+## API Reference
+Get a list of markets
+```
+{
+   "command": "getMarkets"
+}
+```
+```
+{
+	"ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2": "SOL-PERP",
+	"HwhVGkfsSQ9JSQeQYu2CbkRCLvsh3qRZxG6m4oMVwZpN": "BTC-PERP",
+	"Fgh9JSZ2qfSjCw9RPJ85W2xbihsp2muLvfRztzoVR7f1": "ETH-PERP",
+}
+```
+
+Subscribe to markets
+```
+{
+   "command": "subscribe"
+   "marketIds": ["MARKET_PUBKEY"]
+}
+```
+```
+{
+	"success": true,
+	"message": "subscribed to market MARKET_PUBKEY"
+}
+```
+
+Subscribe to account
+```
+{
+   "command": "subscribe"
+   "account": ["MANGO_ACCOUNT_PUBKEY"]
+}
+```
+```
+{
+	"success": true,
+	"message": "subscribed to account MANGO_ACCOUNT_PUBKEY"
+}
+```
+
+Fill Event
+```
+{
+	"event": {
+		"eventType": "perp",
+		"maker": "MAKER_MANGO_ACCOUNT_PUBKEY",
+		"taker": "TAKER_MANGO_ACCOUNT_PUBKEY",
+		"takerSide": "bid",
+		"timestamp": "2023-04-06T13:00:00+00:00",
+		"seqNum": 132420,
+		"makerClientOrderId": 1680786677648,
+		"takerClientOrderId": 1680786688080,
+		"makerFee": -0.0003,
+		"takerFee": 0.0006,
+		"price": 20.72,
+		"quantity": 0.45
+	},
+	"marketKey": "ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2",
+	"marketName": "SOL-PERP",
+	"status": "new",
+	"slot": 186869253,
+	"writeVersion": 662992260539
+}
+```
+
+If the fill ocurred on a fork, an event will be sent with the 'status' field set to 'revoke'.
+
 ## Setup
 
+## Local
 1. Prepare the connector configuration file.
 
    [Here is an example](service-mango-fills/example-config.toml).
@@ -14,7 +87,6 @@ This module parses event queues and exposes individual fills on a websocket.
      address configured for the plugin.
    - `rpc_http_url` must point to the JSON-RPC URL.
    - `program_id` must match what is configured for the gRPC plugin
-   - `markets` need to contain all observed perp markets
 
 2. Start the service binary.
 
@@ -27,9 +99,6 @@ This module parses event queues and exposes individual fills on a websocket.
    logs are very spammy changing the default log level is recommended when you
    dont want to analyze performance of the service.
 
-## TODO
-- [] startup logic, dont accept market subscriptions before first snapshot
-- [] failover logic, kill all websockets when we receive a later snapshot, more
-  frequent when running on home connections
-- [] track latency accountwrite -> websocket
-- [] create new model for fills so snapshot maps can be combined per market
+## fly.io
+
+
