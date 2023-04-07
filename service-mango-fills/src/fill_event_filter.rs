@@ -24,8 +24,8 @@ use std::{
 use crate::metrics::MetricU64;
 use anchor_lang::AccountDeserialize;
 use mango_v4::state::{
-    AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent as PerpFillEvent, OutEvent as PerpOutEvent, QueueHeader,
-    MAX_NUM_EVENTS,
+    AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent as PerpFillEvent,
+    OutEvent as PerpOutEvent, QueueHeader, MAX_NUM_EVENTS,
 };
 use service_mango_fills::*;
 
@@ -168,7 +168,7 @@ fn publish_changes_perp(
 
     let head_idx = header.head();
     let head = head_idx as u64;
-    
+
     let head_seq_num = if events[head_idx].event_type == EventType::Fill as u8 {
         let event: PerpFillEvent = bytemuck::cast(events[head_idx]);
         event.seq_num
@@ -607,27 +607,29 @@ pub async fn init(
                             let events: &[serum_dex::state::Event] = bytemuck::cast_slice(&events);
 
                             match seq_num_cache.get(&evq_pk_string) {
-                                Some(prev_seq_num) => match serum_events_cache.get(&evq_pk_string) {
-                                    Some(prev_events) => publish_changes_serum(
-                                        account_info.slot,
-                                        account_info.write_version,
-                                        mkt,
-                                        &header,
-                                        &events,
-                                        *prev_seq_num,
-                                        prev_events,
-                                        &fill_update_sender,
-                                        &mut metric_events_new_serum,
-                                        &mut metric_events_change_serum,
-                                        &mut metrics_events_drop_serum,
-                                    ),
-                                    _ => {
-                                        debug!(
-                                            "serum_events_cache could not find {}",
-                                            evq_pk_string
-                                        )
+                                Some(prev_seq_num) => {
+                                    match serum_events_cache.get(&evq_pk_string) {
+                                        Some(prev_events) => publish_changes_serum(
+                                            account_info.slot,
+                                            account_info.write_version,
+                                            mkt,
+                                            &header,
+                                            &events,
+                                            *prev_seq_num,
+                                            prev_events,
+                                            &fill_update_sender,
+                                            &mut metric_events_new_serum,
+                                            &mut metric_events_change_serum,
+                                            &mut metrics_events_drop_serum,
+                                        ),
+                                        _ => {
+                                            debug!(
+                                                "serum_events_cache could not find {}",
+                                                evq_pk_string
+                                            )
+                                        }
                                     }
-                                },
+                                }
                                 _ => debug!("seq_num_cache could not find {}", evq_pk_string),
                             }
 

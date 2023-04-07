@@ -16,8 +16,8 @@ use log::*;
 use mango_feeds_lib::{
     grpc_plugin_source, metrics,
     metrics::{MetricType, MetricU64},
-    websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig,
-    SourceConfig, StatusResponse,
+    websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig, SourceConfig,
+    StatusResponse,
 };
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
 use std::{
@@ -472,12 +472,12 @@ async fn main() -> anyhow::Result<()> {
     let market_pubkey_strings: HashMap<String, String> = [b].concat().into_iter().collect();
 
     let postgres_update_sender = match config.postgres {
-        Some(postgres_config) => {
-            Some(fill_event_postgres_target::init(&postgres_config, metrics_tx.clone(), exit.clone()).await?)
-        }
-        None => None
+        Some(postgres_config) => Some(
+            fill_event_postgres_target::init(&postgres_config, metrics_tx.clone(), exit.clone())
+                .await?,
+        ),
+        None => None,
     };
-        
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
         perp_market_configs.clone(),
@@ -508,9 +508,11 @@ async fn main() -> anyhow::Result<()> {
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
                         let json = serde_json::to_string(&update.clone()).unwrap();
-
+                        let is_subscribed = peer.market_subscriptions.contains(&update.market_key)
+                            || peer.account_subscriptions.contains(&update.event.taker)
+                            || peer.account_subscriptions.contains(&update.event.maker);
                         // only send updates if the peer is subscribed
-                        if peer.market_subscriptions.contains(&update.market_key) {
+                        if is_subscribed {
                             let result = peer.sender.send(Message::Text(json)).await;
                             if result.is_err() {
                                 error!(
@@ -526,7 +528,7 @@ async fn main() -> anyhow::Result<()> {
                         (Some(sender), FillEventType::Perp) => {
                             sender.send(update_c).await.unwrap();
                         }
-                        _ => {},
+                        _ => {}
                     }
                 }
                 FillEventFilterMessage::Checkpoint(checkpoint) => {
@@ -543,11 +545,9 @@ async fn main() -> anyhow::Result<()> {
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
                         let json = serde_json::to_string(&update.clone()).unwrap();
-
+                        let is_subscribed = peer.market_subscriptions.contains(&update.market_key);
                         // only send updates if the peer is subscribed
-                        if peer.head_updates
-                            && peer.market_subscriptions.contains(&update.market_key)
-                        {
+                        if peer.head_updates && is_subscribed {
                             let result = peer.sender.send(Message::Text(json)).await;
                             if result.is_err() {
                                 error!(
