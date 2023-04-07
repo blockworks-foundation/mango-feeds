@@ -6,7 +6,7 @@ This module parses bookside accounts and exposes L2 data and updates on a websoc
 
 1. Prepare the connector configuration file.
 
-   [Here is an example](service-mango-fills/example-config.toml).
+   [Here is an example](service-mango-orderbook/conf/example-config.toml).
 
    - `bind_ws_addr` is the listen port for the websocket clients
    - `rpc_ws_url` is unused and can stay empty.

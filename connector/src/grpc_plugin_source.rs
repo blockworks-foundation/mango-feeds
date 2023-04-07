@@ -16,6 +16,8 @@ use yellowstone_grpc_proto::tonic::{
 };
 
 use log::*;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
 use yellowstone_grpc_proto::prelude::{
@@ -197,6 +199,7 @@ async fn feed_data_geyser(
     // Highest slot that an account write came in for.
     let mut newest_write_slot: u64 = 0;
 
+    #[derive(Clone, Debug)]
     struct WriteVersion {
         // Write version seen on-chain
         global: u64,
@@ -386,6 +389,7 @@ pub async fn process_events(
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
     metrics_sender: Metrics,
+    exit: Arc<AtomicBool>,
 ) {
     // Subscribe to geyser
     let (msg_sender, msg_receiver) = async_channel::bounded::<Message>(config.dedup_queue_size);
@@ -468,6 +472,11 @@ pub async fn process_events(
         metrics_sender.register_u64("grpc_snapshot_account_writes".into(), MetricType::Counter);
 
     loop {
+        if exit.load(Ordering::Relaxed) {
+            warn!("shutting down grpc_plugin_source...");
+            break;
+        }
+
         metric_dedup_queue.set(msg_receiver.len() as u64);
         let msg = msg_receiver.recv().await.expect("sender must not close");
         match msg {

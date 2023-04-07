@@ -1,3 +1,5 @@
+mod orderbook_filter;
+
 use anchor_client::{
     solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
     Cluster,
@@ -17,7 +19,7 @@ use std::{
     net::SocketAddr,
     str::FromStr,
     sync::Arc,
-    sync::Mutex,
+    sync::{atomic::AtomicBool, Mutex},
     time::Duration,
 };
 use tokio::{
@@ -26,13 +28,16 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
-use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
+use mango_feeds_lib::{
+    grpc_plugin_source, metrics, websocket_source, MarketConfig, MetricsConfig, SourceConfig,
+};
 use mango_feeds_lib::{
     metrics::{MetricType, MetricU64},
-    orderbook_filter::{self, MarketConfig, OrderbookCheckpoint, OrderbookFilterMessage},
     FilterConfig, StatusResponse,
 };
 use serde::Deserialize;
+
+use service_mango_orderbook::{OrderbookCheckpoint, OrderbookFilterMessage};
 
 type CheckpointMap = Arc<Mutex<HashMap<String, OrderbookCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;
@@ -246,6 +251,7 @@ fn handle_commands(
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
     if args.len() < 2 {
         eprintln!("Please enter a config file path argument");
@@ -443,6 +449,7 @@ async fn main() -> anyhow::Result<()> {
             account_write_queue_sender,
             slot_queue_sender,
             metrics_tx.clone(),
+            exit.clone(),
         )
         .await;
     } else {

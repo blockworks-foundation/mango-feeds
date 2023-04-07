@@ -1,17 +1,28 @@
 use chrono::{TimeZone, Utc};
 use log::*;
+use mango_feeds_lib::{
+    metrics::{MetricType, MetricU64, Metrics},
+    *,
+};
 use native_tls::{Certificate, Identity, TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 use postgres_query::Caching;
-use std::{env, fs, time::Duration};
+use service_mango_fills::*;
+use std::{
+    env, fs,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio_postgres::Client;
-
-use crate::{fill_event_filter::FillUpdate, metrics::*, PostgresConfig};
 
 async fn postgres_connection(
     config: &PostgresConfig,
     metric_retries: MetricU64,
     metric_live: MetricU64,
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<async_channel::Receiver<Option<tokio_postgres::Client>>> {
     let (tx, rx) = async_channel::unbounded();
 
@@ -19,7 +30,6 @@ async fn postgres_connection(
     // base64 -i ca.cer -o ca.cer.b64 && base64 -i client.pks -o client.pks.b64
     // fly secrets set PG_CA_CERT=- < ./ca.cer.b64 -a mango-fills
     // fly secrets set PG_CLIENT_KEY=- < ./client.pks.b64 -a mango-fills
-    info!("making tls config");
     let tls = match &config.tls {
         Some(tls) => {
             use base64::{engine::general_purpose, Engine as _};
@@ -31,7 +41,7 @@ async fn postgres_connection(
                             .into_bytes(),
                     )
                     .expect("decoding client cert"),
-                _ => fs::read(&tls.client_key_path).expect("reading client key from file"),
+                _ => fs::read(&tls.ca_cert_path).expect("reading client cert from file"),
             };
             let client_key = match &tls.client_key_path.chars().next().unwrap() {
                 '$' => general_purpose::STANDARD
@@ -59,16 +69,26 @@ async fn postgres_connection(
     };
 
     let config = config.clone();
-    let mut initial = Some(tokio_postgres::connect(&config.connection_string, tls.clone()).await?);
+    let connection_string = match &config.connection_string.chars().next().unwrap() {
+        '$' => {
+            env::var(&config.connection_string[1..]).expect("reading connection string from env")
+        }
+        _ => config.connection_string.clone(),
+    };
+    let mut initial = Some(tokio_postgres::connect(&connection_string, tls.clone()).await?);
     let mut metric_retries = metric_retries;
     let mut metric_live = metric_live;
     tokio::spawn(async move {
         loop {
+            // don't acquire a new connection if we're shutting down
+            if exit.load(Ordering::Relaxed) {
+                warn!("shutting down fill_event_postgres_target...");
+                break;
+            }
             let (client, connection) = match initial.take() {
                 Some(v) => v,
                 None => {
-                    let result =
-                        tokio_postgres::connect(&config.connection_string, tls.clone()).await;
+                    let result = tokio_postgres::connect(&connection_string, tls.clone()).await;
                     match result {
                         Ok(v) => v,
                         Err(err) => {
@@ -129,23 +149,36 @@ async fn process_update(client: &Caching<Client>, update: &FillUpdate) -> anyhow
     let slot = update.slot as i64;
     let write_version = update.write_version as i64;
 
-    let query = postgres_query::query!(
-        "INSERT INTO transactions_v4.perp_fills_feed_events
-        (market, seq_num, fill_timestamp, price,
-         quantity, slot, write_version)
-        VALUES
-        ($market, $seq_num, $fill_timestamp, $price,
-         $quantity, $slot, $write_version)
-        ON CONFLICT (market, seq_num) DO NOTHING",
-        market,
-        seq_num,
-        fill_timestamp,
-        price,
-        quantity,
-        slot,
-        write_version,
-    );
-    let _ = query.execute(&client).await?;
+    if update.status == FillUpdateStatus::New {
+        // insert new events
+        let query = postgres_query::query!(
+            "INSERT INTO transactions_v4.perp_fills_feed_events
+            (market, seq_num, fill_timestamp, price,
+            quantity, slot, write_version)
+            VALUES
+            ($market, $seq_num, $fill_timestamp, $price,
+            $quantity, $slot, $write_version)
+            ON CONFLICT (market, seq_num) DO NOTHING",
+            market,
+            seq_num,
+            fill_timestamp,
+            price,
+            quantity,
+            slot,
+            write_version,
+        );
+        let _ = query.execute(&client).await?;
+    } else {
+        // delete revoked events
+        let query = postgres_query::query!(
+            "DELETE FROM transactions_v4.perp_fills_feed_events
+            WHERE market=$market
+            AND seq_num=$seq_num",
+            market,
+            seq_num,
+        );
+        let _ = query.execute(&client).await?;
+    }
 
     Ok(())
 }
@@ -153,6 +186,7 @@ async fn process_update(client: &Caching<Client>, update: &FillUpdate) -> anyhow
 pub async fn init(
     config: &PostgresConfig,
     metrics_sender: Metrics,
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<async_channel::Sender<FillUpdate>> {
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (fill_update_queue_sender, fill_update_queue_receiver) =
@@ -167,9 +201,13 @@ pub async fn init(
 
     // postgres fill update sending worker threads
     for _ in 0..config.connection_count {
-        let postgres_account_writes =
-            postgres_connection(config, metric_con_retries.clone(), metric_con_live.clone())
-                .await?;
+        let postgres_account_writes = postgres_connection(
+            config,
+            metric_con_retries.clone(),
+            metric_con_live.clone(),
+            exit.clone(),
+        )
+        .await?;
         let fill_update_queue_receiver_c = fill_update_queue_receiver.clone();
         let config = config.clone();
         let mut metric_retries =

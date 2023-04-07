@@ -1,153 +1,35 @@
-use crate::metrics::MetricU64;
-use crate::{
+use anchor_lang::AccountDeserialize;
+use itertools::Itertools;
+use log::*;
+use mango_feeds_lib::metrics::MetricU64;
+use mango_feeds_lib::{
+    base_lots_to_ui, base_lots_to_ui_perp, price_lots_to_ui, price_lots_to_ui_perp, MarketConfig,
+    OrderbookSide,
+};
+use mango_feeds_lib::{
     chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
 };
-use anchor_lang::AccountDeserialize;
-use itertools::Itertools;
-use log::*;
 use mango_v4::{
     serum3_cpi::OrderBookStateHeader,
     state::{BookSide, OrderTreeType},
 };
-use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serum_dex::critbit::Slab;
+use service_mango_orderbook::{
+    OrderbookCheckpoint, OrderbookFilterMessage, OrderbookLevel, OrderbookUpdate,
+};
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
     clock::Epoch,
     pubkey::Pubkey,
 };
+use std::borrow::BorrowMut;
 use std::{
-    borrow::BorrowMut,
     collections::{HashMap, HashSet},
     mem::size_of,
     time::{SystemTime, UNIX_EPOCH},
 };
-
-#[derive(Clone, Debug)]
-pub enum OrderbookSide {
-    Bid = 0,
-    Ask = 1,
-}
-
-impl Serialize for OrderbookSide {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match *self {
-            OrderbookSide::Bid => serializer.serialize_unit_variant("Side", 0, "bid"),
-            OrderbookSide::Ask => serializer.serialize_unit_variant("Side", 1, "ask"),
-        }
-    }
-}
-
-pub type OrderbookLevel = [f64; 2];
-
-#[derive(Clone, Debug)]
-pub struct OrderbookUpdate {
-    pub market: String,
-    pub side: OrderbookSide,
-    pub update: Vec<OrderbookLevel>,
-    pub slot: u64,
-    pub write_version: u64,
-}
-
-impl Serialize for OrderbookUpdate {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("OrderbookUpdate", 5)?;
-        state.serialize_field("market", &self.market)?;
-        state.serialize_field("side", &self.side)?;
-        state.serialize_field("update", &self.update)?;
-        state.serialize_field("slot", &self.slot)?;
-        state.serialize_field("write_version", &self.write_version)?;
-
-        state.end()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct OrderbookCheckpoint {
-    pub market: String,
-    pub bids: Vec<OrderbookLevel>,
-    pub asks: Vec<OrderbookLevel>,
-    pub slot: u64,
-    pub write_version: u64,
-}
-
-impl Serialize for OrderbookCheckpoint {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("OrderbookCheckpoint", 3)?;
-        state.serialize_field("market", &self.market)?;
-        state.serialize_field("bids", &self.bids)?;
-        state.serialize_field("asks", &self.asks)?;
-        state.serialize_field("slot", &self.slot)?;
-        state.serialize_field("write_version", &self.write_version)?;
-
-        state.end()
-    }
-}
-
-pub enum OrderbookFilterMessage {
-    Update(OrderbookUpdate),
-    Checkpoint(OrderbookCheckpoint),
-}
-
-#[derive(Clone, Debug)]
-pub struct MarketConfig {
-    pub name: String,
-    pub bids: Pubkey,
-    pub asks: Pubkey,
-    pub event_queue: Pubkey,
-    pub base_decimals: u8,
-    pub quote_decimals: u8,
-    pub base_lot_size: i64,
-    pub quote_lot_size: i64,
-}
-
-pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
-    (native * base_lot_size) as f64 / 10i64.pow(base_decimals.into()) as f64
-}
-
-pub fn base_lots_to_ui_perp(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
-    let decimals = base_decimals - quote_decimals;
-    native as f64 / (10i64.pow(decimals.into()) as f64)
-}
-
-pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
-    let decimals = base_decimals - quote_decimals;
-    native as f64 / (10u64.pow(decimals.into())) as f64
-}
-
-pub fn spot_price_to_ui(
-    native: i64,
-    native_size: i64,
-    base_decimals: u8,
-    quote_decimals: u8,
-) -> f64 {
-    // TODO: account for fees
-    ((native * 10i64.pow(base_decimals.into())) / (10i64.pow(quote_decimals.into()) * native_size))
-        as f64
-}
-
-pub fn price_lots_to_ui_perp(
-    native: i64,
-    base_decimals: u8,
-    quote_decimals: u8,
-    base_lot_size: i64,
-    quote_lot_size: i64,
-) -> f64 {
-    let decimals = base_decimals - quote_decimals;
-    let multiplier = 10u64.pow(decimals.into()) as f64;
-    native as f64 * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
-}
 
 fn publish_changes(
     slot: u64,
@@ -378,7 +260,7 @@ pub async fn init(
                                                 .map(|(_, quantity)| quantity)
                                                 .fold(0, |acc, x| acc + x),
                                             mkt.1.base_decimals,
-                                            mkt.1.quote_decimals,
+                                            mkt.1.base_lot_size,
                                         ),
                                     ]
                                 })

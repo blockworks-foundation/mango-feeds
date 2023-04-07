@@ -13,7 +13,14 @@ use bytemuck::bytes_of;
 use client::{Client, MangoGroupContext};
 use log::*;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use std::{collections::HashSet, fs::File, io::Read, str::FromStr, sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    fs::File,
+    io::Read,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use mango_feeds_lib::FilterConfig;
 use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
@@ -31,6 +38,8 @@ pub struct Config {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info");
+
+    let exit: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
@@ -147,6 +156,7 @@ async fn main() -> anyhow::Result<()> {
             account_write_queue_sender,
             slot_queue_sender,
             metrics_tx.clone(),
+            exit.clone(),
         )
         .await;
     } else {
