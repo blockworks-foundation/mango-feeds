@@ -246,8 +246,10 @@ impl Serialize for FillUpdate {
 
 #[derive(Clone, Debug)]
 pub struct HeadUpdate {
-    pub head_old: u64,
-    pub head_new: u64,
+    pub head: u64,
+    pub prev_head: u64,
+    pub head_seq_num: u64,
+    pub prev_head_seq_num: u64,
     pub status: FillUpdateStatus,
     pub market_key: String,
     pub market_name: String,
@@ -260,8 +262,10 @@ impl Serialize for HeadUpdate {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("HeadUpdate", 6)?;
-        state.serialize_field("head", &self.head_new)?;
-        state.serialize_field("previousHead", &self.head_old)?;
+        state.serialize_field("head", &self.head)?;
+        state.serialize_field("previousHead", &self.prev_head)?;
+        state.serialize_field("headSeqNum", &self.head_seq_num)?;
+        state.serialize_field("previousHeadSeqNum", &self.prev_head_seq_num)?;
         state.serialize_field("marketKey", &self.market_key)?;
         state.serialize_field("marketName", &self.market_name)?;
         state.serialize_field("status", &self.status)?;

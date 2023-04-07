@@ -24,7 +24,7 @@ use std::{
 use crate::metrics::MetricU64;
 use anchor_lang::AccountDeserialize;
 use mango_v4::state::{
-    AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent as PerpFillEvent, QueueHeader,
+    AnyEvent, EventQueue, EventQueueHeader, EventType, FillEvent as PerpFillEvent, OutEvent as PerpOutEvent, QueueHeader,
     MAX_NUM_EVENTS,
 };
 use service_mango_fills::*;
@@ -38,9 +38,9 @@ fn publish_changes_perp(
     mkt: &(Pubkey, MarketConfig),
     header: &EventQueueHeader,
     events: &EventQueueEvents,
-    old_seq_num: u64,
-    old_head: u64,
-    old_events: &EventQueueEvents,
+    prev_seq_num: u64,
+    prev_head: u64,
+    prev_events: &EventQueueEvents,
     fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
     metric_events_new: &mut MetricU64,
     metric_events_change: &mut MetricU64,
@@ -49,7 +49,7 @@ fn publish_changes_perp(
     metric_head_revoke: &mut MetricU64,
 ) {
     // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    let start_seq_num = max(old_seq_num, header.seq_num)
+    let start_seq_num = max(prev_seq_num, header.seq_num)
         .checked_sub(MAX_NUM_EVENTS as u64)
         .unwrap_or(0);
     let mut checkpoint = Vec::new();
@@ -63,7 +63,7 @@ fn publish_changes_perp(
         // 2) the event is not matching the old event queue
         // 3) all other events are matching the old event queue
         // the order of these checks is important so they are exhaustive
-        if seq_num >= old_seq_num {
+        if seq_num >= prev_seq_num {
             debug!(
                 "found new event {} idx {} type {} slot {} write_version {}",
                 mkt_pk_string, idx, events[idx].event_type as u32, slot, write_version
@@ -88,19 +88,19 @@ fn publish_changes_perp(
                     .unwrap(); // TODO: use anyhow to bubble up error
                 checkpoint.push(fill);
             }
-        } else if old_events[idx].event_type != events[idx].event_type
-            || old_events[idx].padding != events[idx].padding
+        } else if prev_events[idx].event_type != events[idx].event_type
+            || prev_events[idx].padding != events[idx].padding
         {
             debug!(
                 "found changed event {} idx {} seq_num {} header seq num {} old seq num {}",
-                mkt_pk_string, idx, seq_num, header.seq_num, old_seq_num
+                mkt_pk_string, idx, seq_num, header.seq_num, prev_seq_num
             );
 
             metric_events_change.increment();
 
             // first revoke old event if a fill
-            if old_events[idx].event_type == EventType::Fill as u8 {
-                let fill: PerpFillEvent = bytemuck::cast(old_events[idx]);
+            if prev_events[idx].event_type == EventType::Fill as u8 {
+                let fill: PerpFillEvent = bytemuck::cast(prev_events[idx]);
                 let fill = FillEvent::new_from_perp(fill, &mkt.1);
                 fill_update_sender
                     .try_send(FillEventFilterMessage::Update(FillUpdate {
@@ -141,17 +141,17 @@ fn publish_changes_perp(
     }
 
     // in case queue size shrunk due to a fork we need revoke all previous fills
-    for seq_num in header.seq_num..old_seq_num {
+    for seq_num in header.seq_num..prev_seq_num {
         let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
         debug!(
             "found dropped event {} idx {} seq_num {} header seq num {} old seq num {} slot {} write_version {}",
-            mkt_pk_string, idx, seq_num, header.seq_num, old_seq_num, slot, write_version
+            mkt_pk_string, idx, seq_num, header.seq_num, prev_seq_num, slot, write_version
         );
 
         metric_events_drop.increment();
 
-        if old_events[idx].event_type == EventType::Fill as u8 {
-            let fill: PerpFillEvent = bytemuck::cast(old_events[idx]);
+        if prev_events[idx].event_type == EventType::Fill as u8 {
+            let fill: PerpFillEvent = bytemuck::cast(prev_events[idx]);
             let fill = FillEvent::new_from_perp(fill, &mkt.1);
             fill_update_sender
                 .try_send(FillEventFilterMessage::Update(FillUpdate {
@@ -166,15 +166,40 @@ fn publish_changes_perp(
         }
     }
 
-    let head = header.head() as u64;
-    // publish a head update event if the head increased
-    if head > old_head {
+    let head_idx = header.head();
+    let head = head_idx as u64;
+    
+    let head_seq_num = if events[head_idx].event_type == EventType::Fill as u8 {
+        let event: PerpFillEvent = bytemuck::cast(events[head_idx]);
+        event.seq_num
+    } else if events[head_idx].event_type == EventType::Out as u8 {
+        let event: PerpOutEvent = bytemuck::cast(events[head_idx]);
+        event.seq_num
+    } else {
+        0
+    };
+
+    let prev_head_idx = prev_head as usize;
+    let prev_head_seq_num = if prev_events[prev_head_idx].event_type == EventType::Fill as u8 {
+        let event: PerpFillEvent = bytemuck::cast(prev_events[prev_head_idx]);
+        event.seq_num
+    } else if prev_events[prev_head_idx].event_type == EventType::Out as u8 {
+        let event: PerpOutEvent = bytemuck::cast(prev_events[prev_head_idx]);
+        event.seq_num
+    } else {
+        0
+    };
+
+    // publish a head update event if the head increased (events were consumed)
+    if head > prev_head {
         metric_head_update.increment();
 
         fill_update_sender
             .try_send(FillEventFilterMessage::HeadUpdate(HeadUpdate {
-                head_old: old_head,
-                head_new: head,
+                head,
+                prev_head,
+                head_seq_num,
+                prev_head_seq_num,
                 status: FillUpdateStatus::New,
                 market_key: mkt_pk_string.clone(),
                 market_name: mkt.1.name.clone(),
@@ -184,14 +209,16 @@ fn publish_changes_perp(
             .unwrap(); // TODO: use anyhow to bubble up error
     }
 
-    // revoke head update event if it decreased
-    if head < old_head {
+    // revoke head update event if it decreased (fork)
+    if head < prev_head {
         metric_head_revoke.increment();
 
         fill_update_sender
             .try_send(FillEventFilterMessage::HeadUpdate(HeadUpdate {
-                head_old: old_head,
-                head_new: head,
+                head,
+                prev_head,
+                head_seq_num,
+                prev_head_seq_num,
                 status: FillUpdateStatus::Revoke,
                 market_key: mkt_pk_string.clone(),
                 market_name: mkt.1.name.clone(),
@@ -218,15 +245,15 @@ fn publish_changes_serum(
     _mkt: &(Pubkey, MarketConfig),
     _header: &SerumEventQueueHeader,
     _events: &[serum_dex::state::Event],
-    _old_seq_num: u64,
-    _old_events: &[serum_dex::state::Event],
+    _prev_seq_num: u64,
+    _prev_events: &[serum_dex::state::Event],
     _fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
     _metric_events_new: &mut MetricU64,
     _metric_events_change: &mut MetricU64,
     _metric_events_drop: &mut MetricU64,
 ) {
     // // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    // let start_seq_num = max(old_seq_num, header.seq_num)
+    // let start_seq_num = max(prev_seq_num, header.seq_num)
     //     .checked_sub(MAX_NUM_EVENTS as u64)
     //     .unwrap_or(0);
     // let mut checkpoint = Vec::new();
@@ -243,7 +270,7 @@ fn publish_changes_serum(
     // for seq_num in start_seq_num..header_seq_num {
     //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
     //     let event_view = events[idx].as_view().unwrap();
-    //     let old_event_view = old_events[idx].as_view().unwrap();
+    //     let old_event_view = prev_events[idx].as_view().unwrap();
 
     //     match event_view {
     //         SpotEvent::Fill { .. } => {
@@ -253,7 +280,7 @@ fn publish_changes_serum(
     //             // 3) all other events are matching the old event queue
     //             // the order of these checks is important so they are exhaustive
     //             let fill = FillEvent::new_from_spot(event_view, timestamp, seq_num, &mkt.1);
-    //             if seq_num >= old_seq_num {
+    //             if seq_num >= prev_seq_num {
     //                 debug!("found new serum fill {} idx {}", mkt_pk_string, idx,);
 
     //                 metric_events_new.increment();
@@ -282,7 +309,7 @@ fn publish_changes_serum(
     //                     if client_order_id != fill.client_order_id {
     //                         debug!(
     //                             "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //                             mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //                             mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
     //                         );
 
     //                         metric_events_change.increment();
@@ -324,7 +351,7 @@ fn publish_changes_serum(
     //                 SpotEvent::Out { .. } => {
     //                     debug!(
     //                         "found changed type event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //                         mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //                         mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
     //                     );
 
     //                     metric_events_change.increment();
@@ -349,12 +376,12 @@ fn publish_changes_serum(
     // }
 
     // // in case queue size shrunk due to a fork we need revoke all previous fills
-    // for seq_num in header_seq_num..old_seq_num {
+    // for seq_num in header_seq_num..prev_seq_num {
     //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
-    //     let old_event_view = old_events[idx].as_view().unwrap();
+    //     let old_event_view = prev_events[idx].as_view().unwrap();
     //     debug!(
     //         "found dropped event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //         mkt_pk_string, idx, seq_num, header_seq_num, old_seq_num
+    //         mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
     //     );
 
     //     metric_events_drop.increment();
@@ -533,18 +560,18 @@ pub async fn init(
                                 seq_num_cache.get(&evq_pk_string),
                                 head_cache.get(&evq_pk_string),
                             ) {
-                                (Some(old_seq_num), Some(old_head)) => match perp_events_cache
+                                (Some(prev_seq_num), Some(old_head)) => match perp_events_cache
                                     .get(&evq_pk_string)
                                 {
-                                    Some(old_events) => publish_changes_perp(
+                                    Some(prev_events) => publish_changes_perp(
                                         account_info.slot,
                                         account_info.write_version,
                                         &mkt,
                                         &event_queue.header,
                                         &event_queue.buf,
-                                        *old_seq_num,
+                                        *prev_seq_num,
                                         *old_head,
-                                        old_events,
+                                        prev_events,
                                         &fill_update_sender,
                                         &mut metric_events_new,
                                         &mut metric_events_change,
@@ -580,15 +607,15 @@ pub async fn init(
                             let events: &[serum_dex::state::Event] = bytemuck::cast_slice(&events);
 
                             match seq_num_cache.get(&evq_pk_string) {
-                                Some(old_seq_num) => match serum_events_cache.get(&evq_pk_string) {
-                                    Some(old_events) => publish_changes_serum(
+                                Some(prev_seq_num) => match serum_events_cache.get(&evq_pk_string) {
+                                    Some(prev_events) => publish_changes_serum(
                                         account_info.slot,
                                         account_info.write_version,
                                         mkt,
                                         &header,
                                         &events,
-                                        *old_seq_num,
-                                        old_events,
+                                        *prev_seq_num,
+                                        prev_events,
                                         &fill_update_sender,
                                         &mut metric_events_new_serum,
                                         &mut metric_events_change_serum,
