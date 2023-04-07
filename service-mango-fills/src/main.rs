@@ -16,7 +16,7 @@ use log::*;
 use mango_feeds_lib::{
     grpc_plugin_source, metrics,
     metrics::{MetricType, MetricU64},
-    websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig, PostgresTlsConfig,
+    websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig,
     SourceConfig, StatusResponse,
 };
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
@@ -336,6 +336,7 @@ fn handle_commands(
 pub struct Config {
     pub source: SourceConfig,
     pub metrics: MetricsConfig,
+    pub postgres: Option<PostgresConfig>,
     pub bind_ws_addr: String,
     pub rpc_http_url: String,
     pub mango_group: String,
@@ -470,24 +471,13 @@ async fn main() -> anyhow::Result<()> {
         .collect();
     let market_pubkey_strings: HashMap<String, String> = [b].concat().into_iter().collect();
 
-    // TODO: read all this from config
-    let pgconf = PostgresConfig {
-        connection_string: "$PG_CONNECTION_STRING".to_owned(),
-        connection_count: 1,
-        max_batch_size: 1,
-        max_queue_size: 50_000,
-        retry_query_max_count: 10,
-        retry_query_sleep_secs: 2,
-        retry_connection_sleep_secs: 10,
-        fatal_connection_timeout_secs: 120,
-        allow_invalid_certs: true,
-        tls: Some(PostgresTlsConfig {
-            ca_cert_path: "$PG_CA_CERT".to_owned(),
-            client_key_path: "$PG_CLIENT_KEY".to_owned(),
-        }),
+    let postgres_update_sender = match config.postgres {
+        Some(postgres_config) => {
+            Some(fill_event_postgres_target::init(&postgres_config, metrics_tx.clone(), exit.clone()).await?)
+        }
+        None => None
     };
-    let postgres_update_sender =
-        fill_event_postgres_target::init(&pgconf, metrics_tx.clone(), exit.clone()).await?;
+        
 
     let (account_write_queue_sender, slot_queue_sender, fill_receiver) = fill_event_filter::init(
         perp_market_configs.clone(),
@@ -532,11 +522,11 @@ async fn main() -> anyhow::Result<()> {
                     }
                     // send fills to db
                     let update_c = update.clone();
-                    match update_c.event.event_type {
-                        FillEventType::Perp => {
-                            postgres_update_sender.send(update_c).await.unwrap();
+                    match (postgres_update_sender.clone(), update_c.event.event_type) {
+                        (Some(sender), FillEventType::Perp) => {
+                            sender.send(update_c).await.unwrap();
                         }
-                        _ => warn!("failed to write spot event to db"),
+                        _ => {},
                     }
                 }
                 FillEventFilterMessage::Checkpoint(checkpoint) => {
@@ -548,7 +538,7 @@ async fn main() -> anyhow::Result<()> {
                 FillEventFilterMessage::HeadUpdate(update) => {
                     debug!(
                         "ws update {} {:?} {}  {} head",
-                        update.market_name, update.status, update.head_new, update.head_old
+                        update.market_name, update.status, update.head, update.prev_head
                     );
                     let mut peer_copy = peers_ref_thread.lock().unwrap().clone();
                     for (addr, peer) in peer_copy.iter_mut() {
