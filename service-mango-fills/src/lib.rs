@@ -246,8 +246,8 @@ impl Serialize for FillUpdate {
 
 #[derive(Clone, Debug)]
 pub struct HeadUpdate {
-    pub head: u64,
-    pub prev_head: u64,
+    pub head: usize,
+    pub prev_head: usize,
     pub head_seq_num: u64,
     pub prev_head_seq_num: u64,
     pub status: FillUpdateStatus,
