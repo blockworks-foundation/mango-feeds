@@ -4,3 +4,6 @@
 .DS_Store
 .idea/
 *.pem
+
+node_modules
+dist
