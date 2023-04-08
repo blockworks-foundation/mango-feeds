@@ -191,7 +191,7 @@ fn publish_changes_perp(
     // publish a head update event if the head changed (events were consumed)
     if head != prev_head {
         metric_head_update.increment();
-        
+
         fill_update_sender
             .try_send(FillEventFilterMessage::HeadUpdate(HeadUpdate {
                 head,
@@ -567,8 +567,7 @@ pub async fn init(
 
                             seq_num_cache
                                 .insert(evq_pk_string.clone(), event_queue.header.seq_num.clone());
-                            head_cache
-                                .insert(evq_pk_string.clone(), event_queue.header.head());
+                            head_cache.insert(evq_pk_string.clone(), event_queue.header.head());
                             perp_events_cache
                                 .insert(evq_pk_string.clone(), event_queue.buf.clone());
                         } else {
