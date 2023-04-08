@@ -1,11 +1,11 @@
 [workspace]
 members = [
         "connector",
-#        "lib",
-#        "service-mango-crank",
-#        "service-mango-fills",
-#        "service-mango-pnl",
-#        "service-mango-orderbook",
+        "lib",
+        "service-mango-crank",
+        "service-mango-fills",
+        "service-mango-pnl",
+        "service-mango-orderbook",
 ]
 
 

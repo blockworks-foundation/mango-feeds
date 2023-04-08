@@ -10,8 +10,8 @@ use anchor_client::{
 };
 use anchor_lang::prelude::Pubkey;
 use bytemuck::bytes_of;
-use client::{Client, MangoGroupContext};
 use log::*;
+use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::{
     collections::HashSet,
@@ -67,9 +67,11 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::new(
         cluster.clone(),
         CommitmentConfig::processed(),
-        &Keypair::new(),
+        Arc::new(Keypair::new()),
         Some(rpc_timeout),
-        0,
+        TransactionBuilderConfig {
+            prioritization_micro_lamports: None,
+        },
     );
     let group_pk = Pubkey::from_str(&config.mango_group).unwrap();
     let group_context =

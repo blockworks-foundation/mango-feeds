@@ -16,10 +16,12 @@ use {
 
 use anchor_client::Cluster;
 use anchor_lang::Discriminator;
-use client::{chain_data, health_cache, AccountFetcher, Client, MangoGroupContext};
 use fixed::types::I80F48;
 use mango_feeds_lib::metrics::*;
 use mango_v4::state::{MangoAccount, MangoAccountValue, PerpMarketIndex};
+use mango_v4_client::{
+    chain_data, health_cache, AccountFetcher, Client, MangoGroupContext, TransactionBuilderConfig,
+};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::{account::ReadableAccount, signature::Keypair};
 #[derive(Clone, Debug, Deserialize)]
@@ -67,7 +69,7 @@ async fn compute_pnl(
             } else {
                 return None;
             };
-            Some((pp.market_index, settleable_pnl))
+            Some((pp.market_index, I80F48::from_bits(settleable_pnl.to_bits())))
         })
         .collect::<Vec<(PerpMarketIndex, I80F48)>>();
 
@@ -248,9 +250,11 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::new(
         cluster.clone(),
         commitment,
-        &Keypair::new(),
+        Arc::new(Keypair::new()),
         Some(rpc_timeout),
-        0,
+        TransactionBuilderConfig {
+            prioritization_micro_lamports: None,
+        },
     );
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(

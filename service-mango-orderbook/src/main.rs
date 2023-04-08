@@ -5,13 +5,13 @@ use anchor_client::{
     Cluster,
 };
 use anchor_lang::prelude::Pubkey;
-use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
     future::{self, Ready},
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
+use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -286,9 +286,11 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::new(
         cluster.clone(),
         CommitmentConfig::processed(),
-        &Keypair::new(),
+        Arc::new(Keypair::new()),
         Some(rpc_timeout),
-        0,
+        TransactionBuilderConfig {
+            prioritization_micro_lamports: None,
+        },
     );
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(

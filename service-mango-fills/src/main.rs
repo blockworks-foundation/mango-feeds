@@ -6,7 +6,6 @@ use anchor_client::{
     Cluster,
 };
 use anchor_lang::prelude::Pubkey;
-use client::{Client, MangoGroupContext};
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
     future::{self, Ready},
@@ -19,6 +18,7 @@ use mango_feeds_lib::{
     websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig, SourceConfig,
     StatusResponse,
 };
+use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
 use std::{
     collections::{HashMap, HashSet},
@@ -377,9 +377,11 @@ async fn main() -> anyhow::Result<()> {
     let client = Client::new(
         cluster.clone(),
         CommitmentConfig::processed(),
-        &Keypair::new(),
+        Arc::new(Keypair::new()),
         Some(rpc_timeout),
-        0,
+        TransactionBuilderConfig {
+            prioritization_micro_lamports: None,
+        },
     );
     let group_context = Arc::new(
         MangoGroupContext::new_from_rpc(
