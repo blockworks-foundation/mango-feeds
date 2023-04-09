@@ -1,6 +1,6 @@
 {
   "name": "@blockworks-foundation/mango-feeds",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Typescript Client for mango-feeds.",
   "repository": "https://github.com/blockworks-foundation/mango-feeds",
   "author": {
@@ -12,11 +12,6 @@
   "main": "./dist/cjs/src/index.js",
   "module": "./dist/esm/src/index.js",
   "types": "./dist/types/src/index.d.ts",
-  "exports": {
-    "import": "./dist/esm/index.js",
-    "require": "./dist/cjs/index.js",
-    "default": "./dist/esm/index.js"
-  },
   "files": [
     "dist"
   ],
@@ -41,7 +36,8 @@
     "prettier": "^2.0.5",
     "ts-node": "^10.9.1",
     "typedoc": "^0.22.5",
-    "typescript": "^4.8.4"
+    "typescript": "^4.9.4",
+    "ws": "^8.13.0"
   },
   "prettier": {
     "singleQuote": true,
