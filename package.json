@@ -1,6 +1,6 @@
 {
   "name": "@blockworks-foundation/mango-feeds",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typescript Client for mango-feeds.",
   "repository": "https://github.com/blockworks-foundation/mango-feeds",
   "author": {
@@ -12,6 +12,11 @@
   "main": "./dist/cjs/src/index.js",
   "module": "./dist/esm/src/index.js",
   "types": "./dist/types/src/index.d.ts",
+  "exports": {
+    "import": "./dist/esm/index.js",
+    "require": "./dist/cjs/index.js",
+    "default": "./dist/esm/index.js"
+  },
   "files": [
     "dist"
   ],
@@ -20,7 +25,7 @@
     "build:node": " tsc -p tsconfig.cjs.json --noEmit false",
     "build:browser": "tsc -p tsconfig.esm.json --noEmit false",
     "build:types": "tsc -p tsconfig.types.json --noEmit false",
-    "test": "ts-mocha ts/client/**/*.spec.ts --timeout 300000",
+    "format": "prettier --check ./ts",
     "lint": "eslint ./ts/client/src --ext ts --ext tsx --ext js --quiet",
     "typecheck": "tsc --noEmit --pretty",
     "prepublishOnly": "yarn validate && yarn build",
