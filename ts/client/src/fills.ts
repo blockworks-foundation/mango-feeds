@@ -1,12 +1,12 @@
 import WebSocket from 'ws';
 
 interface FillsFeedOptions {
-  subscriptions?: FillsFeedSubscriptionParams;
+  subscriptions?: FillsFeedSubscribeParams;
   reconnectIntervalMs?: number;
   reconnectionMaxAttempts?: number;
 }
 
-interface FillsFeedSubscriptionParams {
+interface FillsFeedSubscribeParams {
   marketId?: string;
   marketIds?: string[];
   accountIds?: string[];
@@ -67,7 +67,7 @@ function isStatusMessage(obj: any): obj is StatusMessage {
 export class FillsFeed {
   private _url: string;
   private _socket: WebSocket;
-  private _subscriptions?: FillsFeedSubscriptionParams;
+  private _subscriptions?: FillsFeedSubscribeParams;
   private _connected: boolean;
   private _reconnectionIntervalMs;
   private _reconnectionAttempts;
@@ -90,7 +90,10 @@ export class FillsFeed {
   }
 
   private _reconnectionAttemptsExhausted(): boolean {
-    return this._reconnectionMaxAttempts != -1 && this._reconnectionAttempts >= this._reconnectionMaxAttempts
+    return (
+      this._reconnectionMaxAttempts != -1 &&
+      this._reconnectionAttempts >= this._reconnectionMaxAttempts
+    );
   }
 
   private _connect() {
@@ -99,7 +102,7 @@ export class FillsFeed {
     this._socket.addEventListener('error', (err) => {
       console.warn(`[FillsFeed] connection error: ${err.message}`);
       if (this._reconnectionAttemptsExhausted()) {
-        console.error('[FillsFeed] fatal connection error')
+        console.error('[FillsFeed] fatal connection error');
         throw err.error;
       }
     });
@@ -140,7 +143,7 @@ export class FillsFeed {
     });
   }
 
-  public subscribe(subscriptions: FillsFeedSubscriptionParams) {
+  public subscribe(subscriptions: FillsFeedSubscribeParams) {
     if (this._connected) {
       this._socket.send(
         JSON.stringify({
@@ -150,6 +153,19 @@ export class FillsFeed {
       );
     } else {
       console.warn('[FillsFeed] attempt to subscribe when not connected');
+    }
+  }
+
+  public unsubscribe(marketId: string) {
+    if (this._connected) {
+      this._socket.send(
+        JSON.stringify({
+          command: 'unsubscribe',
+          marketId,
+        }),
+      );
+    } else {
+      console.warn('[FillsFeed] attempt to unsubscribe when not connected');
     }
   }
 
