@@ -434,17 +434,18 @@ async fn main() -> anyhow::Result<()> {
             .map(|c| c.connection_string.clone())
             .collect::<String>()
     );
+
+    let relevant_pubkeys = [market_configs.clone()]
+        .concat()
+        .iter()
+        .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])
+        .collect();
+    let filter_config = FilterConfig {
+        program_ids: vec![],
+        account_ids: relevant_pubkeys,
+    };
     let use_geyser = true;
     if use_geyser {
-        let relevant_pubkeys = [market_configs.clone()]
-            .concat()
-            .iter()
-            .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])
-            .collect();
-        let filter_config = FilterConfig {
-            program_ids: vec![],
-            account_ids: relevant_pubkeys,
-        };
         grpc_plugin_source::process_events(
             &config.source,
             &filter_config,
@@ -457,6 +458,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         websocket_source::process_events(
             &config.source,
+            &filter_config,
             account_write_queue_sender,
             slot_queue_sender,
         )

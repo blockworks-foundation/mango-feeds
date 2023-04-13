@@ -1,12 +1,9 @@
 use futures::stream::once;
 use jsonrpc_core::futures::StreamExt;
-use jsonrpc_core_client::transports::http;
 
-use solana_account_decoder::{UiAccount, UiAccountEncoding};
-use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
-use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
-use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_account_decoder::UiAccount;
+use solana_client::rpc_response::OptionalContext;
+use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
 use yellowstone_grpc_proto::tonic::{
@@ -26,12 +23,12 @@ use yellowstone_grpc_proto::prelude::{
     SubscribeUpdateSlotStatus,
 };
 
+use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
 use crate::FilterConfig;
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
-    AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
-    TlsConfig,
+    AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
 
 struct SnapshotData {
@@ -41,59 +38,6 @@ struct SnapshotData {
 enum Message {
     GrpcUpdate(SubscribeUpdate),
     Snapshot(SnapshotData),
-}
-
-async fn get_snapshot_gpa(
-    rpc_http_url: String,
-    program_id: String,
-) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
-
-    let account_info_config = RpcAccountInfoConfig {
-        encoding: Some(UiAccountEncoding::Base64),
-        commitment: Some(CommitmentConfig::finalized()),
-        data_slice: None,
-        min_context_slot: None,
-    };
-    let program_accounts_config = RpcProgramAccountsConfig {
-        filters: None,
-        with_context: Some(true),
-        account_config: account_info_config.clone(),
-    };
-
-    info!("requesting snapshot {}", program_id);
-    let account_snapshot = rpc_client
-        .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
-        .await
-        .map_err_anyhow()?;
-    info!("snapshot received {}", program_id);
-    Ok(account_snapshot)
-}
-
-async fn get_snapshot_gma(
-    rpc_http_url: String,
-    ids: Vec<String>,
-) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
-
-    let account_info_config = RpcAccountInfoConfig {
-        encoding: Some(UiAccountEncoding::Base64),
-        commitment: Some(CommitmentConfig::finalized()),
-        data_slice: None,
-        min_context_slot: None,
-    };
-
-    info!("requesting snapshot {:?}", ids);
-    let account_snapshot = rpc_client
-        .get_multiple_accounts(ids.clone(), Some(account_info_config))
-        .await
-        .map_err_anyhow()?;
-    info!("snapshot received {:?}", ids);
-    Ok(account_snapshot)
 }
 
 async fn feed_data_geyser(
