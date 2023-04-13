@@ -113,10 +113,10 @@ export class FillsFeed {
 
     this._socket.addEventListener('open', () => {
       if (this._subscriptions !== undefined) {
-        this._connected = true;
-        this._reconnectionAttempts = 0;
         this.subscribe(this._subscriptions);
       }
+      this._connected = true;
+      this._reconnectionAttempts = 0;
       if (this._onConnect) this._onConnect();
     });
 
