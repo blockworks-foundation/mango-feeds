@@ -94,6 +94,11 @@ pub fn init(
                     });
 
                 }
+                else => {
+                    warn!("channels closed, filter shutting down pks={all_queue_pks:?}");
+                    break;
+                }
+
             }
 
             chain_data_metrics.report(&chain_data);
