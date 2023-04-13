@@ -1,14 +1,14 @@
 {
-    "extends": "./tsconfig",
-    "compilerOptions": {
-      "declaration": true,
-      "declarationMap": false,
-      "module": "commonjs",
-      "outDir": "dist/cjs",
-      "sourceMap": false
-    },
-    "include": [
-      "ts/client/src",
-      "ts/client/scripts"
-    ]
+  "extends": "./tsconfig",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "module": "commonjs",
+    "outDir": "dist/cjs",
+    "sourceMap": false
+  },
+  "include": [
+    "ts/client/src",
+    "ts/client/scripts"
+  ]
 }

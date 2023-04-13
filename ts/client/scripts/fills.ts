@@ -5,7 +5,7 @@ const RECONNECT_ATTEMPTS_MAX = -1;
 
 // Subscribe on connection
 const fillsFeed = new FillsFeed('ws://localhost:8080', {
-  reconnectIntervalMs: RECONNECT_INTERVAL_MS,
+  reconnectionIntervalMs: RECONNECT_INTERVAL_MS,
   reconnectionMaxAttempts: RECONNECT_ATTEMPTS_MAX,
   subscriptions: {
     accountIds: ['9XJt2tvSZghsMAhWto1VuPBrwXsiimPtsTR8XwGgDxK2'],

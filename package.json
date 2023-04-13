@@ -1,6 +1,6 @@
 {
   "name": "@blockworks-foundation/mango-feeds",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Typescript Client for mango-feeds.",
   "repository": "https://github.com/blockworks-foundation/mango-feeds",
   "author": {

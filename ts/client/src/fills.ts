@@ -1,8 +1,10 @@
-import WebSocket from 'ws';
+import ws from 'ws';
+
+const WebSocket = global.WebSocket || ws;
 
 interface FillsFeedOptions {
   subscriptions?: FillsFeedSubscribeParams;
-  reconnectIntervalMs?: number;
+  reconnectionIntervalMs?: number;
   reconnectionMaxAttempts?: number;
 }
 
@@ -74,7 +76,9 @@ export class FillsFeed {
   private _reconnectionMaxAttempts;
 
   private _onConnect: (() => void) | null = null;
-  private _onDisconnect: (() => void) | null = null;
+  private _onDisconnect:
+    | ((reconnectionAttemptsExhausted: boolean) => void)
+    | null = null;
   private _onFill: ((update: FillEventUpdate) => void) | null = null;
   private _onHead: ((update: HeadUpdate) => void) | null = null;
   private _onStatus: ((update: StatusMessage) => void) | null = null;
@@ -82,7 +86,7 @@ export class FillsFeed {
   constructor(url: string, options?: FillsFeedOptions) {
     this._url = url;
     this._subscriptions = options?.subscriptions;
-    this._reconnectionIntervalMs = options?.reconnectIntervalMs ?? 5000;
+    this._reconnectionIntervalMs = options?.reconnectionIntervalMs ?? 5000;
     this._reconnectionAttempts = 0;
     this._reconnectionMaxAttempts = options?.reconnectionMaxAttempts ?? -1;
 
@@ -99,7 +103,7 @@ export class FillsFeed {
   private _connect() {
     this._socket = new WebSocket(this._url);
 
-    this._socket.addEventListener('error', (err) => {
+    this._socket.addEventListener('error', (err: any) => {
       console.warn(`[FillsFeed] connection error: ${err.message}`);
       if (this._reconnectionAttemptsExhausted()) {
         console.error('[FillsFeed] fatal connection error');
@@ -124,7 +128,8 @@ export class FillsFeed {
           this._connect();
         }
       }, this._reconnectionIntervalMs);
-      if (this._onDisconnect) this._onDisconnect();
+      if (this._onDisconnect)
+        this._onDisconnect(this._reconnectionAttemptsExhausted());
     });
 
     this._socket.addEventListener('message', (msg: any) => {
@@ -166,6 +171,15 @@ export class FillsFeed {
       );
     } else {
       console.warn('[FillsFeed] attempt to unsubscribe when not connected');
+    }
+  }
+
+  public disconnect() {
+    if (this._connected) {
+      this._socket.close();
+      this._connected = false;
+    } else {
+      console.warn('[FillsFeed] attempt to disconnect when not connected');
     }
   }
 
