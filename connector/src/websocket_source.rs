@@ -4,7 +4,7 @@ use jsonrpc_core_client::transports::{http, ws};
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
-    rpc_response::{ Response, RpcKeyedAccount},
+    rpc_response::{Response, RpcKeyedAccount},
 };
 use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
 use solana_sdk::{
