@@ -2,22 +2,24 @@
 members = [
         "connector",
         "lib",
-        "service-mango-crank",
-        "service-mango-fills",
-        "service-mango-pnl",
-        "service-mango-orderbook",
+        #"service-mango-crank",
+        #"service-mango-fills",
+        #"service-mango-pnl",
+        #"service-mango-orderbook",
 ]
 
-
-[patch.crates-io]
-# for gzip encoded responses
-jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
-# force usage of mango-v4 submodules with 1.14.9 support
-anchor-spl = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-lang = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-switchboard-v2 = { git = "https://github.com/blockworks-foundation/sbv2-solana", branch = "mango-v4" }
+[workspace.dependencies]
+anchor-spl = { git = "https://github.com/mschneider/anchor", branch = "max/solana-16" }
+anchor-lang = { git = "https://github.com/mschneider/anchor", branch = "max/solana-16" }
+anchor-client = { git = "https://github.com/mschneider/anchor", branch = "max/solana-16" }
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "max/solana-16" }
+mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "max/solana-16" }
 solana-rpc = { git = "https://github.com/solana-labs/solana.git", branch="master" }
 solana-client = { git = "https://github.com/solana-labs/solana.git", branch="master" }
 solana-account-decoder = { git = "https://github.com/solana-labs/solana.git", branch="master" }
 solana-sdk = { git = "https://github.com/solana-labs/solana.git", branch="master" }
+
+[patch.crates-io]
+# for gzip encoded responses
+jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
+switchboard-v2 = { git = "https://github.com/blockworks-foundation/sbv2-solana", branch = "mango-v4" }

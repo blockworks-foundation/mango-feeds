@@ -17,10 +17,10 @@ solana-1-15 = []
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-solana-rpc = "1.14.9"
-solana-client = "1.14.9"
-solana-account-decoder = "1.14.9"
-solana-sdk = "1.14.9"
+solana-rpc = { workspace = true }
+solana-client = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-sdk = { workspace = true }
 
 tokio = { version = "1", features = ["full"] }
 rustls = "0.20.8"

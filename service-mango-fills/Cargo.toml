@@ -39,8 +39,8 @@ native-tls = "0.2"
 postgres_query = { git = "https://github.com/nolanderc/rust-postgres-query", rev = "b4422051c8a31fbba4a35f88004c1cefb1878dd5" }
 base64 = "0.21.0"
 
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+mango-v4 = { workspace = true }
+mango-v4-client = { workspace = true }
 serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
-anchor-lang = "0.25.0"
-anchor-client = "0.25.0"
+anchor-lang = { workspace = true }
+anchor-client = { workspace = true }

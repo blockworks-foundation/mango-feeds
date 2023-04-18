@@ -11,15 +11,17 @@ license = "AGPL-3.0-or-later"
 [dependencies]
 mango-feeds-connector = { path = "../connector" }
 
+solana-rpc = { workspace = true }
+solana-client = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-sdk = { workspace = true }
+mango-v4 = { workspace = true, features = ["client"] }
+anchor-lang = { workspace = true }
+
+
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-solana-rpc = "~1.14.9"
-solana-client = "~1.14.9"
-solana-account-decoder = "~1.14.9"
-solana-sdk = "~1.14.9"
-
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev", features = ["client"] }
 bytemuck = "*"
 fixed = { version = "*", features = ["serde"] }
 
@@ -51,8 +53,6 @@ futures-core = "0.3"
 
 async-channel = "1.6"
 async-trait = "0.1"
-
-anchor-lang = "0.25.0"
 
 serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
 
