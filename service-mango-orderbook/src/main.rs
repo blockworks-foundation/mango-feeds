@@ -157,25 +157,22 @@ fn handle_commands(
     checkpoint_map: CheckpointMap,
     market_ids: HashMap<String, String>,
 ) -> Ready<Result<(), Error>> {
-    let msg_str = msg.clone().into_text().unwrap();
+    let msg_str = msg.into_text().unwrap();
     let command: Result<Command, serde_json::Error> = serde_json::from_str(&msg_str);
     let mut peers = peer_map.lock().unwrap();
     let peer = peers.get_mut(&addr).expect("peer should be in map");
     match command {
         Ok(Command::Subscribe(cmd)) => {
-            let market_id = cmd.clone().market_id;
-            match market_ids.get(&market_id) {
-                None => {
-                    let res = StatusResponse {
-                        success: false,
-                        message: "market not found",
-                    };
-                    peer.sender
-                        .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
-                        .unwrap();
-                    return future::ok(());
-                }
-                _ => {}
+            let market_id = cmd.market_id;
+            if market_ids.get(&market_id).is_none() {
+                let res = StatusResponse {
+                    success: false,
+                    message: "market not found",
+                };
+                peer.sender
+                    .unbounded_send(Message::Text(serde_json::to_string(&res).unwrap()))
+                    .unwrap();
+                return future::ok(());
             }
             let subscribed = peer.subscriptions.insert(market_id.clone());
 
@@ -303,8 +300,8 @@ async fn main() -> anyhow::Result<()> {
     // todo: reload markets at intervals
     let market_configs: Vec<(Pubkey, MarketConfig)> = group_context
         .perp_markets
-        .iter()
-        .map(|(_, context)| {
+        .values()
+        .map(|context| {
             let quote_decimals = match group_context.tokens.get(&context.market.settle_token_index)
             {
                 Some(token) => token.decimals,
@@ -328,8 +325,8 @@ async fn main() -> anyhow::Result<()> {
 
     let serum_market_configs: Vec<(Pubkey, MarketConfig)> = group_context
         .serum3_markets
-        .iter()
-        .map(|(_, context)| {
+        .values()
+        .map(|context| {
             let base_decimals = match group_context.tokens.get(&context.market.base_token_index) {
                 Some(token) => token.decimals,
                 None => panic!("token not found for market"), // todo: default?

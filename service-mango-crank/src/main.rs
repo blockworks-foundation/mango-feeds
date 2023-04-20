@@ -15,6 +15,7 @@ use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
 use std::{
     collections::HashSet,
+    convert::TryFrom,
     fs::File,
     io::Read,
     str::FromStr,
@@ -79,15 +80,15 @@ async fn main() -> anyhow::Result<()> {
 
     let perp_queue_pks: Vec<_> = group_context
         .perp_markets
-        .iter()
-        .map(|(_, context)| (context.address, context.market.event_queue))
+        .values()
+        .map(|context| (context.address, context.market.event_queue))
         .collect();
 
     // fetch all serum/openbook markets to find their event queues
     let serum_market_pks: Vec<_> = group_context
         .serum3_markets
-        .iter()
-        .map(|(_, context)| context.market.serum_market_external)
+        .values()
+        .map(|context| context.market.serum_market_external)
         .collect();
 
     let serum_market_ais = client
@@ -111,7 +112,10 @@ async fn main() -> anyhow::Result<()> {
                 &pair.1.data[5..5 + std::mem::size_of::<serum_dex::state::MarketState>()],
             );
             let event_q = market_state.event_q;
-            (serum_market_pks[pair.0], Pubkey::new(bytes_of(&event_q)))
+            (
+                serum_market_pks[pair.0],
+                Pubkey::try_from(bytes_of(&event_q)).unwrap(),
+            )
         })
         .collect();
 

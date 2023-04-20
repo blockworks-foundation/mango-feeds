@@ -63,7 +63,7 @@ async fn feed_data(
         .map_err_anyhow()?;
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
 
-    let mut last_snapshot = Instant::now() - snapshot_duration;
+    let mut last_snapshot = Instant::now().checked_sub(snapshot_duration).unwrap();
 
     loop {
         // occasionally cause a new snapshot to be produced

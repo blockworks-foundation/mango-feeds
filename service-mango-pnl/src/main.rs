@@ -128,7 +128,7 @@ fn start_pnl_updater(
                 // Alternatively, we could prepare the sorted and limited lists for each
                 // market here. That would be faster and cause less contention on the pnl_data
                 // lock, but it looks like it's very far from being an issue.
-                pnls.push((pubkey.clone(), pnl_vals));
+                pnls.push((*pubkey, pnl_vals));
             }
 
             *pnl_data.write().unwrap() = pnls;

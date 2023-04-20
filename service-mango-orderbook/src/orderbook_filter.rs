@@ -31,6 +31,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+#[allow(clippy::too_many_arguments)]
 fn publish_changes(
     slot: u64,
     write_version: u64,
@@ -80,11 +81,11 @@ fn publish_changes(
                     "C {} {} -> {}",
                     current_order[0], previous_order[1], current_order[1]
                 );
-                update.push(current_order.clone());
+                update.push(*current_order);
             }
             None => {
                 info!("A {} {}", current_order[0], current_order[1]);
-                update.push(current_order.clone())
+                update.push(*current_order)
             }
         }
     }
@@ -108,14 +109,14 @@ fn publish_changes(
         None => info!("other bookside not in cache"),
     }
 
-    if update.len() == 0 {
+    if update.is_empty() {
         return;
     }
 
     orderbook_update_sender
         .try_send(OrderbookFilterMessage::Update(OrderbookUpdate {
             market: mkt.0.to_string(),
-            side: side.clone(),
+            side,
             update,
             slot,
             write_version,
@@ -133,8 +134,6 @@ pub async fn init(
     async_channel::Sender<SlotUpdate>,
     async_channel::Receiver<OrderbookFilterMessage>,
 )> {
-    let metrics_sender = metrics_sender.clone();
-
     let mut metric_events_new =
         metrics_sender.register_u64("orderbook_updates".into(), MetricType::Counter);
 
@@ -149,8 +148,6 @@ pub async fn init(
     // Fill updates can be consumed by client connections, they contain all fills for all markets
     let (fill_update_sender, fill_update_receiver) =
         async_channel::unbounded::<OrderbookFilterMessage>();
-
-    let account_write_queue_receiver_c = account_write_queue_receiver.clone();
 
     let mut chain_cache = ChainData::new();
     let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
@@ -168,7 +165,7 @@ pub async fn init(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Ok(account_write) = account_write_queue_receiver_c.recv() => {
+                Ok(account_write) = account_write_queue_receiver.recv() => {
                     if !relevant_pubkeys.contains(&account_write.pubkey) {
                         continue;
                     }
@@ -256,9 +253,7 @@ pub async fn init(
                                             mkt.1.quote_lot_size,
                                         ),
                                         base_lots_to_ui_perp(
-                                            group
-                                                .map(|(_, quantity)| quantity)
-                                                .fold(0, |acc, x| acc + x),
+                                            group.map(|(_, quantity)| quantity).sum(),
                                             mkt.1.base_decimals,
                                             mkt.1.base_lot_size,
                                         ),
@@ -275,7 +270,7 @@ pub async fn init(
                                     mkt,
                                     side,
                                     &bookside,
-                                    &old_bookside,
+                                    old_bookside,
                                     other_bookside,
                                     &fill_update_sender,
                                     &mut metric_events_new,
@@ -330,9 +325,7 @@ pub async fn init(
                                             mkt.1.quote_decimals,
                                         ),
                                         base_lots_to_ui(
-                                            group
-                                                .map(|(_, quantity)| quantity)
-                                                .fold(0, |acc, x| acc + x),
+                                            group.map(|(_, quantity)| quantity).sum(),
                                             mkt.1.base_decimals,
                                             mkt.1.base_lot_size,
                                         ),

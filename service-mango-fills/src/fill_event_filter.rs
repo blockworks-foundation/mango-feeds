@@ -32,6 +32,7 @@ use service_mango_fills::*;
 // couldn't compile the correct struct size / math on m1, fixed sizes resolve this issue
 type EventQueueEvents = [AnyEvent; MAX_NUM_EVENTS as usize];
 
+#[allow(clippy::too_many_arguments)]
 fn publish_changes_perp(
     slot: u64,
     write_version: u64,
@@ -46,12 +47,9 @@ fn publish_changes_perp(
     metric_events_change: &mut MetricU64,
     metric_events_drop: &mut MetricU64,
     metric_head_update: &mut MetricU64,
-    metric_head_revoke: &mut MetricU64,
 ) {
     // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    let start_seq_num = max(prev_seq_num, header.seq_num)
-        .checked_sub(MAX_NUM_EVENTS as u64)
-        .unwrap_or(0);
+    let start_seq_num = max(prev_seq_num, header.seq_num).saturating_sub(MAX_NUM_EVENTS as u64);
     let mut checkpoint = Vec::new();
     let mkt_pk_string = mkt.0.to_string();
     let evq_pk_string = mkt.1.event_queue.to_string();
@@ -218,6 +216,7 @@ fn publish_changes_perp(
         .unwrap()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn publish_changes_serum(
     _slot: u64,
     _write_version: u64,
@@ -404,7 +403,7 @@ pub async fn init(
     async_channel::Sender<SlotUpdate>,
     async_channel::Receiver<FillEventFilterMessage>,
 )> {
-    let metrics_sender = metrics_sender.clone();
+    let metrics_sender = metrics_sender;
 
     let mut metric_events_new =
         metrics_sender.register_u64("fills_feed_events_new".into(), MetricType::Counter);
@@ -420,8 +419,6 @@ pub async fn init(
         metrics_sender.register_u64("fills_feed_events_drop_serum".into(), MetricType::Counter);
     let mut metrics_head_update =
         metrics_sender.register_u64("fills_feed_head_update".into(), MetricType::Counter);
-    let mut metrics_head_revoke =
-        metrics_sender.register_u64("fills_feed_head_revoke".into(), MetricType::Counter);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =
@@ -435,7 +432,7 @@ pub async fn init(
     let (fill_update_sender, fill_update_receiver) =
         async_channel::unbounded::<FillEventFilterMessage>();
 
-    let account_write_queue_receiver_c = account_write_queue_receiver.clone();
+    let account_write_queue_receiver_c = account_write_queue_receiver;
 
     let mut chain_cache = ChainData::new();
     let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
@@ -455,7 +452,7 @@ pub async fn init(
         .map(|x| x.1.event_queue)
         .collect();
     let all_queue_pks: HashSet<Pubkey> =
-        HashSet::from_iter([perp_queue_pks.clone(), spot_queue_pks.clone()].concat());
+        HashSet::from_iter([perp_queue_pks, spot_queue_pks].concat());
 
     // update handling thread, reads both sloths and account updates
     tokio::spawn(async move {
@@ -545,7 +542,7 @@ pub async fn init(
                                     Some(prev_events) => publish_changes_perp(
                                         account_info.slot,
                                         account_info.write_version,
-                                        &mkt,
+                                        mkt,
                                         &event_queue.header,
                                         &event_queue.buf,
                                         *prev_seq_num,
@@ -556,7 +553,6 @@ pub async fn init(
                                         &mut metric_events_change,
                                         &mut metrics_events_drop,
                                         &mut metrics_head_update,
-                                        &mut metrics_head_revoke,
                                     ),
                                     _ => {
                                         info!("perp_events_cache could not find {}", evq_pk_string)
@@ -565,11 +561,9 @@ pub async fn init(
                                 _ => info!("seq_num/head cache could not find {}", evq_pk_string),
                             }
 
-                            seq_num_cache
-                                .insert(evq_pk_string.clone(), event_queue.header.seq_num.clone());
+                            seq_num_cache.insert(evq_pk_string.clone(), event_queue.header.seq_num);
                             head_cache.insert(evq_pk_string.clone(), event_queue.header.head());
-                            perp_events_cache
-                                .insert(evq_pk_string.clone(), event_queue.buf.clone());
+                            perp_events_cache.insert(evq_pk_string.clone(), event_queue.buf);
                         } else {
                             let inner_data = &account.data()[5..&account.data().len() - 7];
                             let header_span = std::mem::size_of::<SerumEventQueueHeader>();
@@ -582,7 +576,7 @@ pub async fn init(
                             let new_len = rest.len() - slop;
                             let events = &rest[..new_len];
                             debug!("evq {} header_span {} header_seq_num {} header_count {} inner_len {} events_len {} sizeof Event {}", evq_pk_string, header_span, seq_num, count, inner_data.len(), events.len(), std::mem::size_of::<serum_dex::state::Event>());
-                            let events: &[serum_dex::state::Event] = bytemuck::cast_slice(&events);
+                            let events: &[serum_dex::state::Event] = bytemuck::cast_slice(events);
 
                             match seq_num_cache.get(&evq_pk_string) {
                                 Some(prev_seq_num) => {
@@ -592,7 +586,7 @@ pub async fn init(
                                             account_info.write_version,
                                             mkt,
                                             &header,
-                                            &events,
+                                            events,
                                             *prev_seq_num,
                                             prev_events,
                                             &fill_update_sender,
@@ -611,10 +605,9 @@ pub async fn init(
                                 _ => debug!("seq_num_cache could not find {}", evq_pk_string),
                             }
 
-                            seq_num_cache.insert(evq_pk_string.clone(), seq_num.clone());
+                            seq_num_cache.insert(evq_pk_string.clone(), seq_num);
                             head_cache.insert(evq_pk_string.clone(), header.head as usize);
-                            serum_events_cache
-                                .insert(evq_pk_string.clone(), events.clone().to_vec());
+                            serum_events_cache.insert(evq_pk_string.clone(), events.to_vec());
                         }
                     }
                     Err(_) => debug!("chain_cache could not find {}", mkt.1.event_queue),

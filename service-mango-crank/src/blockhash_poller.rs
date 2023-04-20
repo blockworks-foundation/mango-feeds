@@ -41,5 +41,5 @@ pub async fn init(client: Arc<RpcClient>) -> Arc<RwLock<Hash>> {
         spawn(async move { poll_loop(blockhash_c, client).await })
     };
 
-    return blockhash;
+    blockhash
 }
