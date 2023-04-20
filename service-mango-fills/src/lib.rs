@@ -1,4 +1,4 @@
-use std::convert::identity;
+use std::convert::{identity, TryFrom};
 
 use anchor_lang::prelude::Pubkey;
 use bytemuck::cast_slice;
@@ -110,15 +110,15 @@ impl FillEvent {
             event_type: FillEventType::Perp,
             maker: event.maker.to_string(),
             taker: event.taker.to_string(),
-            taker_side: taker_side,
+            taker_side,
             timestamp: event.timestamp,
             seq_num: event.seq_num,
             maker_client_order_id: event.maker_client_order_id,
             taker_client_order_id: event.taker_client_order_id,
             maker_fee: event.maker_fee,
             taker_fee: event.taker_fee,
-            price: price,
-            quantity: quantity,
+            price,
+            quantity,
         }
     }
 
@@ -167,8 +167,8 @@ impl FillEvent {
                     None => 0u64,
                 };
 
-                let base_multiplier = 10u64.pow(config.base_decimals.into()) as u64;
-                let quote_multiplier = 10u64.pow(config.quote_decimals.into()) as u64;
+                let base_multiplier = 10u64.pow(config.base_decimals.into());
+                let quote_multiplier = 10u64.pow(config.quote_decimals.into());
 
                 let (price, quantity) = match maker_side {
                     OrderbookSide::Bid => {
@@ -197,9 +197,13 @@ impl FillEvent {
 
                 FillEvent {
                     event_type: FillEventType::Spot,
-                    maker: Pubkey::new(cast_slice(&identity(maker_owner) as &[_])).to_string(),
-                    taker: Pubkey::new(cast_slice(&identity(taker_owner) as &[_])).to_string(),
-                    taker_side: taker_side,
+                    maker: Pubkey::try_from(cast_slice(&identity(maker_owner) as &[_]))
+                        .unwrap()
+                        .to_string(),
+                    taker: Pubkey::try_from(cast_slice(&identity(taker_owner) as &[_]))
+                        .unwrap()
+                        .to_string(),
+                    taker_side,
                     timestamp,
                     seq_num,
                     maker_client_order_id,

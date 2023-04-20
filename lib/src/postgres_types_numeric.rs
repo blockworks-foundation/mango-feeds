@@ -137,7 +137,7 @@ impl ToSql for SqlNumericI128 {
         _: &postgres_types::Type,
         out: &mut BytesMut,
     ) -> Result<IsNull, Box<dyn error::Error + 'static + Sync + Send>> {
-        let abs_val = self.0.abs() as u128;
+        let abs_val = self.0.unsigned_abs();
         let decimals = if self.0 != 0 {
             int_log::u128(abs_val)
         } else {

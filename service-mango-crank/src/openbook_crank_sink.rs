@@ -26,7 +26,7 @@ pub struct OpenbookCrankSink {
 impl OpenbookCrankSink {
     pub fn new(pks: Vec<(Pubkey, Pubkey)>, instruction_sender: Sender<Vec<Instruction>>) -> Self {
         Self {
-            pks: pks.iter().map(|e| e.clone()).collect(),
+            pks: pks.iter().copied().collect(),
             instruction_sender,
         }
     }
@@ -60,8 +60,7 @@ impl AccountWriteSink for OpenbookCrankSink {
         // only crank if at least 1 fill or a sufficient events of other categories are buffered
         let contains_fill_events = events
             .iter()
-            .find(|e| matches!(e, serum_dex::state::EventView::Fill { .. }))
-            .is_some();
+            .any(|e| matches!(e, serum_dex::state::EventView::Fill { .. }));
 
         let has_backlog = events.len() > MAX_BACKLOG;
         if !contains_fill_events && !has_backlog {
@@ -86,7 +85,7 @@ impl AccountWriteSink for OpenbookCrankSink {
         let mkt_pk = self
             .pks
             .get(pk)
-            .expect(&format!("{pk:?} is a known public key"));
+            .unwrap_or_else(|| panic!("{:?} is a known public key", pk));
         ams.append(
             &mut [mkt_pk, pk, /*coin_pk*/ pk, /*pc_pk*/ pk]
                 .iter()

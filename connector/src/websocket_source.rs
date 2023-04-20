@@ -1,13 +1,15 @@
 use jsonrpc_core::futures::StreamExt;
-use jsonrpc_core_client::transports::{http, ws};
+use jsonrpc_core_client::transports::ws;
 
-use solana_account_decoder::UiAccountEncoding;
+use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
-    rpc_response::{OptionalContext, Response, RpcKeyedAccount},
+    rpc_response::{Response, RpcKeyedAccount},
 };
-use solana_rpc::{rpc::rpc_accounts::AccountsDataClient, rpc_pubsub::RpcSolPubSubClient};
-use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
+use solana_sdk::{
+    account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, slot_history::Slot,
+};
 
 use log::*;
 use std::{
@@ -16,28 +18,30 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{chain_data::SlotStatus, AccountWrite, AnyhowWrap, SlotUpdate, SourceConfig};
+use crate::{
+    chain_data::SlotStatus, snapshot::get_snapshot, AccountWrite, AnyhowWrap, FilterConfig,
+    SlotUpdate, SourceConfig,
+};
 
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
-    SnapshotUpdate(Response<Vec<RpcKeyedAccount>>),
+    SnapshotUpdate((Slot, Vec<(String, Option<UiAccount>)>)),
     SlotUpdate(Arc<solana_client::rpc_response::SlotUpdate>),
 }
 
 // TODO: the reconnecting should be part of this
 async fn feed_data(
     config: &SourceConfig,
+    filter_config: &FilterConfig,
     sender: async_channel::Sender<WebsocketMessage>,
 ) -> anyhow::Result<()> {
+    debug!("feed_data {config:?}");
+
     let program_id = Pubkey::from_str(&config.snapshot.program_id)?;
     let snapshot_duration = Duration::from_secs(300);
 
     let connect = ws::try_connect::<RpcSolPubSubClient>(&config.rpc_ws_url).map_err_anyhow()?;
     let client = connect.await.map_err_anyhow()?;
-
-    let rpc_client = http::connect::<AccountsDataClient>(&config.snapshot.rpc_http_url)
-        .await
-        .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -59,24 +63,25 @@ async fn feed_data(
         .map_err_anyhow()?;
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
 
-    let mut last_snapshot = Instant::now() - snapshot_duration;
+    let mut last_snapshot = Instant::now().checked_sub(snapshot_duration).unwrap();
 
     loop {
         // occasionally cause a new snapshot to be produced
         // including the first time
         if last_snapshot + snapshot_duration <= Instant::now() {
-            let account_snapshot = rpc_client
-                .get_program_accounts(
-                    program_id.to_string(),
-                    Some(program_accounts_config.clone()),
-                )
-                .await
-                .map_err_anyhow()?;
-            if let OptionalContext::Context(account_snapshot_response) = account_snapshot {
+            let snapshot = get_snapshot(config.snapshot.rpc_http_url.clone(), filter_config).await;
+            if let Ok((slot, accounts)) = snapshot {
+                debug!(
+                    "fetched new snapshot slot={slot} len={:?} time={:?}",
+                    accounts.len(),
+                    Instant::now() - snapshot_duration - last_snapshot
+                );
                 sender
-                    .send(WebsocketMessage::SnapshotUpdate(account_snapshot_response))
+                    .send(WebsocketMessage::SnapshotUpdate((slot, accounts)))
                     .await
                     .expect("sending must succeed");
+            } else {
+                error!("failed to parse snapshot")
             }
             last_snapshot = Instant::now();
         }
@@ -115,16 +120,18 @@ async fn feed_data(
 // TODO: rename / split / rework
 pub async fn process_events(
     config: &SourceConfig,
+    filter_config: &FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
 ) {
     // Subscribe to program account updates websocket
     let (update_sender, update_receiver) = async_channel::unbounded::<WebsocketMessage>();
     let config = config.clone();
+    let filter_config = filter_config.clone();
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
         loop {
-            let out = feed_data(&config, update_sender.clone());
+            let out = feed_data(&config, &filter_config, update_sender.clone());
             let _ = out.await;
         }
     });
@@ -148,15 +155,21 @@ pub async fn process_events(
                     .await
                     .expect("send success");
             }
-            WebsocketMessage::SnapshotUpdate(update) => {
-                trace!("snapshot update");
-                for keyed_account in update.value {
-                    let account: Account = keyed_account.account.decode().unwrap();
-                    let pubkey = Pubkey::from_str(&keyed_account.pubkey).unwrap();
-                    account_write_queue_sender
-                        .send(AccountWrite::from(pubkey, update.context.slot, 0, account))
-                        .await
-                        .expect("send success");
+            WebsocketMessage::SnapshotUpdate((slot, accounts)) => {
+                trace!("snapshot update {slot}");
+                for (pubkey, account) in accounts {
+                    if let Some(account) = account {
+                        let pubkey = Pubkey::from_str(&pubkey).unwrap();
+                        account_write_queue_sender
+                            .send(AccountWrite::from(
+                                pubkey,
+                                slot,
+                                0,
+                                account.decode().unwrap(),
+                            ))
+                            .await
+                            .expect("send success");
+                    }
                 }
             }
             WebsocketMessage::SlotUpdate(update) => {

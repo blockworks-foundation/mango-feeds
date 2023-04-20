@@ -33,7 +33,7 @@ impl MangoV4PerpCrankSink {
         instruction_sender: Sender<Vec<Instruction>>,
     ) -> Self {
         Self {
-            pks: pks.iter().map(|e| e.clone()).collect(),
+            pks: pks.iter().copied().collect(),
             group_pk,
             instruction_sender,
         }
@@ -50,8 +50,7 @@ impl AccountWriteSink for MangoV4PerpCrankSink {
         // only crank if at least 1 fill or a sufficient events of other categories are buffered
         let contains_fill_events = event_queue
             .iter()
-            .find(|e| e.event_type == mango_v4::state::EventType::Fill as u8)
-            .is_some();
+            .any(|e| e.event_type == mango_v4::state::EventType::Fill as u8);
         let has_backlog = event_queue.iter().count() > MAX_BACKLOG;
         if !contains_fill_events && !has_backlog {
             return Err("throttled".into());
@@ -78,7 +77,7 @@ impl AccountWriteSink for MangoV4PerpCrankSink {
         let mkt_pk = self
             .pks
             .get(pk)
-            .expect(&format!("{pk:?} is a known public key"));
+            .unwrap_or_else(|| panic!("{:?} is a known public key", pk));
         let mut ams: Vec<_> = anchor_lang::ToAccountMetas::to_account_metas(
             &mango_v4::accounts::PerpConsumeEvents {
                 group: self.group_pk,

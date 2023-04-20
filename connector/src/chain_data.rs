@@ -144,10 +144,8 @@ impl ChainData {
                 writes
                     .retain(|w| w.slot == newest_rooted_write || w.slot > self.newest_rooted_slot);
                 self.account_versions_stored += writes.len();
-                self.account_bytes_stored += writes
-                    .iter()
-                    .map(|w| w.account.data().len())
-                    .fold(0, |acc, l| acc + l)
+                self.account_bytes_stored +=
+                    writes.iter().map(|w| w.account.data().len()).sum::<usize>()
             }
 
             // now it's fine to drop any slots before the new rooted head

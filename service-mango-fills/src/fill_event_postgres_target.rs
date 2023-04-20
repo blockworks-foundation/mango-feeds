@@ -144,8 +144,8 @@ async fn process_update(client: &Caching<Client>, update: &FillUpdate) -> anyhow
     let market = &update.market_key;
     let seq_num = update.event.seq_num as i64;
     let fill_timestamp = Utc.timestamp_opt(update.event.timestamp as i64, 0).unwrap();
-    let price = update.event.price as f64;
-    let quantity = update.event.quantity as f64;
+    let price = update.event.price;
+    let quantity = update.event.quantity;
     let slot = update.slot as i64;
     let write_version = update.write_version as i64;
 
@@ -251,7 +251,7 @@ pub async fn init(
                     .await;
                     let mut iter = results.iter();
                     batch.retain(|_| iter.next().unwrap().is_err());
-                    if batch.len() > 0 {
+                    if !batch.is_empty() {
                         metric_retries.add(batch.len() as u64);
                         error_count += 1;
                         if error_count - 1 < config.retry_query_max_count {

@@ -1,12 +1,9 @@
 use futures::stream::once;
 use jsonrpc_core::futures::StreamExt;
-use jsonrpc_core_client::transports::http;
 
-use solana_account_decoder::{UiAccount, UiAccountEncoding};
-use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-use solana_client::rpc_response::{OptionalContext, RpcKeyedAccount};
-use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
-use solana_sdk::{account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_account_decoder::UiAccount;
+use solana_client::rpc_response::OptionalContext;
+use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
 use yellowstone_grpc_proto::tonic::{
@@ -26,12 +23,12 @@ use yellowstone_grpc_proto::prelude::{
     SubscribeUpdateSlotStatus,
 };
 
+use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
 use crate::FilterConfig;
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
-    AccountWrite, AnyhowWrap, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
-    TlsConfig,
+    AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
 
 struct SnapshotData {
@@ -41,59 +38,6 @@ struct SnapshotData {
 enum Message {
     GrpcUpdate(SubscribeUpdate),
     Snapshot(SnapshotData),
-}
-
-async fn get_snapshot_gpa(
-    rpc_http_url: String,
-    program_id: String,
-) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
-
-    let account_info_config = RpcAccountInfoConfig {
-        encoding: Some(UiAccountEncoding::Base64),
-        commitment: Some(CommitmentConfig::finalized()),
-        data_slice: None,
-        min_context_slot: None,
-    };
-    let program_accounts_config = RpcProgramAccountsConfig {
-        filters: None,
-        with_context: Some(true),
-        account_config: account_info_config.clone(),
-    };
-
-    info!("requesting snapshot {}", program_id);
-    let account_snapshot = rpc_client
-        .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
-        .await
-        .map_err_anyhow()?;
-    info!("snapshot received {}", program_id);
-    Ok(account_snapshot)
-}
-
-async fn get_snapshot_gma(
-    rpc_http_url: String,
-    ids: Vec<String>,
-) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
-
-    let account_info_config = RpcAccountInfoConfig {
-        encoding: Some(UiAccountEncoding::Base64),
-        commitment: Some(CommitmentConfig::finalized()),
-        data_slice: None,
-        min_context_slot: None,
-    };
-
-    info!("requesting snapshot {:?}", ids);
-    let account_snapshot = rpc_client
-        .get_multiple_accounts(ids.clone(), Some(account_info_config))
-        .await
-        .map_err_anyhow()?;
-    info!("snapshot received {:?}", ids);
-    Ok(account_snapshot)
 }
 
 async fn feed_data_geyser(
@@ -139,6 +83,7 @@ async fn feed_data_geyser(
         SubscribeRequestFilterAccounts {
             account: filter_config.account_ids.clone(),
             owner: filter_config.program_ids.clone(),
+            filters: vec![],
         },
     );
     let mut slots = HashMap::new();
@@ -238,9 +183,9 @@ async fn feed_data_geyser(
 
                             if snapshot_needed && max_rooted_slot - rooted_to_finalized_slots > first_full_slot {
                                 snapshot_needed = false;
-                                if filter_config.account_ids.len() > 0 {
+                                if !filter_config.account_ids.is_empty() {
                                     snapshot_gma = tokio::spawn(get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone())).fuse();
-                                } else if filter_config.program_ids.len() > 0 {
+                                } else if !filter_config.program_ids.is_empty() {
                                     snapshot_gpa = tokio::spawn(get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone())).fuse();
                                 }
                             }
@@ -268,7 +213,7 @@ async fn feed_data_geyser(
                             },
                         };
 
-                        let pubkey_bytes = Pubkey::new(&write.pubkey).to_bytes();
+                        let pubkey_bytes = Pubkey::try_from(write.pubkey).unwrap().to_bytes();
                         let write_version_mapping = pubkey_writes.entry(pubkey_bytes).or_insert(WriteVersion {
                             global: write.write_version,
                             slot: 1, // write version 0 is reserved for snapshots
@@ -401,7 +346,7 @@ pub async fn process_events(
 
         // Make TLS config if configured
         let tls_config = grpc_source.tls.as_ref().map(make_tls_config).or_else(|| {
-            if grpc_source.connection_string.starts_with(&"https") {
+            if grpc_source.connection_string.starts_with("https") {
                 Some(ClientTlsConfig::new())
             } else {
                 None
@@ -499,7 +444,8 @@ pub async fn process_events(
 
                         // Skip writes that a different server has already sent
                         let pubkey_writes = latest_write.entry(info.slot).or_default();
-                        let pubkey_bytes = Pubkey::new(&update.pubkey).to_bytes();
+                        let pubkey_bytes =
+                            Pubkey::try_from(update.pubkey.clone()).unwrap().to_bytes();
                         let writes = pubkey_writes.entry(pubkey_bytes).or_insert(0);
                         if update.write_version <= *writes {
                             continue;
@@ -510,11 +456,11 @@ pub async fn process_events(
                         // zstd_decompress(&update.data, &mut uncompressed).unwrap();
                         account_write_queue_sender
                             .send(AccountWrite {
-                                pubkey: Pubkey::new(&update.pubkey),
+                                pubkey: Pubkey::try_from(update.pubkey.clone()).unwrap(),
                                 slot: info.slot,
                                 write_version: update.write_version,
                                 lamports: update.lamports,
-                                owner: Pubkey::new(&update.owner),
+                                owner: Pubkey::try_from(update.owner.clone()).unwrap(),
                                 executable: update.executable,
                                 rent_epoch: update.rent_epoch,
                                 data: update.data,
