@@ -183,9 +183,9 @@ async fn feed_data_geyser(
 
                             if snapshot_needed && max_rooted_slot - rooted_to_finalized_slots > first_full_slot {
                                 snapshot_needed = false;
-                                if filter_config.account_ids.len() > 0 {
+                                if !filter_config.account_ids.is_empty() {
                                     snapshot_gma = tokio::spawn(get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone())).fuse();
-                                } else if filter_config.program_ids.len() > 0 {
+                                } else if !filter_config.program_ids.is_empty() {
                                     snapshot_gpa = tokio::spawn(get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone())).fuse();
                                 }
                             }
@@ -213,7 +213,7 @@ async fn feed_data_geyser(
                             },
                         };
 
-                        let pubkey_bytes = Pubkey::new(&write.pubkey).to_bytes();
+                        let pubkey_bytes = Pubkey::try_from(write.pubkey).unwrap().to_bytes();
                         let write_version_mapping = pubkey_writes.entry(pubkey_bytes).or_insert(WriteVersion {
                             global: write.write_version,
                             slot: 1, // write version 0 is reserved for snapshots
@@ -346,7 +346,7 @@ pub async fn process_events(
 
         // Make TLS config if configured
         let tls_config = grpc_source.tls.as_ref().map(make_tls_config).or_else(|| {
-            if grpc_source.connection_string.starts_with(&"https") {
+            if grpc_source.connection_string.starts_with("https") {
                 Some(ClientTlsConfig::new())
             } else {
                 None
@@ -444,7 +444,8 @@ pub async fn process_events(
 
                         // Skip writes that a different server has already sent
                         let pubkey_writes = latest_write.entry(info.slot).or_default();
-                        let pubkey_bytes = Pubkey::new(&update.pubkey).to_bytes();
+                        let pubkey_bytes =
+                            Pubkey::try_from(update.pubkey.clone()).unwrap().to_bytes();
                         let writes = pubkey_writes.entry(pubkey_bytes).or_insert(0);
                         if update.write_version <= *writes {
                             continue;
@@ -455,11 +456,11 @@ pub async fn process_events(
                         // zstd_decompress(&update.data, &mut uncompressed).unwrap();
                         account_write_queue_sender
                             .send(AccountWrite {
-                                pubkey: Pubkey::new(&update.pubkey),
+                                pubkey: Pubkey::try_from(update.pubkey.clone()).unwrap(),
                                 slot: info.slot,
                                 write_version: update.write_version,
                                 lamports: update.lamports,
-                                owner: Pubkey::new(&update.owner),
+                                owner: Pubkey::try_from(update.owner.clone()).unwrap(),
                                 executable: update.executable,
                                 rent_epoch: update.rent_epoch,
                                 data: update.data,

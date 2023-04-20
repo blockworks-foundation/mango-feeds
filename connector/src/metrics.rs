@@ -120,7 +120,7 @@ impl Metrics {
         let mut registry = self.registry.write().unwrap();
         let value = registry.entry(name).or_insert(Value::U64 {
             value: Arc::new(atomic::AtomicU64::new(0)),
-            metric_type: metric_type,
+            metric_type,
         });
         MetricU64 {
             value: match value {
@@ -137,7 +137,7 @@ impl Metrics {
         let mut registry = self.registry.write().unwrap();
         let value = registry.entry(name).or_insert(Value::I64 {
             value: Arc::new(atomic::AtomicI64::new(0)),
-            metric_type: metric_type,
+            metric_type,
         });
         MetricI64 {
             value: match value {
@@ -191,7 +191,7 @@ impl Metrics {
                     metric_type: t,
                 } => {
                     let bool_to_int = if *v.lock().unwrap() { 1 } else { 0 };
-                    (format!("{}", bool_to_int), t.to_string())
+                    (format!("{bool_to_int}"), t.to_string())
                 }
             };
             vec.push((name.clone(), value_str, type_str));
@@ -205,7 +205,7 @@ async fn handle_prometheus_poll(metrics: Metrics) -> Result<impl Reply, Rejectio
     let label_strings_vec: Vec<String> = metrics
         .labels
         .iter()
-        .map(|(name, value)| format!("{}=\"{}\"", name, value))
+        .map(|(name, value)| format!("{name}=\"{value}\""))
         .collect();
     let lines: Vec<String> = metrics
         .get_registry_vec()
@@ -301,12 +301,11 @@ pub fn start(config: MetricsConfig, process_name: String) -> Metrics {
                         } => {
                             let new_value = v.lock().unwrap();
                             let previous_value = if let Some(PrevValue::Bool(v)) = previous_value {
-                                let mut prev = new_value.clone();
+                                let mut prev = *new_value;
                                 std::mem::swap(&mut prev, v);
                                 prev
                             } else {
-                                previous_values
-                                    .insert(name.clone(), PrevValue::Bool(new_value.clone()));
+                                previous_values.insert(name.clone(), PrevValue::Bool(*new_value));
                                 false
                             };
                             if *new_value == previous_value {

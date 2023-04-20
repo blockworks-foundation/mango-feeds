@@ -1,5 +1,5 @@
 use jsonrpc_core::futures::StreamExt;
-use jsonrpc_core_client::transports::{http, ws};
+use jsonrpc_core_client::transports::ws;
 
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{

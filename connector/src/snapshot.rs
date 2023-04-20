@@ -68,7 +68,7 @@ pub async fn get_snapshot(
     rpc_http_url: String,
     filter_config: &FilterConfig,
 ) -> anyhow::Result<(Slot, Vec<(String, Option<UiAccount>)>)> {
-    if filter_config.account_ids.len() > 0 {
+    if !filter_config.account_ids.is_empty() {
         let response =
             get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone()).await;
         if let Ok(snapshot) = response {
@@ -82,7 +82,7 @@ pub async fn get_snapshot(
         } else {
             Err(anyhow!("invalid gma response {:?}", response))
         }
-    } else if filter_config.program_ids.len() > 0 {
+    } else if !filter_config.program_ids.is_empty() {
         let response =
             get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone()).await;
         if let Ok(OptionalContext::Context(snapshot)) = response {
