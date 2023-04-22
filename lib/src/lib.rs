@@ -94,7 +94,7 @@ pub struct MarketConfig {
     pub quote_lot_size: i64,
 }
 
-pub fn base_lots_to_ui(native: i64, base_decimals: u8, base_lot_size: i64) -> f64 {
+pub fn base_lots_to_ui(native: i64, base_decimals: u8, _quote_decimals: u8, base_lot_size: i64, _quote_lot_size: i64) -> f64 {
     (native * base_lot_size) as f64 / 10i64.pow(base_decimals.into()) as f64
 }
 
@@ -102,9 +102,14 @@ pub fn base_lots_to_ui_perp(native: i64, decimals: u8, base_lot_size: i64) -> f6
     native as f64 * (base_lot_size as f64 / (10i64.pow(decimals.into()) as f64))
 }
 
-pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8) -> f64 {
-    let decimals = base_decimals - quote_decimals;
-    native as f64 / (10u64.pow(decimals.into())) as f64
+pub fn price_lots_to_ui(native: i64, base_decimals: u8, quote_decimals: u8, base_lot_size: i64, quote_lot_size: i64) -> f64 {
+    let base_multiplier = 10i64.pow(base_decimals.into());
+    let quote_multiplier = 10i64.pow(quote_decimals.into());
+
+    let left: u128 = native as u128 * quote_lot_size as u128 * base_multiplier as u128;
+    let right: u128 = base_lot_size as u128 * quote_multiplier as u128;
+
+    left as f64 / right as f64
 }
 
 pub fn spot_price_to_ui(
