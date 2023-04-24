@@ -24,7 +24,7 @@ use std::{
 };
 use tokio::{
     net::{TcpListener, TcpStream},
-    time, pin,
+    pin, time,
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 

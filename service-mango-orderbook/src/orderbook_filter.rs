@@ -324,14 +324,14 @@ pub async fn init(
                                             mkt.1.base_decimals,
                                             mkt.1.quote_decimals,
                                             mkt.1.base_lot_size,
-                                            mkt.1.quote_lot_size
+                                            mkt.1.quote_lot_size,
                                         ),
                                         base_lots_to_ui(
                                             group.map(|(_, quantity)| quantity).sum(),
                                             mkt.1.base_decimals,
                                             mkt.1.quote_decimals,
                                             mkt.1.base_lot_size,
-                                            mkt.1.quote_lot_size
+                                            mkt.1.quote_lot_size,
                                         ),
                                     ]
                                 })

@@ -355,8 +355,7 @@ async fn main() -> anyhow::Result<()> {
         metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Counter);
 
     let rpc_url = match &config.rpc_http_url.chars().next().unwrap() {
-        '$' => env::var(&config.rpc_http_url[1..])
-            .expect("reading rpc http url from env"),
+        '$' => env::var(&config.rpc_http_url[1..]).expect("reading rpc http url from env"),
         _ => config.rpc_http_url.clone(),
     };
     let ws_url = rpc_url.replace("https", "wss");
