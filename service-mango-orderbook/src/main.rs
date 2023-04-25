@@ -24,7 +24,7 @@ use std::{
 };
 use tokio::{
     net::{TcpListener, TcpStream},
-    pin,
+    pin, time,
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
@@ -131,14 +131,24 @@ async fn handle_connection(
         );
     }
 
-    let receive_commands = ws_rx.try_for_each(|msg| {
-        handle_commands(
+    let receive_commands = ws_rx.try_for_each(|msg| match msg {
+        Message::Text(_) => handle_commands(
             addr,
             msg,
             peer_map.clone(),
             checkpoint_map.clone(),
             market_ids.clone(),
-        )
+        ),
+        Message::Ping(_) => {
+            let peers = peer_map.clone();
+            let mut peers_lock = peers.lock().unwrap();
+            let peer = peers_lock.get_mut(&addr).expect("peer should be in map");
+            peer.sender
+                .unbounded_send(Message::Pong(Vec::new()))
+                .unwrap();
+            future::ready(Ok(()))
+        }
+        _ => future::ready(Ok(())),
     });
     let forward_updates = chan_rx.map(Ok).forward(ws_tx);
 
@@ -344,8 +354,8 @@ async fn main() -> anyhow::Result<()> {
                     event_queue: context.event_q,
                     base_decimals,
                     quote_decimals,
-                    base_lot_size: context.pc_lot_size as i64,
-                    quote_lot_size: context.coin_lot_size as i64,
+                    base_lot_size: context.coin_lot_size as i64,
+                    quote_lot_size: context.pc_lot_size as i64,
                 },
             )
         })
@@ -370,6 +380,7 @@ async fn main() -> anyhow::Result<()> {
 
     let checkpoints_ref_thread = checkpoints.clone();
     let peers_ref_thread = peers.clone();
+    let peers_ref_thread1 = peers.clone();
 
     tokio::spawn(async move {
         pin!(orderbook_receiver);
@@ -422,6 +433,35 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    // keepalive
+    {
+        tokio::spawn(async move {
+            let mut write_interval = time::interval(time::Duration::from_secs(30));
+
+            loop {
+                write_interval.tick().await;
+                let peers_copy = peers_ref_thread1.lock().unwrap().clone();
+                for (addr, peer) in peers_copy.iter() {
+                    let pl = Vec::new();
+                    let result = peer.clone().sender.send(Message::Ping(pl)).await;
+                    if result.is_err() {
+                        error!("ws ping could not reach {}", addr);
+                    }
+                }
+            }
+        });
+    }
+
+    // // handle sigint
+    // {
+    //     let exit = exit.clone();
+    //     tokio::spawn(async move {
+    //         tokio::signal::ctrl_c().await.unwrap();
+    //         info!("Received SIGINT, shutting down...");
+    //         exit.store(true, Ordering::Relaxed);
+    //     });
+    // }
+
     info!(
         "rpc connect: {}",
         config
@@ -432,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
 
-    let relevant_pubkeys = [market_configs.clone()]
+    let relevant_pubkeys = [market_configs.clone(), serum_market_configs.clone()]
         .concat()
         .iter()
         .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])

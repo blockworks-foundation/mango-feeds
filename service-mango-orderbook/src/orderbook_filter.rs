@@ -46,7 +46,7 @@ fn publish_changes(
     let mut update: Vec<OrderbookLevel> = vec![];
     // push diff for levels that are no longer present
     if current_bookside.len() != previous_bookside.len() {
-        info!(
+        debug!(
             "L {}",
             current_bookside.len() as i64 - previous_bookside.len() as i64
         )
@@ -59,7 +59,7 @@ fn publish_changes(
 
         match peer {
             None => {
-                info!("R {} {}", previous_order[0], previous_order[1]);
+                debug!("R {} {}", previous_order[0], previous_order[1]);
                 update.push([previous_order[0], 0f64]);
             }
             _ => continue,
@@ -77,14 +77,14 @@ fn publish_changes(
                 if previous_order[1] == current_order[1] {
                     continue;
                 }
-                info!(
+                debug!(
                     "C {} {} -> {}",
                     current_order[0], previous_order[1], current_order[1]
                 );
                 update.push(*current_order);
             }
             None => {
-                info!("A {} {}", current_order[0], current_order[1]);
+                debug!("A {} {}", current_order[0], current_order[1]);
                 update.push(*current_order)
             }
         }
@@ -323,11 +323,15 @@ pub async fn init(
                                             price,
                                             mkt.1.base_decimals,
                                             mkt.1.quote_decimals,
+                                            mkt.1.base_lot_size,
+                                            mkt.1.quote_lot_size,
                                         ),
                                         base_lots_to_ui(
                                             group.map(|(_, quantity)| quantity).sum(),
                                             mkt.1.base_decimals,
+                                            mkt.1.quote_decimals,
                                             mkt.1.base_lot_size,
+                                            mkt.1.quote_lot_size,
                                         ),
                                     ]
                                 })

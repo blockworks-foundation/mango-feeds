@@ -22,6 +22,7 @@ use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
 use std::{
     collections::{HashMap, HashSet},
+    env,
     fs::File,
     io::Read,
     net::SocketAddr,
@@ -353,7 +354,10 @@ async fn main() -> anyhow::Result<()> {
     let metrics_closed_connections =
         metrics_tx.register_u64("fills_feed_closed_connections".into(), MetricType::Counter);
 
-    let rpc_url = config.rpc_http_url;
+    let rpc_url = match &config.rpc_http_url.chars().next().unwrap() {
+        '$' => env::var(&config.rpc_http_url[1..]).expect("reading rpc http url from env"),
+        _ => config.rpc_http_url.clone(),
+    };
     let ws_url = rpc_url.replace("https", "wss");
     let rpc_timeout = Duration::from_secs(10);
     let cluster = Cluster::Custom(rpc_url.clone(), ws_url.clone());

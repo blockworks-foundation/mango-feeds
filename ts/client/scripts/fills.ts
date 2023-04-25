@@ -4,7 +4,7 @@ const RECONNECT_INTERVAL_MS = 1000;
 const RECONNECT_ATTEMPTS_MAX = -1;
 
 // Subscribe on connection
-const fillsFeed = new FillsFeed('ws://localhost:8080', {
+const fillsFeed = new FillsFeed('wss://api.mngo.cloud/fills/v1/', {
   reconnectionIntervalMs: RECONNECT_INTERVAL_MS,
   reconnectionMaxAttempts: RECONNECT_ATTEMPTS_MAX,
   subscriptions: {
