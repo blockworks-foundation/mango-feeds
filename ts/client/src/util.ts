@@ -54,7 +54,9 @@ export class ReconnectingWebsocketFeed {
     this._onConnect = callback;
   }
 
-  public onDisconnect(callback: (reconnectionAttemptsExhausted: boolean) => void) {
+  public onDisconnect(
+    callback: (reconnectionAttemptsExhausted: boolean) => void,
+  ) {
     this._onDisconnect = callback;
   }
 

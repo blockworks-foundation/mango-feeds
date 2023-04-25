@@ -24,12 +24,12 @@ orderbookFeed.onDisconnect(() => {
   console.log(`disconnected, reconnecting in ${RECONNECT_INTERVAL_MS}...`);
 });
 
-  orderbookFeed.onL2Update((update) => {
-    console.log('update', update)
-  })
-  orderbookFeed.onL2Checkpoint((checkpoint) => {     
-    console.log('checkpoint', checkpoint)
-  })
-  orderbookFeed.onStatus((update) => {
-    console.log('status', update)
-  })
+orderbookFeed.onL2Update((update) => {
+  console.log('update', update);
+});
+orderbookFeed.onL2Checkpoint((checkpoint) => {
+  console.log('checkpoint', checkpoint);
+});
+orderbookFeed.onStatus((update) => {
+  console.log('status', update);
+});

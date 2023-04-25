@@ -12,11 +12,11 @@ interface OrderbookFeedSubscribeParams {
 }
 
 interface OrderbookL2Update {
-  market: string,
-  side: 'bid' | 'ask',
-  update: [number, number][],
-  slot: number,
-  writeVersion: number,
+  market: string;
+  side: 'bid' | 'ask';
+  update: [number, number][];
+  slot: number;
+  writeVersion: number;
 }
 
 function isOrderbookL2Update(obj: any): obj is OrderbookL2Update {
@@ -24,12 +24,12 @@ function isOrderbookL2Update(obj: any): obj is OrderbookL2Update {
 }
 
 interface OrderbookL2Checkpoint {
-  market: string,
-  side: 'bid' | 'ask',
-  bids: [number, number][],
-  asks: [number, number][],
-  slot: number,
-  writeVersion: number,
+  market: string;
+  side: 'bid' | 'ask';
+  bids: [number, number][];
+  asks: [number, number][];
+  slot: number;
+  writeVersion: number;
 }
 
 function isOrderbookL2Checkpoint(obj: any): obj is OrderbookL2Checkpoint {
