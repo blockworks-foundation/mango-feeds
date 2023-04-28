@@ -5,12 +5,15 @@ This module parses event queues and exposes individual fills on a websocket.
 Public API: `https://api.mngo.cloud/fills/v1/`
 
 ## API Reference
+
 Get a list of markets
+
 ```
 {
    "command": "getMarkets"
 }
 ```
+
 ```
 {
 	"ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2": "SOL-PERP",
@@ -20,12 +23,14 @@ Get a list of markets
 ```
 
 Subscribe to markets
+
 ```
 {
    "command": "subscribe"
    "marketIds": ["MARKET_PUBKEY"]
 }
 ```
+
 ```
 {
 	"success": true,
@@ -34,12 +39,14 @@ Subscribe to markets
 ```
 
 Subscribe to account
+
 ```
 {
    "command": "subscribe"
    "account": ["MANGO_ACCOUNT_PUBKEY"]
 }
 ```
+
 ```
 {
 	"success": true,
@@ -48,6 +55,7 @@ Subscribe to account
 ```
 
 Fill Event
+
 ```
 {
 	"event": {
@@ -77,6 +85,7 @@ If the fill ocurred on a fork, an event will be sent with the 'status' field set
 ## Setup
 
 ## Local
+
 1. Prepare the connector configuration file.
 
    [Here is an example](service-mango-fills/conf/example-config.toml).
@@ -100,5 +109,3 @@ If the fill ocurred on a fork, an event will be sent with the 'status' field set
    dont want to analyze performance of the service.
 
 ## fly.io
-
-
