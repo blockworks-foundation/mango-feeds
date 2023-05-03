@@ -492,7 +492,7 @@ async fn main() -> anyhow::Result<()> {
         .concat()
         .to_vec(),
     };
-    let use_geyser = false;
+    let use_geyser = true;
     if use_geyser {
         grpc_plugin_source::process_events(
             &config.source,
