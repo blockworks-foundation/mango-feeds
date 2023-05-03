@@ -28,7 +28,6 @@ pub struct AccountData {
     pub account: AccountSharedData,
 }
 
-
 impl AccountData {
     pub fn is_newer_than(&self, slot: u64, write_version: u64) -> bool {
         if self.slot > slot {
