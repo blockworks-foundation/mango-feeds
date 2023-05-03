@@ -270,15 +270,15 @@ pub async fn init(
                                 shared: oracle_info.account.clone(),
                             };
                             let oracle_config = OracleConfigParams {
-                                conf_filter: mkt.1.conf_filter,
-                                max_staleness_slots: mkt.1.max_staleness_slots,
+                                conf_filter: 100_000.0, // use a large value to never fail the confidence check
+                                max_staleness_slots: None, // don't check oracle staleness to get an orderbook
                             };
 
                             if let Ok((oracle_price, _slot)) = state::oracle_price_and_slot(
                                 &keyed_account,
                                 &oracle_config.to_oracle_config(),
                                 mkt.1.base_decimals,
-                                oracle_config.max_staleness_slots.map(|s| s.into()),
+                                None, // force this to always return a price no matter how stale
                             ) {
                                 let account = &side_info.account;
                                 let bookside: BookSide = BookSide::try_deserialize(
