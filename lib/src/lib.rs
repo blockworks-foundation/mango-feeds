@@ -88,6 +88,7 @@ pub struct MarketConfig {
     pub bids: Pubkey,
     pub asks: Pubkey,
     pub event_queue: Pubkey,
+    pub oracle: Pubkey,
     pub base_decimals: u8,
     pub quote_decimals: u8,
     pub base_lot_size: i64,
@@ -142,7 +143,7 @@ pub fn price_lots_to_ui_perp(
     base_lot_size: i64,
     quote_lot_size: i64,
 ) -> f64 {
-    let decimals = base_decimals - quote_decimals;
+    let decimals = base_decimals.checked_sub(quote_decimals).unwrap();
     let multiplier = 10u64.pow(decimals.into()) as f64;
     native as f64 * ((multiplier * quote_lot_size as f64) / base_lot_size as f64)
 }
