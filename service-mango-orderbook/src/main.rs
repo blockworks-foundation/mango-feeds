@@ -10,6 +10,7 @@ use futures_util::{
     future::{self, Ready},
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
+use itertools::Itertools;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use std::{
@@ -324,6 +325,7 @@ async fn main() -> anyhow::Result<()> {
                     bids: context.market.bids,
                     asks: context.market.asks,
                     event_queue: context.market.event_queue,
+                    oracle: context.market.oracle,
                     base_decimals: context.market.base_decimals,
                     quote_decimals,
                     base_lot_size: context.market.base_lot_size,
@@ -352,6 +354,7 @@ async fn main() -> anyhow::Result<()> {
                     bids: context.bids,
                     asks: context.asks,
                     event_queue: context.event_q,
+                    oracle: Pubkey::default(), // serum markets dont support oracle peg
                     base_decimals,
                     quote_decimals,
                     base_lot_size: context.coin_lot_size as i64,
@@ -385,7 +388,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         pin!(orderbook_receiver);
         loop {
-            let message = orderbook_receiver.recv().await.unwrap();
+            let message: OrderbookFilterMessage = orderbook_receiver.recv().await.unwrap();
             match message {
                 OrderbookFilterMessage::Update(update) => {
                     debug!("ws update {} {:?}", update.market, update.side);
@@ -476,10 +479,18 @@ async fn main() -> anyhow::Result<()> {
         .concat()
         .iter()
         .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])
-        .collect();
+        .collect_vec();
     let filter_config = FilterConfig {
         program_ids: vec![],
-        account_ids: relevant_pubkeys,
+        account_ids: [
+            relevant_pubkeys,
+            market_configs
+                .iter()
+                .map(|(_, mkt)| mkt.oracle.to_string())
+                .collect_vec(),
+        ]
+        .concat()
+        .to_vec(),
     };
     let use_geyser = true;
     if use_geyser {

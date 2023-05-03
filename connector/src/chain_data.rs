@@ -28,6 +28,22 @@ pub struct AccountData {
     pub account: AccountSharedData,
 }
 
+
+impl AccountData {
+    pub fn is_newer_than(&self, slot: u64, write_version: u64) -> bool {
+
+        if self.slot == slot && self.write_version == write_version {
+            false
+        } else if self.slot < slot {
+            false
+        } else if self.write_version < write_version {
+            false
+        } else {
+            true
+        }
+    }
+}
+
 /// Track slots and account writes
 ///
 /// - use account() to retrieve the current best data for an account.

@@ -1,4 +1,6 @@
+use anchor_lang::prelude::AccountInfo;
 use anchor_lang::AccountDeserialize;
+use fixed::types::I80F48;
 use itertools::Itertools;
 use log::*;
 use mango_feeds_lib::metrics::MetricU64;
@@ -11,25 +13,51 @@ use mango_feeds_lib::{
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
 };
+use mango_v4::accounts_zerocopy::{AccountInfoRef, AccountReader, KeyedAccountReader};
+use mango_v4::state::{OracleConfig, OracleConfigParams};
 use mango_v4::{
     serum3_cpi::OrderBookStateHeader,
-    state::{BookSide, OrderTreeType},
+    state::{self, BookSide, OrderTreeType},
 };
 use serum_dex::critbit::Slab;
 use service_mango_orderbook::{
     OrderbookCheckpoint, OrderbookFilterMessage, OrderbookLevel, OrderbookUpdate,
 };
+use solana_sdk::account::AccountSharedData;
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
     clock::Epoch,
     pubkey::Pubkey,
 };
+use solana_sdk::{account_info, keyed_account};
 use std::borrow::BorrowMut;
+use std::cell::Ref;
 use std::{
     collections::{HashMap, HashSet},
     mem::size_of,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+struct KeyedSharedDataAccountReader {
+    pub key: Pubkey,
+    pub shared: AccountSharedData,
+}
+
+impl AccountReader for KeyedSharedDataAccountReader {
+    fn owner(&self) -> &Pubkey {
+        solana_sdk::account::ReadableAccount::owner(&self.shared)
+    }
+
+    fn data(&self) -> &[u8] {
+        solana_sdk::account::ReadableAccount::data(&self.shared)
+    }
+}
+
+impl KeyedAccountReader for KeyedSharedDataAccountReader {
+    fn key(&self) -> &Pubkey {
+        &self.key
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 fn publish_changes(
@@ -155,11 +183,14 @@ pub async fn init(
     let mut serum_bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
     let mut last_write_versions = HashMap::<String, (u64, u64)>::new();
 
-    let relevant_pubkeys = [market_configs.clone(), serum_market_configs.clone()]
+    let mut relevant_pubkeys = [market_configs.clone(), serum_market_configs.clone()]
         .concat()
         .iter()
         .flat_map(|m| [m.1.bids, m.1.asks])
         .collect::<HashSet<Pubkey>>();
+
+    relevant_pubkeys.extend(market_configs.iter().map(|(_, cfg)| cfg.oracle));
+
     info!("relevant_pubkeys {:?}", relevant_pubkeys);
     // update handling thread, reads both slots and account updates
     tokio::spawn(async move {
@@ -202,83 +233,102 @@ pub async fn init(
                     let mkt_pk = mkt.0;
                     let side_pk = if side == 0 { mkt.1.bids } else { mkt.1.asks };
                     let other_side_pk = if side == 0 { mkt.1.asks } else { mkt.1.bids };
+                    let oracle_pk = mkt.1.oracle;
                     let last_write_version = last_write_versions
                         .get(&side_pk.to_string())
                         .unwrap_or(&(0, 0));
+                    // let last_oracle_write_version = last_write_versions.get(&oracle_pk.to_string()).unwrap_or((0,0));
 
                     match chain_cache.account(&side_pk) {
                         Ok(account_info) => {
                             let side_pk_string = side_pk.to_string();
 
-                            let write_version = (account_info.slot, account_info.write_version);
-                            if write_version == *last_write_version {
-                                continue;
-                            }
-                            if write_version.0 < last_write_version.0 {
-                                debug!("evq version slot was old");
-                                continue;
-                            }
-                            if write_version.0 == last_write_version.0
-                                && write_version.1 < last_write_version.1
-                            {
-                                debug!("evq version slot was same and write version was old");
-                                continue;
-                            }
-                            last_write_versions.insert(side_pk_string.clone(), write_version);
+                            // if !account_info
+                            //     .is_newer_than(last_write_version.0, last_write_version.1)
+                            // {
+                            //     continue;
+                            // }
+                            last_write_versions.insert(
+                                side_pk_string.clone(),
+                                (account_info.slot, account_info.write_version),
+                            );
 
-                            let account = &account_info.account;
-                            let bookside =
-                                BookSide::try_deserialize(account.data().borrow_mut()).unwrap();
-                            let side = match bookside.nodes.order_tree_type() {
-                                OrderTreeType::Bids => OrderbookSide::Bid,
-                                OrderTreeType::Asks => OrderbookSide::Ask,
-                            };
-                            let time_now = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs();
-                            let oracle_price_lots = 0; // todo: does this matter? where to find it?
-                            let bookside = bookside
-                                .iter_valid(time_now, oracle_price_lots)
-                                .map(|item| (item.node.price_data() as i64, item.node.quantity))
-                                .group_by(|(price, _)| *price)
-                                .into_iter()
-                                .map(|(price, group)| {
-                                    [
-                                        price_lots_to_ui_perp(
-                                            price,
-                                            mkt.1.base_decimals,
-                                            mkt.1.quote_decimals,
-                                            mkt.1.base_lot_size,
-                                            mkt.1.quote_lot_size,
+                            if let Ok(oracle_info) = chain_cache.account(&oracle_pk) {
+                                let keyed_account = KeyedSharedDataAccountReader {
+                                    key: oracle_pk,
+                                    shared: oracle_info.account.clone(),
+                                };
+                                let oracle_config = OracleConfigParams {
+                                    conf_filter: 0.1,
+                                    max_staleness_slots: Some(120),
+                                };
+
+                                if let Ok((oracle_price, slot)) = state::oracle_price_and_slot(
+                                    &keyed_account,
+                                    &oracle_config.to_oracle_config(),
+                                    mkt.1.base_decimals,
+                                    oracle_config.max_staleness_slots.map(|s| s.into()),
+                                ) {
+                                    let account = &account_info.account;
+                                    let bookside: BookSide =
+                                        BookSide::try_deserialize(solana_sdk::account::ReadableAccount::data(account).borrow_mut())
+                                            .unwrap();
+                                    let side = match bookside.nodes.order_tree_type() {
+                                        OrderTreeType::Bids => OrderbookSide::Bid,
+                                        OrderTreeType::Asks => OrderbookSide::Ask,
+                                    };
+                                    let time_now = SystemTime::now()
+                                        .duration_since(UNIX_EPOCH)
+                                        .unwrap()
+                                        .as_secs();
+                                    let oracle_price_lots = (oracle_price * I80F48::from_num(mkt.1.base_lot_size) / I80F48::from_num(mkt.1.quote_lot_size))
+                                    .to_num(); // todo: does this matter? where to find it?
+                                    let bookside = bookside
+                                        .iter_valid(time_now, oracle_price_lots)
+                                        .group_by(|item| item.price_lots)
+                                        .into_iter()
+                                        .map(|(price_lots, group)| {
+                                            [
+                                                price_lots_to_ui_perp(
+                                                    price_lots,
+                                                    mkt.1.base_decimals,
+                                                    mkt.1.quote_decimals,
+                                                    mkt.1.base_lot_size,
+                                                    mkt.1.quote_lot_size,
+                                                ),
+                                                base_lots_to_ui_perp(
+                                                    group.map(|item| item.node.quantity).sum(),
+                                                    mkt.1.base_decimals,
+                                                    mkt.1.base_lot_size,
+                                                ),
+                                            ]
+                                        })
+                                        .collect();
+
+                                    let other_bookside =
+                                        bookside_cache.get(&other_side_pk.to_string());
+
+                                    match bookside_cache.get(&side_pk_string) {
+                                        Some(old_bookside) => publish_changes(
+                                            account_info.slot,
+                                            account_info.write_version,
+                                            mkt,
+                                            side,
+                                            &bookside,
+                                            old_bookside,
+                                            other_bookside,
+                                            &fill_update_sender,
+                                            &mut metric_events_new,
                                         ),
-                                        base_lots_to_ui_perp(
-                                            group.map(|(_, quantity)| quantity).sum(),
-                                            mkt.1.base_decimals,
-                                            mkt.1.base_lot_size,
+                                        _ => info!(
+                                            "bookside_cache could not find {}",
+                                            side_pk_string
                                         ),
-                                    ]
-                                })
-                                .collect();
+                                    }
 
-                            let other_bookside = bookside_cache.get(&other_side_pk.to_string());
-
-                            match bookside_cache.get(&side_pk_string) {
-                                Some(old_bookside) => publish_changes(
-                                    account_info.slot,
-                                    account_info.write_version,
-                                    mkt,
-                                    side,
-                                    &bookside,
-                                    old_bookside,
-                                    other_bookside,
-                                    &fill_update_sender,
-                                    &mut metric_events_new,
-                                ),
-                                _ => info!("bookside_cache could not find {}", side_pk_string),
+                                    bookside_cache.insert(side_pk_string.clone(), bookside.clone());
+                                }
                             }
-
-                            bookside_cache.insert(side_pk_string.clone(), bookside.clone());
                         }
                         Err(_) => debug!("chain_cache could not find {}", mkt_pk),
                     }

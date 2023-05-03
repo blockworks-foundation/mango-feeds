@@ -395,6 +395,7 @@ async fn main() -> anyhow::Result<()> {
                     bids: context.market.bids,
                     asks: context.market.asks,
                     event_queue: context.market.event_queue,
+                    oracle: context.market.oracle,
                     base_decimals: context.market.base_decimals,
                     quote_decimals,
                     base_lot_size: context.market.base_lot_size,
@@ -423,6 +424,7 @@ async fn main() -> anyhow::Result<()> {
                     bids: context.bids,
                     asks: context.asks,
                     event_queue: context.event_q,
+                    oracle: Pubkey::default(), // serum markets don't use oracle peg
                     base_decimals,
                     quote_decimals,
                     base_lot_size: context.pc_lot_size as i64,

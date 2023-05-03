@@ -5314,6 +5314,7 @@ dependencies = [
  "async-trait",
  "bs58 0.4.0",
  "bytemuck",
+ "fixed 1.11.0",
  "futures-channel",
  "futures-util",
  "itertools 0.10.5",
