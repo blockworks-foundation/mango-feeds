@@ -1,4 +1,3 @@
-use anchor_lang::prelude::AccountInfo;
 use anchor_lang::AccountDeserialize;
 use fixed::types::I80F48;
 use itertools::Itertools;
@@ -13,8 +12,8 @@ use mango_feeds_lib::{
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
 };
-use mango_v4::accounts_zerocopy::{AccountInfoRef, AccountReader, KeyedAccountReader};
-use mango_v4::state::{OracleConfig, OracleConfigParams};
+use mango_v4::accounts_zerocopy::{AccountReader, KeyedAccountReader};
+use mango_v4::state::OracleConfigParams;
 use mango_v4::{
     serum3_cpi::OrderBookStateHeader,
     state::{self, BookSide, OrderTreeType},
@@ -29,9 +28,7 @@ use solana_sdk::{
     clock::Epoch,
     pubkey::Pubkey,
 };
-use solana_sdk::{account_info, keyed_account};
 use std::borrow::BorrowMut;
-use std::cell::Ref;
 use std::{
     collections::{HashMap, HashSet},
     mem::size_of,
@@ -45,11 +42,11 @@ struct KeyedSharedDataAccountReader {
 
 impl AccountReader for KeyedSharedDataAccountReader {
     fn owner(&self) -> &Pubkey {
-        solana_sdk::account::ReadableAccount::owner(&self.shared)
+        ReadableAccount::owner(&self.shared)
     }
 
     fn data(&self) -> &[u8] {
-        solana_sdk::account::ReadableAccount::data(&self.shared)
+        ReadableAccount::data(&self.shared)
     }
 }
 
@@ -343,7 +340,12 @@ pub async fn init(
                                 bookside_cache.insert(side_pk_string.clone(), bookside.clone());
                             }
                         }
-                        (side,oracle) => debug!("chain_cache could not find for mkt={} side={} oracle={}", mkt_pk, side.is_err(), oracle.is_err()),
+                        (side, oracle) => debug!(
+                            "chain_cache could not find for mkt={} side={} oracle={}",
+                            mkt_pk,
+                            side.is_err(),
+                            oracle.is_err()
+                        ),
                     }
                 }
             }
