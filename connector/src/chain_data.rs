@@ -30,13 +30,7 @@ pub struct AccountData {
 
 impl AccountData {
     pub fn is_newer_than(&self, slot: u64, write_version: u64) -> bool {
-        if self.slot > slot {
-            true
-        } else if self.slot == slot && self.write_version > write_version {
-            true
-        } else {
-            false
-        }
+        (self.slot > slot) || (self.slot == slot && self.write_version > write_version)
     }
 }
 
