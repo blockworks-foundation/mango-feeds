@@ -270,11 +270,11 @@ pub async fn init(
                                 shared: oracle_info.account.clone(),
                             };
                             let oracle_config = OracleConfigParams {
-                                conf_filter: 0.1,
-                                max_staleness_slots: Some(120),
+                                conf_filter: mkt.1.conf_filter,
+                                max_staleness_slots: mkt.1.max_staleness_slots,
                             };
 
-                            if let Ok((oracle_price, slot)) = state::oracle_price_and_slot(
+                            if let Ok((oracle_price, _slot)) = state::oracle_price_and_slot(
                                 &keyed_account,
                                 &oracle_config.to_oracle_config(),
                                 mkt.1.base_decimals,

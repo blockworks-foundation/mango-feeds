@@ -89,6 +89,8 @@ pub struct MarketConfig {
     pub asks: Pubkey,
     pub event_queue: Pubkey,
     pub oracle: Pubkey,
+    pub conf_filter: f32,
+    pub max_staleness_slots: Option<u32>,
     pub base_decimals: u8,
     pub quote_decimals: u8,
     pub base_lot_size: i64,
