@@ -4,7 +4,7 @@ const RECONNECT_INTERVAL_MS = 1000;
 const RECONNECT_ATTEMPTS_MAX = -1;
 
 // Subscribe on connection
-const orderbookFeed = new OrderbookFeed('ws://127.0.0.1:8080', {
+const orderbookFeed = new OrderbookFeed('wss://api.mngo.cloud/orderbook/v1/', {
   reconnectionIntervalMs: RECONNECT_INTERVAL_MS,
   reconnectionMaxAttempts: RECONNECT_ATTEMPTS_MAX,
   subscriptions: {
