@@ -396,6 +396,12 @@ async fn main() -> anyhow::Result<()> {
                     asks: context.market.asks,
                     event_queue: context.market.event_queue,
                     oracle: context.market.oracle,
+                    conf_filter: context.market.oracle_config.conf_filter.to_num(),
+                    max_staleness_slots: if context.market.oracle_config.max_staleness_slots >= 0 {
+                        Some(context.market.oracle_config.max_staleness_slots as u32)
+                    } else {
+                        None
+                    },
                     base_decimals: context.market.base_decimals,
                     quote_decimals,
                     base_lot_size: context.market.base_lot_size,
@@ -424,7 +430,9 @@ async fn main() -> anyhow::Result<()> {
                     bids: context.bids,
                     asks: context.asks,
                     event_queue: context.event_q,
-                    oracle: Pubkey::default(), // serum markets don't use oracle peg
+                    oracle: Pubkey::default(), // serum markets don't support oracle peg
+                    conf_filter: 0.0,
+                    max_staleness_slots: None,
                     base_decimals,
                     quote_decimals,
                     base_lot_size: context.pc_lot_size as i64,
