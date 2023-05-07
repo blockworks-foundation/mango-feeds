@@ -33,6 +33,10 @@ use std::{
     collections::{HashMap, HashSet},
     mem::size_of,
     time::{SystemTime, UNIX_EPOCH},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 struct KeyedSharedDataAccountReader {
@@ -154,6 +158,7 @@ pub async fn init(
     market_configs: Vec<(Pubkey, MarketConfig)>,
     serum_market_configs: Vec<(Pubkey, MarketConfig)>,
     metrics_sender: Metrics,
+    exit: Arc<AtomicBool>
 ) -> anyhow::Result<(
     async_channel::Sender<AccountWrite>,
     async_channel::Sender<SlotUpdate>,
@@ -192,6 +197,10 @@ pub async fn init(
     // update handling thread, reads both slots and account updates
     tokio::spawn(async move {
         loop {
+            if exit.load(Ordering::Relaxed) {
+                warn!("shutting down orderbook_filter...");
+                break;
+            }
             tokio::select! {
                 Ok(account_write) = account_write_queue_receiver.recv() => {
                     if !relevant_pubkeys.contains(&account_write.pubkey) {
