@@ -21,8 +21,7 @@ use std::{
     str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
-        Mutex
+        Arc, Mutex,
     },
     time::Duration,
 };
@@ -376,7 +375,7 @@ async fn main() -> anyhow::Result<()> {
             market_configs.clone(),
             serum_market_configs.clone(),
             metrics_tx.clone(),
-            exit.clone()
+            exit.clone(),
         )
         .await?;
 

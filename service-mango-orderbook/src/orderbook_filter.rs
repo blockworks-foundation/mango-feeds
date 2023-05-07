@@ -32,11 +32,11 @@ use std::borrow::BorrowMut;
 use std::{
     collections::{HashMap, HashSet},
     mem::size_of,
-    time::{SystemTime, UNIX_EPOCH},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 struct KeyedSharedDataAccountReader {
@@ -158,7 +158,7 @@ pub async fn init(
     market_configs: Vec<(Pubkey, MarketConfig)>,
     serum_market_configs: Vec<(Pubkey, MarketConfig)>,
     metrics_sender: Metrics,
-    exit: Arc<AtomicBool>
+    exit: Arc<AtomicBool>,
 ) -> anyhow::Result<(
     async_channel::Sender<AccountWrite>,
     async_channel::Sender<SlotUpdate>,
