@@ -27,7 +27,7 @@ Subscribe to markets
 ```
 {
    "command": "subscribe"
-   "marketId": ["MARKET_PUBKEY"]
+   "marketId": "MARKET_PUBKEY"
 }
 ```
 
