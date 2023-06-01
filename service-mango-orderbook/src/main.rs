@@ -15,6 +15,7 @@ use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use std::{
     collections::{HashMap, HashSet},
+    fmt,
     fs::File,
     io::Read,
     net::SocketAddr,
@@ -38,11 +39,12 @@ use mango_feeds_lib::{
     metrics::{MetricType, MetricU64},
     FilterConfig, StatusResponse,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use service_mango_orderbook::{OrderbookCheckpoint, OrderbookFilterMessage};
+use service_mango_orderbook::{BookCheckpoint, LevelCheckpoint, OrderbookFilterMessage};
 
-type CheckpointMap = Arc<Mutex<HashMap<String, OrderbookCheckpoint>>>;
+type LevelCheckpointMap = Arc<Mutex<HashMap<String, LevelCheckpoint>>>;
+type BookCheckpointMap = Arc<Mutex<HashMap<String, BookCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -60,6 +62,25 @@ pub enum Command {
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeCommand {
     pub market_id: String,
+    pub subscription_type: SubscriptionType,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SubscriptionType {
+    #[serde(rename = "level")]
+    Level,
+    #[serde(rename = "book")]
+    Book,
+}
+
+impl fmt::Display for SubscriptionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SubscriptionType::Level => write!(f, "level"),
+            SubscriptionType::Book => write!(f, "book"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -71,7 +92,8 @@ pub struct UnsubscribeCommand {
 #[derive(Clone, Debug)]
 pub struct Peer {
     pub sender: UnboundedSender<Message>,
-    pub subscriptions: HashSet<String>,
+    pub level_subscriptions: HashSet<String>,
+    pub book_subscriptions: HashSet<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -84,7 +106,8 @@ pub struct Config {
 }
 
 async fn handle_connection_error(
-    checkpoint_map: CheckpointMap,
+    level_checkpoint_map: LevelCheckpointMap,
+    book_checkpoint_map: BookCheckpointMap,
     peer_map: PeerMap,
     market_ids: HashMap<String, String>,
     raw_stream: TcpStream,
@@ -95,7 +118,8 @@ async fn handle_connection_error(
     metrics_opened_connections.clone().increment();
 
     let result = handle_connection(
-        checkpoint_map,
+        level_checkpoint_map,
+        book_checkpoint_map,
         peer_map.clone(),
         market_ids,
         raw_stream,
@@ -112,7 +136,8 @@ async fn handle_connection_error(
 }
 
 async fn handle_connection(
-    checkpoint_map: CheckpointMap,
+    level_checkpoint_map: LevelCheckpointMap,
+    book_checkpoint_map: BookCheckpointMap,
     peer_map: PeerMap,
     market_ids: HashMap<String, String>,
     raw_stream: TcpStream,
@@ -129,7 +154,8 @@ async fn handle_connection(
             addr,
             Peer {
                 sender: chan_tx,
-                subscriptions: HashSet::<String>::new(),
+                level_subscriptions: HashSet::<String>::new(),
+                book_subscriptions: HashSet::<String>::new(),
             },
         );
     }
@@ -139,7 +165,8 @@ async fn handle_connection(
             addr,
             msg,
             peer_map.clone(),
-            checkpoint_map.clone(),
+            level_checkpoint_map.clone(),
+            book_checkpoint_map.clone(),
             market_ids.clone(),
         ),
         Message::Ping(_) => {
@@ -167,7 +194,8 @@ fn handle_commands(
     addr: SocketAddr,
     msg: Message,
     peer_map: PeerMap,
-    checkpoint_map: CheckpointMap,
+    level_checkpoint_map: LevelCheckpointMap,
+    book_checkpoint_map: BookCheckpointMap,
     market_ids: HashMap<String, String>,
 ) -> Ready<Result<(), Error>> {
     let msg_str = msg.into_text().unwrap();
@@ -187,12 +215,20 @@ fn handle_commands(
                     .unwrap();
                 return future::ok(());
             }
-            let subscribed = peer.subscriptions.insert(market_id.clone());
+
+            let subscribed = match cmd.subscription_type {
+                SubscriptionType::Level => peer.level_subscriptions.insert(market_id.clone()),
+                SubscriptionType::Book => peer.book_subscriptions.insert(market_id.clone()),
+            };
+            let message = format!(
+                "subscribed to {} updates for {}",
+                cmd.subscription_type, market_id
+            );
 
             let res = if subscribed {
                 StatusResponse {
                     success: true,
-                    message: "subscribed",
+                    message: &message,
                 }
             } else {
                 StatusResponse {
@@ -205,23 +241,20 @@ fn handle_commands(
                 .unwrap();
 
             if subscribed {
-                let checkpoint_map = checkpoint_map.lock().unwrap();
-                let checkpoint = checkpoint_map.get(&market_id);
-                match checkpoint {
-                    Some(checkpoint) => {
-                        peer.sender
-                            .unbounded_send(Message::Text(
-                                serde_json::to_string(&checkpoint).unwrap(),
-                            ))
-                            .unwrap();
+                match cmd.subscription_type {
+                    SubscriptionType::Level => {
+                        send_checkpoint(&level_checkpoint_map, &market_id, peer);
                     }
-                    None => info!("no checkpoint available on client subscription"), // todo: what to do here?
-                }
+                    SubscriptionType::Book => {
+                        send_checkpoint(&book_checkpoint_map, &market_id, peer);
+                    }
+                };
             }
         }
         Ok(Command::Unsubscribe(cmd)) => {
             info!("unsubscribe {}", cmd.market_id);
-            let unsubscribed = peer.subscriptions.remove(&cmd.market_id);
+            // match
+            let unsubscribed = peer.level_subscriptions.remove(&cmd.market_id);
             let res = if unsubscribed {
                 StatusResponse {
                     success: true,
@@ -256,6 +289,22 @@ fn handle_commands(
     };
 
     future::ok(())
+}
+
+fn send_checkpoint<T>(checkpoint_map: &Mutex<HashMap<String, T>>, market_id: &str, peer: &Peer)
+where
+    T: Serialize,
+{
+    let checkpoint_map = checkpoint_map.lock().unwrap();
+    let checkpoint = checkpoint_map.get(market_id);
+    match checkpoint {
+        Some(checkpoint) => {
+            peer.sender
+                .unbounded_send(Message::Text(serde_json::to_string(&checkpoint).unwrap()))
+                .unwrap();
+        }
+        None => info!("no checkpoint available on client subscription"), // todo: what to do here?
+    }
 }
 
 #[tokio::main]
@@ -379,12 +428,14 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    let checkpoints = CheckpointMap::new(Mutex::new(HashMap::new()));
+    let level_checkpoints = LevelCheckpointMap::new(Mutex::new(HashMap::new()));
+    let book_checkpoints = BookCheckpointMap::new(Mutex::new(HashMap::new()));
     let peers = PeerMap::new(Mutex::new(HashMap::new()));
 
     // orderbook receiver
     {
-        let checkpoints = checkpoints.clone();
+        let level_checkpoints = level_checkpoints.clone();
+        let book_checkpoints = book_checkpoints.clone();
         let peers = peers.clone();
         let exit = exit.clone();
         tokio::spawn(async move {
@@ -397,26 +448,52 @@ async fn main() -> anyhow::Result<()> {
 
                 let message: OrderbookFilterMessage = orderbook_receiver.recv().await.unwrap();
                 match message {
-                    OrderbookFilterMessage::Update(update) => {
-                        debug!("ws update {} {:?}", update.market, update.side);
+                    OrderbookFilterMessage::LevelUpdate(update) => {
+                        debug!("ws level update {} {:?}", update.market, update.side);
                         let mut peer_copy = peers.lock().unwrap().clone();
                         for (addr, peer) in peer_copy.iter_mut() {
                             let json = serde_json::to_string(&update).unwrap();
 
                             // only send updates if the peer is subscribed
-                            if peer.subscriptions.contains(&update.market) {
+                            if peer.level_subscriptions.contains(&update.market) {
                                 let result = peer.sender.send(Message::Text(json)).await;
                                 if result.is_err() {
                                     error!(
-                                        "ws update {} {:?} could not reach {}",
+                                        "ws level update {} {:?} could not reach {}",
                                         update.market, update.side, addr
                                     );
                                 }
                             }
                         }
                     }
-                    OrderbookFilterMessage::Checkpoint(checkpoint) => {
-                        checkpoints
+                    OrderbookFilterMessage::LevelCheckpoint(checkpoint) => {
+                        debug!("ws level checkpoint {}", checkpoint.market);
+                        level_checkpoints
+                            .lock()
+                            .unwrap()
+                            .insert(checkpoint.market.clone(), checkpoint);
+                    }
+                    OrderbookFilterMessage::BookUpdate(update) => {
+                        debug!("ws book update {} {:?}", update.market, update.side);
+                        let mut peer_copy = peers.lock().unwrap().clone();
+                        for (addr, peer) in peer_copy.iter_mut() {
+                            let json = serde_json::to_string(&update).unwrap();
+
+                            // only send updates if the peer is subscribed
+                            if peer.book_subscriptions.contains(&update.market) {
+                                let result = peer.sender.send(Message::Text(json)).await;
+                                if result.is_err() {
+                                    error!(
+                                        "ws book update {} {:?} could not reach {}",
+                                        update.market, update.side, addr
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    OrderbookFilterMessage::BookCheckpoint(checkpoint) => {
+                        debug!("ws book checkpoint {}", checkpoint.market);
+                        book_checkpoints
                             .lock()
                             .unwrap()
                             .insert(checkpoint.market.clone(), checkpoint);
@@ -441,7 +518,8 @@ async fn main() -> anyhow::Result<()> {
                     break;
                 }
                 tokio::spawn(handle_connection_error(
-                    checkpoints.clone(),
+                    level_checkpoints.clone(),
+                    book_checkpoints.clone(),
                     peers.clone(),
                     market_pubkey_strings.clone(),
                     stream,

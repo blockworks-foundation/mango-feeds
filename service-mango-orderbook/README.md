@@ -1,6 +1,6 @@
 # service-mango-orderbook
 
-This module parses bookside accounts and exposes L2 data and updates on a websocket
+This module parses bookside accounts and exposes L2 and L3 data and updates on a websocket
 
 Public API: `https://api.mngo.cloud/orderbook/v1/`
 
@@ -22,19 +22,22 @@ Get a list of markets
 }
 ```
 
-Subscribe to markets
+### L2 Data 
+
+Subscribe to L2 updates
 
 ```
 {
-   "command": "subscribe"
-   "marketId": "MARKET_PUBKEY"
+   "command": "subscribe",
+   "marketId": "MARKET_PUBKEY",
+   "subscriptionType": "level",
 }
 ```
 
 ```
 {
     "success": true,
-    "message": "subscribed to market MARKET_PUBKEY"
+    "message": "subscribed to level updates for MARKET_PUBKEY"
 }
 ```
 
@@ -68,6 +71,93 @@ L2 Update - Sent per side
     ],
     "slot": 190826375,
     "write_version": 688377208759
+}
+```
+### L3 Data 
+
+Subscribe to L3 updates
+
+```
+{
+   "command": "subscribe",
+   "marketId": "MARKET_PUBKEY",
+   "subscriptionType": "book",
+}
+```
+
+```
+{
+    "success": true,
+    "message": "subscribed to book updates for MARKET_PUBKEY"
+}
+```
+
+L3 Checkpoint - Sent upon initial subscription
+
+```
+{
+    "market": "ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2",
+    "bids": [
+        {
+          "price": 20.81,
+          "quantity": 1.3,
+          "owner_pubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
+        },
+        {
+          "price": 20.81,
+          "quantity": 62.22,
+          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+        },
+        {
+          "price": 20.8,
+          "quantity": 8,
+          "owner_pubkey": "CtHuPg2ctVVV7nqmvVEcMtcWyJAgtZw9YcNHFQidjPgF"
+        }
+    ],
+    "asks": [
+        {
+          "price": 20.94,
+          "quantity": 62.22,
+          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+        },
+        {
+          "price": 20.95,
+          "quantity": 1.3,
+          "owner_pubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
+        },
+        {
+          "price": 21.31,
+          "quantity": 30,
+          "owner_pubkey": "5gHsqmFsMaguM3HMyEmnME4NMQKj6NrJWUGv6VKnc2Hk"
+        }
+    ],
+    "slot": 190826373,
+    "write_version": 688377208758
+}
+```
+
+L3 Update - Sent per side
+
+```
+{
+    "market": "ESdnpnNLgTkBCZRuTJkZLi5wKEZ2z47SG3PJrhundSQ2",
+    "side": "ask",
+    "additions": [
+        {
+          "price": 20.92,
+          "quantity": 61.93,
+          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+        }
+      ],
+      "removals": [
+        {
+          "price": 20.92,
+          "quantity": 61.910000000000004,
+          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+        }
+      ],
+      "slot": 197077534,
+      "write_version": 727782187614
 }
 ```
 

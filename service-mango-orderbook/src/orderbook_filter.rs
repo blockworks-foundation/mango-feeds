@@ -20,7 +20,8 @@ use mango_v4::{
 };
 use serum_dex::critbit::Slab;
 use service_mango_orderbook::{
-    OrderbookCheckpoint, OrderbookFilterMessage, OrderbookLevel, OrderbookUpdate,
+    BookCheckpoint, BookUpdate, LevelCheckpoint, LevelUpdate, Order, OrderbookFilterMessage,
+    OrderbookLevel,
 };
 use solana_sdk::account::AccountSharedData;
 use solana_sdk::{
@@ -66,13 +67,30 @@ fn publish_changes(
     write_version: u64,
     mkt: &(Pubkey, MarketConfig),
     side: OrderbookSide,
-    current_bookside: &Vec<OrderbookLevel>,
-    previous_bookside: &Vec<OrderbookLevel>,
-    maybe_other_bookside: Option<&Vec<OrderbookLevel>>,
+    current_orders: &Vec<Order>,
+    previous_orders: &Vec<Order>,
+    maybe_other_orders: Option<&Vec<Order>>,
     orderbook_update_sender: &async_channel::Sender<OrderbookFilterMessage>,
     metric_updates: &mut MetricU64,
 ) {
-    let mut update: Vec<OrderbookLevel> = vec![];
+    let mut level_update: Vec<OrderbookLevel> = vec![];
+    let mut book_additions: Vec<Order> = vec![];
+    let mut book_removals: Vec<Order> = vec![];
+
+    let current_bookside: Vec<OrderbookLevel> = current_orders
+        .iter()
+        .group_by(|order| order.price)
+        .into_iter()
+        .map(|(price, group)| [price, group.map(|o| o.quantity).sum()])
+        .collect();
+
+    let previous_bookside: Vec<OrderbookLevel> = previous_orders
+        .iter()
+        .group_by(|order| order.price)
+        .into_iter()
+        .map(|(price, group)| [price, group.map(|o| o.quantity).sum()])
+        .collect();
+
     // push diff for levels that are no longer present
     if current_bookside.len() != previous_bookside.len() {
         debug!(
@@ -81,56 +99,106 @@ fn publish_changes(
         )
     }
 
-    for previous_order in previous_bookside.iter() {
-        let peer = current_bookside
-            .iter()
-            .find(|level| previous_order[0] == level[0]);
+    for prev_order in previous_orders.iter() {
+        let peer = current_orders.iter().find(|order| prev_order == *order);
 
         match peer {
             None => {
-                debug!("R {} {}", previous_order[0], previous_order[1]);
-                update.push([previous_order[0], 0f64]);
+                debug!("R {:?}", prev_order);
+                book_removals.push(prev_order.clone());
+            }
+            _ => continue,
+        }
+    }
+
+    for previous_level in previous_bookside.iter() {
+        let peer = current_bookside
+            .iter()
+            .find(|level| previous_level[0] == level[0]);
+
+        match peer {
+            None => {
+                debug!("R {} {}", previous_level[0], previous_level[1]);
+                level_update.push([previous_level[0], 0f64]);
             }
             _ => continue,
         }
     }
 
     // push diff where there's a new level or size has changed
-    for current_order in current_bookside {
+    for current_level in &current_bookside {
         let peer = previous_bookside
             .iter()
-            .find(|item| item[0] == current_order[0]);
+            .find(|item| item[0] == current_level[0]);
 
         match peer {
-            Some(previous_order) => {
-                if previous_order[1] == current_order[1] {
+            Some(previous_level) => {
+                if previous_level[1] == current_level[1] {
                     continue;
                 }
                 debug!(
                     "C {} {} -> {}",
-                    current_order[0], previous_order[1], current_order[1]
+                    current_level[0], previous_level[1], current_level[1]
                 );
-                update.push(*current_order);
+                level_update.push(*current_level);
             }
             None => {
-                debug!("A {} {}", current_order[0], current_order[1]);
-                update.push(*current_order)
+                debug!("A {} {}", current_level[0], current_level[1]);
+                level_update.push(*current_level)
             }
         }
     }
 
-    match maybe_other_bookside {
-        Some(other_bookside) => {
+    for current_order in current_orders {
+        let peer = previous_orders.iter().find(|order| current_order == *order);
+
+        match peer {
+            Some(_) => {
+                continue;
+            }
+            None => {
+                debug!("A {:?}", current_order);
+                book_additions.push(current_order.clone())
+            }
+        }
+    }
+
+    match maybe_other_orders {
+        Some(other_orders) => {
             let (bids, asks) = match side {
-                OrderbookSide::Bid => (current_bookside, other_bookside),
-                OrderbookSide::Ask => (other_bookside, current_bookside),
+                OrderbookSide::Bid => (current_orders, other_orders),
+                OrderbookSide::Ask => (other_orders, current_orders),
             };
             orderbook_update_sender
-                .try_send(OrderbookFilterMessage::Checkpoint(OrderbookCheckpoint {
+                .try_send(OrderbookFilterMessage::BookCheckpoint(BookCheckpoint {
                     slot,
                     write_version,
                     bids: bids.clone(),
                     asks: asks.clone(),
+                    market: mkt.0.to_string(),
+                }))
+                .unwrap();
+
+            let bid_levels = bids
+                .iter()
+                .group_by(|order| order.price)
+                .into_iter()
+                .map(|(price, group)| [price, group.map(|o| o.quantity).sum()])
+                .collect();
+
+            let ask_levels = bids
+                .iter()
+                .group_by(|order| order.price)
+                .into_iter()
+                .map(|(price, group)| [price, group.map(|o| o.quantity).sum()])
+                .collect();
+
+            orderbook_update_sender
+                .try_send(OrderbookFilterMessage::LevelCheckpoint(LevelCheckpoint {
+                    slot,
+                    write_version,
+                    bids: bid_levels,
+                    asks: ask_levels,
                     market: mkt.0.to_string(),
                 }))
                 .unwrap()
@@ -138,15 +206,25 @@ fn publish_changes(
         None => info!("other bookside not in cache"),
     }
 
-    if update.is_empty() {
+    if level_update.is_empty() {
         return;
     }
 
     orderbook_update_sender
-        .try_send(OrderbookFilterMessage::Update(OrderbookUpdate {
+        .try_send(OrderbookFilterMessage::BookUpdate(BookUpdate {
+            market: mkt.0.to_string(),
+            side: side.clone(),
+            additions: book_additions,
+            removals: book_removals,
+            slot,
+            write_version,
+        }))
+        .unwrap();
+    orderbook_update_sender
+        .try_send(OrderbookFilterMessage::LevelUpdate(LevelUpdate {
             market: mkt.0.to_string(),
             side,
-            update,
+            update: level_update,
             slot,
             write_version,
         }))
@@ -175,14 +253,14 @@ pub async fn init(
     // there they'll flow into the postgres sending thread.
     let (slot_queue_sender, slot_queue_receiver) = async_channel::unbounded::<SlotUpdate>();
 
-    // Fill updates can be consumed by client connections, they contain all fills for all markets
-    let (fill_update_sender, fill_update_receiver) =
+    // Book updates can be consumed by client connections, they contain L2 and L3 updates for all markets
+    let (book_update_sender, book_update_receiver) =
         async_channel::unbounded::<OrderbookFilterMessage>();
 
     let mut chain_cache = ChainData::new();
     let mut chain_data_metrics = ChainDataMetrics::new(&metrics_sender);
-    let mut bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
-    let mut serum_bookside_cache: HashMap<String, Vec<OrderbookLevel>> = HashMap::new();
+    let mut bookside_cache: HashMap<String, Vec<Order>> = HashMap::new();
+    let mut serum_bookside_cache: HashMap<String, Vec<Order>> = HashMap::new();
     let mut last_write_versions = HashMap::<String, (u64, u64)>::new();
 
     let mut relevant_pubkeys = [market_configs.clone(), serum_market_configs.clone()]
@@ -307,25 +385,22 @@ pub async fn init(
                                     * I80F48::from_num(mkt.1.base_lot_size)
                                     / I80F48::from_num(mkt.1.quote_lot_size))
                                 .to_num();
-                                let bookside = bookside
+                                let bookside: Vec<Order> = bookside
                                     .iter_valid(time_now, oracle_price_lots)
-                                    .group_by(|item| item.price_lots)
-                                    .into_iter()
-                                    .map(|(price_lots, group)| {
-                                        [
-                                            price_lots_to_ui_perp(
-                                                price_lots,
-                                                mkt.1.base_decimals,
-                                                mkt.1.quote_decimals,
-                                                mkt.1.base_lot_size,
-                                                mkt.1.quote_lot_size,
-                                            ),
-                                            base_lots_to_ui_perp(
-                                                group.map(|item| item.node.quantity).sum(),
-                                                mkt.1.base_decimals,
-                                                mkt.1.base_lot_size,
-                                            ),
-                                        ]
+                                    .map(|item| Order {
+                                        price: price_lots_to_ui_perp(
+                                            item.price_lots,
+                                            mkt.1.base_decimals,
+                                            mkt.1.quote_decimals,
+                                            mkt.1.base_lot_size,
+                                            mkt.1.quote_lot_size,
+                                        ),
+                                        quantity: base_lots_to_ui_perp(
+                                            item.node.quantity,
+                                            mkt.1.base_decimals,
+                                            mkt.1.base_lot_size,
+                                        ),
+                                        owner_pubkey: item.node.owner.to_string(),
                                     })
                                     .collect();
 
@@ -340,7 +415,7 @@ pub async fn init(
                                         &bookside,
                                         old_bookside,
                                         other_bookside,
-                                        &fill_update_sender,
+                                        &book_update_sender,
                                         &mut metric_events_new,
                                     ),
                                     _ => info!("bookside_cache could not find {}", side_pk_string),
@@ -384,30 +459,28 @@ pub async fn init(
                             let inner = &mut data[5..len - 7];
                             let slab = Slab::new(&mut inner[size_of::<OrderBookStateHeader>()..]);
 
-                            let bookside: Vec<OrderbookLevel> = slab
+                            let bookside: Vec<Order> = slab
                                 .iter(side == 0)
                                 .map(|item| {
-                                    (u64::from(item.price()) as i64, item.quantity() as i64)
-                                })
-                                .group_by(|(price, _)| *price)
-                                .into_iter()
-                                .map(|(price, group)| {
-                                    [
-                                        price_lots_to_ui(
-                                            price,
+                                    let owner_bytes: [u8; 32] = bytemuck::cast(item.owner());
+                                    Order {
+                                        price: price_lots_to_ui(
+                                            u64::from(item.price()) as i64,
                                             mkt.1.base_decimals,
                                             mkt.1.quote_decimals,
                                             mkt.1.base_lot_size,
                                             mkt.1.quote_lot_size,
                                         ),
-                                        base_lots_to_ui(
-                                            group.map(|(_, quantity)| quantity).sum(),
+                                        quantity: base_lots_to_ui(
+                                            item.quantity() as i64,
                                             mkt.1.base_decimals,
                                             mkt.1.quote_decimals,
                                             mkt.1.base_lot_size,
                                             mkt.1.quote_lot_size,
                                         ),
-                                    ]
+                                        owner_pubkey: Pubkey::new_from_array(owner_bytes)
+                                            .to_string(),
+                                    }
                                 })
                                 .collect();
 
@@ -427,7 +500,7 @@ pub async fn init(
                                     &bookside,
                                     old_bookside,
                                     other_bookside,
-                                    &fill_update_sender,
+                                    &book_update_sender,
                                     &mut metric_events_new,
                                 ),
                                 _ => info!("bookside_cache could not find {}", side_pk_string),
@@ -445,6 +518,6 @@ pub async fn init(
     Ok((
         account_write_queue_sender,
         slot_queue_sender,
-        fill_update_receiver,
+        book_update_receiver,
     ))
 }
