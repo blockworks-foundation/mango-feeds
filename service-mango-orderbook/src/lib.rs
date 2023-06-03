@@ -5,6 +5,7 @@ pub type OrderbookLevel = [f64; 2];
 pub type Orderbook = Vec<Order>;
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Order {
     pub price: f64,
     pub quantity: f64,
