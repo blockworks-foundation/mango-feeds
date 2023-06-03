@@ -112,7 +112,12 @@ async fn feed_data(
                         sender.send(
                             WebsocketMessage::SingleUpdate(
                                 response
-                                    .map(|r: Response<UiAccount>| Response { context: r.context, value: RpcKeyedAccount { pubkey: account_id.clone(), account: r.value } })
+                                    .map( |r: Response<UiAccount>|
+                                        Response {
+                                            context: r.context,
+                                            value: RpcKeyedAccount {
+                                                pubkey: account_id.clone(),
+                                                account: r.value }})
                                     .map_err_anyhow()?)).await.expect("sending must succeed");
                     },
                     None => {
