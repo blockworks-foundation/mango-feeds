@@ -62,7 +62,7 @@ pub enum Command {
 #[serde(rename_all = "camelCase")]
 pub struct SubscribeCommand {
     pub market_id: String,
-    pub subscription_type: SubscriptionType,
+    pub subscription_type: Option<SubscriptionType>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -215,14 +215,19 @@ fn handle_commands(
                     .unwrap();
                 return future::ok(());
             }
+            // default to level subscription
+            let subscription_type = match cmd.subscription_type {
+                Some(subscription) => subscription,
+                None => SubscriptionType::Level,
+            };
 
-            let subscribed = match cmd.subscription_type {
+            let subscribed = match subscription_type {
                 SubscriptionType::Level => peer.level_subscriptions.insert(market_id.clone()),
                 SubscriptionType::Book => peer.book_subscriptions.insert(market_id.clone()),
             };
             let message = format!(
                 "subscribed to {} updates for {}",
-                cmd.subscription_type, market_id
+                subscription_type, market_id
             );
 
             let res = if subscribed {
@@ -241,7 +246,7 @@ fn handle_commands(
                 .unwrap();
 
             if subscribed {
-                match cmd.subscription_type {
+                match subscription_type {
                     SubscriptionType::Level => {
                         send_checkpoint(&level_checkpoint_map, &market_id, peer);
                     }
