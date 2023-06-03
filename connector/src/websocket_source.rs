@@ -55,6 +55,8 @@ async fn feed_data(
     };
 
     let mut account_subs = SelectAll::new();
+    let mut program_subs = SelectAll::new();
+
     if filter_config.program_ids.is_empty() {
         for account_id in filter_config.account_ids.clone() {
             account_subs.push(
@@ -69,15 +71,13 @@ async fn feed_data(
         }
     } else {
         info!("FilterConfig specified program_ids, ignoring account_ids");
-    }
-
-    let mut program_subs = SelectAll::new();
-    for program_id in filter_config.program_ids.clone() {
-        program_subs.push(
-            client
-                .program_subscribe(program_id, Some(program_accounts_config.clone()))
-                .map_err_anyhow()?,
-        );
+        for program_id in filter_config.program_ids.clone() {
+            program_subs.push(
+                client
+                    .program_subscribe(program_id, Some(program_accounts_config.clone()))
+                    .map_err_anyhow()?,
+            );
+        }
     }
 
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
@@ -105,52 +105,74 @@ async fn feed_data(
             last_snapshot = Instant::now();
         }
 
-        tokio::select! {
-            account = account_subs.next() => {
-                match account {
-                    Some((account_id, response)) => {
-                        sender.send(
-                            WebsocketMessage::SingleUpdate(
-                                response
-                                    .map( |r: Response<UiAccount>|
-                                        Response {
-                                            context: r.context,
-                                            value: RpcKeyedAccount {
-                                                pubkey: account_id.clone(),
-                                                account: r.value }})
-                                    .map_err_anyhow()?)).await.expect("sending must succeed");
-                    },
-                    None => {
-                        warn!("account stream closed");
-                        return Ok(());
-                    },
+        if filter_config.program_ids.is_empty() {
+            tokio::select! {
+                account = account_subs.next() => {
+                    match account {
+                        Some((account_id, response)) => {
+                            sender.send(
+                                WebsocketMessage::SingleUpdate(
+                                    response
+                                        .map( |r: Response<UiAccount>|
+                                            Response {
+                                                context: r.context,
+                                                value: RpcKeyedAccount {
+                                                    pubkey: account_id.clone(),
+                                                    account: r.value }})
+                                        .map_err_anyhow()?)).await.expect("sending must succeed");
+                        },
+                        None => {
+                            warn!("account stream closed");
+                            if filter_config.program_ids.is_empty() {
+                                return Ok(());
+                            }
+                        },
+                    }
+                },
+                slot_update = slot_sub.next() => {
+                    match slot_update {
+                        Some(slot_update) => {
+                            sender.send(WebsocketMessage::SlotUpdate(slot_update.map_err_anyhow()?)).await.expect("sending must succeed");
+                        },
+                        None => {
+                            warn!("slot update stream closed");
+                            return Ok(());
+                        },
+                    }
+                },
+                _ = tokio::time::sleep(Duration::from_secs(60)) => {
+                    warn!("websocket timeout");
+                    return Ok(())
                 }
-            },
-            program_account = program_subs.next() => {
-                match program_account {
-                    Some(account) => {
-                        sender.send(WebsocketMessage::SingleUpdate(account.map_err_anyhow()?)).await.expect("sending must succeed");
-                    },
-                    None => {
-                        warn!("program account stream closed");
-                        return Ok(());
-                    },
+            }
+        } else {
+            tokio::select! {
+                program_account = program_subs.next() => {
+                    match program_account {
+                        Some(account) => {
+                            sender.send(WebsocketMessage::SingleUpdate(account.map_err_anyhow()?)).await.expect("sending must succeed");
+                        },
+                        None => {
+                            warn!("program account stream closed");
+                            return Ok(());
+                        },
+                    }
+                },
+                slot_update = slot_sub.next() => {
+                    match slot_update {
+                        Some(slot_update) => {
+                            sender.send(WebsocketMessage::SlotUpdate(slot_update.map_err_anyhow()?)).await.expect("sending must succeed");
+                        },
+                        None => {
+                            warn!("slot update stream closed");
+                            return Ok(());
+                        },
+                    }
+                },
+                _ = tokio::time::sleep(Duration::from_secs(60)) => {
+                    warn!("websocket timeout");
+                    return Ok(())
                 }
-            },
-            slot_update = slot_sub.next() => {
-                match slot_update {
-                    Some(slot_update) => {
-                        sender.send(WebsocketMessage::SlotUpdate(slot_update.map_err_anyhow()?)).await.expect("sending must succeed");
-                    },
-                    None => {
-                        warn!("slot update stream closed");
-                        return Ok(());
-                    },
-                }
-            },
-            _ = tokio::time::sleep(Duration::from_secs(60)) => {
-                warn!("websocket timeout");
-                return Ok(())
             }
         }
     }
