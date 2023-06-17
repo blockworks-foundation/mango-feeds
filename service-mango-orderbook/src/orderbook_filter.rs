@@ -71,7 +71,8 @@ fn publish_changes(
     previous_orders: &Vec<Order>,
     maybe_other_orders: Option<&Vec<Order>>,
     orderbook_update_sender: &async_channel::Sender<OrderbookFilterMessage>,
-    metric_updates: &mut MetricU64,
+    metric_book_updates: &mut MetricU64,
+    metric_level_updates: &mut MetricU64,
 ) {
     let mut level_update: Vec<OrderbookLevel> = vec![];
     let mut book_additions: Vec<Order> = vec![];
@@ -206,30 +207,32 @@ fn publish_changes(
         None => info!("other bookside not in cache"),
     }
 
-    if level_update.is_empty() {
-        return;
+    if !level_update.is_empty() {
+        orderbook_update_sender
+            .try_send(OrderbookFilterMessage::LevelUpdate(LevelUpdate {
+                market: mkt.0.to_string(),
+                side: side.clone(),
+                update: level_update,
+                slot,
+                write_version,
+            }))
+            .unwrap(); // TODO: use anyhow to bubble up error
+        metric_level_updates.increment();
     }
 
-    orderbook_update_sender
-        .try_send(OrderbookFilterMessage::BookUpdate(BookUpdate {
-            market: mkt.0.to_string(),
-            side: side.clone(),
-            additions: book_additions,
-            removals: book_removals,
-            slot,
-            write_version,
-        }))
-        .unwrap();
-    orderbook_update_sender
-        .try_send(OrderbookFilterMessage::LevelUpdate(LevelUpdate {
-            market: mkt.0.to_string(),
-            side,
-            update: level_update,
-            slot,
-            write_version,
-        }))
-        .unwrap(); // TODO: use anyhow to bubble up error
-    metric_updates.increment();
+    if !book_additions.is_empty() && !book_removals.is_empty() {
+        orderbook_update_sender
+            .try_send(OrderbookFilterMessage::BookUpdate(BookUpdate {
+                market: mkt.0.to_string(),
+                side,
+                additions: book_additions,
+                removals: book_removals,
+                slot,
+                write_version,
+            }))
+            .unwrap();
+        metric_book_updates.increment();
+    }
 }
 
 pub async fn init(
@@ -242,8 +245,10 @@ pub async fn init(
     async_channel::Sender<SlotUpdate>,
     async_channel::Receiver<OrderbookFilterMessage>,
 )> {
-    let mut metric_events_new =
+    let mut metric_book_events_new =
         metrics_sender.register_u64("orderbook_updates".into(), MetricType::Counter);
+    let mut metric_level_events_new =
+        metrics_sender.register_u64("level_updates".into(), MetricType::Counter);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =
@@ -416,7 +421,8 @@ pub async fn init(
                                         old_bookside,
                                         other_bookside,
                                         &book_update_sender,
-                                        &mut metric_events_new,
+                                        &mut metric_book_events_new,
+                                        &mut metric_level_events_new,
                                     ),
                                     _ => info!("bookside_cache could not find {}", side_pk_string),
                                 }
@@ -501,7 +507,8 @@ pub async fn init(
                                     old_bookside,
                                     other_bookside,
                                     &book_update_sender,
-                                    &mut metric_events_new,
+                                    &mut metric_book_events_new,
+                                    &mut metric_level_events_new,
                                 ),
                                 _ => info!("bookside_cache could not find {}", side_pk_string),
                             }
