@@ -76,6 +76,7 @@ L2 Update - Sent per side
 ### L3 Data 
 
 Subscribe to L3 updates
+:warning: If the subscribed market is a perp market, `owner_pubkey` corresponds to a `mangoAccount`, if the subscribed market is a spot market, `owner_pubkey` corresponds to an open orders account.
 
 ```
 {

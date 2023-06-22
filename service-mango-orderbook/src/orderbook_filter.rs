@@ -187,7 +187,7 @@ fn publish_changes(
                 .map(|(price, group)| [price, group.map(|o| o.quantity).sum()])
                 .collect();
 
-            let ask_levels = bids
+            let ask_levels = asks
                 .iter()
                 .group_by(|order| order.price)
                 .into_iter()
