@@ -13,10 +13,10 @@ Mango v4 Geyser Services
   A service providing lowest-latency, bandwidth conserving access to fill events for Mango V4 Perp and Openbook markets
   as they are processed by the rpc node.
 
-  - [`service-mango-pnl/`](service-mango-pnl/)
+- [`service-mango-pnl/`](service-mango-pnl/)
 
-  A service providing pre-computed account lists ordered by unsettled PnL per market
+A service providing pre-computed account lists ordered by unsettled PnL per market
 
-  - [`service-mango-orderbook/`](service-mango-pnl/)
+- [`service-mango-orderbook/`](service-mango-pnl/)
 
-  A service providing Orderbook L2 state and delta updates for Mango V4 Perp and Openbook Spot markets
+A service providing Orderbook L2/L3 state and delta updates for Mango V4 Perp and Openbook Spot markets
