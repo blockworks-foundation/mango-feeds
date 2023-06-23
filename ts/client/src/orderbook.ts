@@ -61,15 +61,29 @@ interface OrderbookL3Checkpoint {
 }
 
 function isOrderbookL2Checkpoint(obj: any): obj is OrderbookL2Checkpoint {
-  return obj.bids !== undefined && obj.asks !== undefined && obj.bids.every((bid: any) => bid.length() == 2) && obj.asks.every((ask: any) => ask.length() == 2);
+  return (
+    obj.bids !== undefined &&
+    obj.asks !== undefined &&
+    obj.bids.every((bid: any) => bid.length() == 2) &&
+    obj.asks.every((ask: any) => ask.length() == 2)
+  );
 }
 
 function isOrderbookL3Checkpoint(obj: any): obj is OrderbookL3Checkpoint {
-  return obj.bids !== undefined && obj.asks !== undefined && obj.bids.every((order: any) => isOrder(order)) && obj.asks.every((order: any) => isOrder(order));
+  return (
+    obj.bids !== undefined &&
+    obj.asks !== undefined &&
+    obj.bids.every((order: any) => isOrder(order)) &&
+    obj.asks.every((order: any) => isOrder(order))
+  );
 }
 
 function isOrder(obj: any): obj is Order {
-  return obj.price !== undefined && obj.quantity !== undefined && obj.ownerPubkey !== undefined;
+  return (
+    obj.price !== undefined &&
+    obj.quantity !== undefined &&
+    obj.ownerPubkey !== undefined
+  );
 }
 
 export class OrderbookFeed extends ReconnectingWebsocketFeed {
@@ -79,7 +93,7 @@ export class OrderbookFeed extends ReconnectingWebsocketFeed {
   private _onL3Update: ((update: OrderbookL3Update) => void) | null = null;
   private _onL2Checkpoint: ((update: OrderbookL2Checkpoint) => void) | null =
     null;
-    private _onL3Checkpoint: ((update: OrderbookL3Checkpoint) => void) | null =
+  private _onL3Checkpoint: ((update: OrderbookL3Checkpoint) => void) | null =
     null;
 
   constructor(url: string, options?: OrderbookFeedOptions) {
@@ -93,7 +107,7 @@ export class OrderbookFeed extends ReconnectingWebsocketFeed {
     this.onMessage((data) => {
       if (isOrderbookL2Update(data) && this._onL2Update) {
         this._onL2Update(data);
-      } else if (isOrderbookL3Update(data)  && this._onL3Update) {
+      } else if (isOrderbookL3Update(data) && this._onL3Update) {
         this._onL3Update(data);
       } else if (isOrderbookL2Checkpoint(data) && this._onL2Checkpoint) {
         this._onL2Checkpoint(data);
