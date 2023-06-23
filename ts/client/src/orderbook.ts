@@ -19,8 +19,27 @@ interface OrderbookL2Update {
   writeVersion: number;
 }
 
+interface OrderbookL3Update {
+  market: string;
+  side: 'bid' | 'ask';
+  additions: Order[];
+  removals: Order[];
+  slot: number;
+  writeVersion: number;
+}
+
+interface Order {
+  price: number;
+  quantity: number;
+  ownerPubkey: string;
+}
+
 function isOrderbookL2Update(obj: any): obj is OrderbookL2Update {
   return obj.update !== undefined;
+}
+
+function isOrderbookL3Update(obj: any): obj is OrderbookL3Update {
+  return obj.additions !== undefined && obj.removals !== undefined;
 }
 
 interface OrderbookL2Checkpoint {
@@ -32,15 +51,35 @@ interface OrderbookL2Checkpoint {
   writeVersion: number;
 }
 
+interface OrderbookL3Checkpoint {
+  market: string;
+  side: 'bid' | 'ask';
+  bids: Order[];
+  asks: Order[];
+  slot: number;
+  writeVersion: number;
+}
+
 function isOrderbookL2Checkpoint(obj: any): obj is OrderbookL2Checkpoint {
-  return obj.bids !== undefined && obj.asks !== undefined;
+  return obj.bids !== undefined && obj.asks !== undefined && obj.bids.every((bid: any) => bid.length() == 2) && obj.asks.every((ask: any) => ask.length() == 2);
+}
+
+function isOrderbookL3Checkpoint(obj: any): obj is OrderbookL3Checkpoint {
+  return obj.bids !== undefined && obj.asks !== undefined && obj.bids.every((order: any) => isOrder(order)) && obj.asks.every((order: any) => isOrder(order));
+}
+
+function isOrder(obj: any): obj is Order {
+  return obj.price !== undefined && obj.quantity !== undefined && obj.ownerPubkey !== undefined;
 }
 
 export class OrderbookFeed extends ReconnectingWebsocketFeed {
   private _subscriptions?: OrderbookFeedSubscribeParams;
 
   private _onL2Update: ((update: OrderbookL2Update) => void) | null = null;
+  private _onL3Update: ((update: OrderbookL3Update) => void) | null = null;
   private _onL2Checkpoint: ((update: OrderbookL2Checkpoint) => void) | null =
+    null;
+    private _onL3Checkpoint: ((update: OrderbookL3Checkpoint) => void) | null =
     null;
 
   constructor(url: string, options?: OrderbookFeedOptions) {
@@ -54,8 +93,12 @@ export class OrderbookFeed extends ReconnectingWebsocketFeed {
     this.onMessage((data) => {
       if (isOrderbookL2Update(data) && this._onL2Update) {
         this._onL2Update(data);
+      } else if (isOrderbookL3Update(data)  && this._onL3Update) {
+        this._onL3Update(data);
       } else if (isOrderbookL2Checkpoint(data) && this._onL2Checkpoint) {
         this._onL2Checkpoint(data);
+      } else if (isOrderbookL3Checkpoint(data) && this._onL3Checkpoint) {
+        this._onL3Checkpoint(data);
       }
     });
 
@@ -94,7 +137,15 @@ export class OrderbookFeed extends ReconnectingWebsocketFeed {
     this._onL2Update = callback;
   }
 
+  public onL3Update(callback: (update: OrderbookL3Update) => void) {
+    this._onL3Update = callback;
+  }
+
   public onL2Checkpoint(callback: (checkpoint: OrderbookL2Checkpoint) => void) {
     this._onL2Checkpoint = callback;
+  }
+
+  public onL3Checkpoint(callback: (checkpoint: OrderbookL3Checkpoint) => void) {
+    this._onL3Checkpoint = callback;
   }
 }
