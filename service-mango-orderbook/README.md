@@ -76,7 +76,7 @@ L2 Update - Sent per side
 ### L3 Data 
 
 Subscribe to L3 updates
-:warning: If the subscribed market is a perp market, `owner_pubkey` corresponds to a `mangoAccount`, if the subscribed market is a spot market, `owner_pubkey` corresponds to an open orders account.
+:warning: If the subscribed market is a perp market, `ownerPubkey` corresponds to a `mangoAccount`, if the subscribed market is a spot market, `ownerPubkey` corresponds to an open orders account.
 
 ```
 {
@@ -102,34 +102,34 @@ L3 Checkpoint - Sent upon initial subscription
         {
           "price": 20.81,
           "quantity": 1.3,
-          "owner_pubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
+          "ownerPubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
         },
         {
           "price": 20.81,
           "quantity": 62.22,
-          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+          "ownerPubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
         },
         {
           "price": 20.8,
           "quantity": 8,
-          "owner_pubkey": "CtHuPg2ctVVV7nqmvVEcMtcWyJAgtZw9YcNHFQidjPgF"
+          "ownerPubkey": "CtHuPg2ctVVV7nqmvVEcMtcWyJAgtZw9YcNHFQidjPgF"
         }
     ],
     "asks": [
         {
           "price": 20.94,
           "quantity": 62.22,
-          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+          "ownerPubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
         },
         {
           "price": 20.95,
           "quantity": 1.3,
-          "owner_pubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
+          "ownerPubkey": "F1SZxEDxxCSLVjEBbMEjDYqajWRJQRCZBwPQnmcVvTLV"
         },
         {
           "price": 21.31,
           "quantity": 30,
-          "owner_pubkey": "5gHsqmFsMaguM3HMyEmnME4NMQKj6NrJWUGv6VKnc2Hk"
+          "ownerPubkey": "5gHsqmFsMaguM3HMyEmnME4NMQKj6NrJWUGv6VKnc2Hk"
         }
     ],
     "slot": 190826373,
@@ -147,14 +147,14 @@ L3 Update - Sent per side
         {
           "price": 20.92,
           "quantity": 61.93,
-          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+          "ownerPubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
         }
       ],
       "removals": [
         {
           "price": 20.92,
           "quantity": 61.910000000000004,
-          "owner_pubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
+          "ownerPubkey": "BGYWnqfaauCeebFQXEfYuDCktiVG8pqpprrsD4qfqL53"
         }
       ],
       "slot": 197077534,
