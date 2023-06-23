@@ -15,8 +15,8 @@ Mango v4 Geyser Services
 
 - [`service-mango-pnl/`](service-mango-pnl/)
 
-A service providing pre-computed account lists ordered by unsettled PnL per market
+  A service providing pre-computed account lists ordered by unsettled PnL per market
 
 - [`service-mango-orderbook/`](service-mango-pnl/)
 
-A service providing Orderbook L2/L3 state and delta updates for Mango V4 Perp and Openbook Spot markets
+  A service providing Orderbook L2/L3 state and delta updates for Mango V4 Perp and Openbook Spot markets
