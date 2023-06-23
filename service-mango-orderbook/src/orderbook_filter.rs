@@ -246,9 +246,9 @@ pub async fn init(
     async_channel::Receiver<OrderbookFilterMessage>,
 )> {
     let mut metric_book_events_new =
-        metrics_sender.register_u64("orderbook_updates".into(), MetricType::Counter);
+        metrics_sender.register_u64("orderbook_book_updates".into(), MetricType::Counter);
     let mut metric_level_events_new =
-        metrics_sender.register_u64("level_updates".into(), MetricType::Counter);
+        metrics_sender.register_u64("orderbook_level_updates".into(), MetricType::Counter);
 
     // The actual message may want to also contain a retry count, if it self-reinserts on failure?
     let (account_write_queue_sender, account_write_queue_receiver) =
