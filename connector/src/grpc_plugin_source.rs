@@ -66,9 +66,21 @@ async fn feed_data_geyser(
     }
     .connect()
     .await?;
-    let token: MetadataValue<_> = "eed31807f710e4bb098779fb9f67".parse()?;
+    let token: Option<MetadataValue<_>> = match &grpc_config.token {
+        Some(token) => match token.chars().next().unwrap() {
+            '$' => Some(
+                env::var(&token[1..])
+                    .expect("reading token from env")
+                    .parse()?,
+            ),
+            _ => Some(token.clone().parse()?),
+        },
+        None => None,
+    };
     let mut client = GeyserClient::with_interceptor(channel, move |mut req: Request<()>| {
-        req.metadata_mut().insert("x-token", token.clone());
+        if let Some(token) = &token {
+            req.metadata_mut().insert("x-token", token.clone());
+        }
         Ok(req)
     });
 

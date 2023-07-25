@@ -82,6 +82,7 @@ pub struct TlsConfig {
 pub struct GrpcSourceConfig {
     pub name: String,
     pub connection_string: String,
+    pub token: Option<String>,
     pub retry_connection_sleep_secs: u64,
     pub tls: Option<TlsConfig>,
 }
