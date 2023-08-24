@@ -35,7 +35,6 @@ async fn feed_data(
     filter_config: &FilterConfig,
     sender: async_channel::Sender<WebsocketMessage>,
 ) -> anyhow::Result<()> {
-    debug!("feed_data {config:?}");
 
     let snapshot_duration = Duration::from_secs(300);
 
@@ -88,7 +87,8 @@ async fn feed_data(
         // occasionally cause a new snapshot to be produced
         // including the first time
         if last_snapshot + snapshot_duration <= Instant::now() {
-            let snapshot = get_snapshot(config.snapshot.rpc_http_url.clone(), filter_config).await;
+            let rpc_http_url = config.snapshot.rpc_http_url.clone();
+            let snapshot = get_snapshot(rpc_http_url.clone(), filter_config).await;
             if let Ok((slot, accounts)) = snapshot {
                 debug!(
                     "fetched new snapshot slot={slot} len={:?} time={:?}",
@@ -100,7 +100,7 @@ async fn feed_data(
                     .await
                     .expect("sending must succeed");
             } else {
-                error!("failed to parse snapshot")
+                error!("failed to parse snapshot from rpc url {}", rpc_http_url.clone());
             }
             last_snapshot = Instant::now();
         }
@@ -187,13 +187,16 @@ pub async fn process_events(
 ) {
     // Subscribe to program account updates websocket
     let (update_sender, update_receiver) = async_channel::unbounded::<WebsocketMessage>();
+    info!("using config {config:?}");
     let config = config.clone();
     let filter_config = filter_config.clone();
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
         loop {
             let out = feed_data(&config, &filter_config, update_sender.clone());
-            let _ = out.await;
+            if let Err(err) = out.await {
+                warn!("feed data error: {}", err);
+            }
         }
     });
 
