@@ -22,6 +22,7 @@ use crate::{
     chain_data::SlotStatus, snapshot::get_snapshot, AccountWrite, AnyhowWrap, FilterConfig,
     SlotUpdate, SourceConfig,
 };
+use crate::debouncer::Debouncer;
 
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
@@ -34,6 +35,7 @@ async fn feed_data(
     config: &SourceConfig,
     filter_config: &FilterConfig,
     sender: async_channel::Sender<WebsocketMessage>,
+    debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
 
     let snapshot_duration = Duration::from_secs(300);
@@ -100,7 +102,9 @@ async fn feed_data(
                     .await
                     .expect("sending must succeed");
             } else {
-                error!("failed to parse snapshot from rpc url {}", rpc_http_url.clone());
+                if debouncer_errorlog.can_fire() {
+                    warn!("failed to parse snapshot from rpc url {}, filter_config {:?}", rpc_http_url.clone(), filter_config);
+                }
             }
             last_snapshot = Instant::now();
         }
@@ -122,7 +126,9 @@ async fn feed_data(
                                         .map_err_anyhow()?)).await.expect("sending must succeed");
                         },
                         None => {
-                            warn!("account stream closed");
+                            if debouncer_errorlog.can_fire() {
+                                warn!("account stream closed");
+                            }
                             if filter_config.program_ids.is_empty() {
                                 return Ok(());
                             }
@@ -192,10 +198,14 @@ pub async fn process_events(
     let filter_config = filter_config.clone();
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
+        let debouncer_errorlog = Arc::new( Debouncer::new(Duration::from_millis(500)));
         loop {
-            let out = feed_data(&config, &filter_config, update_sender.clone());
+            let out = feed_data(&config, &filter_config, update_sender.clone(),
+                                debouncer_errorlog.clone());
             if let Err(err) = out.await {
-                warn!("feed data error: {}", err);
+                if debouncer_errorlog.can_fire() {
+                    warn!("feed data error: {}", err);
+                }
             }
         }
     });

@@ -4,6 +4,7 @@ pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
+pub mod debouncer;
 
 use {
     serde_derive::Deserialize,

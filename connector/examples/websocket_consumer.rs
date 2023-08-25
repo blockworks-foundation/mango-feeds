@@ -1,5 +1,14 @@
 use mango_feeds_connector::{AccountWrite, FilterConfig, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, websocket_source};
 
+///
+/// test with local test-valiator (1.16.1)
+///
+/// ```
+/// RUST_LOG=info solana-test-validator --log
+/// solana -ul transfer 2pvrKRRjCtCBUJVZcr6z9QbCPrXLhZRMCpXQYzJuhH9J 0.1
+/// ```
+///
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     solana_logger::setup_with_default("info,tokio_reactor=info,mango_feeds_connector::websocket_source=debug");
@@ -20,13 +29,17 @@ async fn main() -> anyhow::Result<()> {
         ],
         // used for websocket+geyser
         snapshot: SnapshotSourceConfig { rpc_http_url: "http://127.0.0.1:8899".to_string() },
+        // used only for websocket
         rpc_ws_url: "ws://localhost:8900/".to_string(),
     };
 
+    // program_ids and account_ids are xor'd
     let filter_config = FilterConfig {
-        program_ids: vec![],
+        program_ids: vec!["11111111111111111111111111111111".to_string()],
+        // program_ids: vec![],
         // payer account
         account_ids: vec!["2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()],   // TOOD
+        // account_ids: vec![],
     };
 
     let (account_write_queue_sender, account_write_queue_receiver) =
@@ -38,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
 
         loop {
             let next = slot_queue_receiver.recv().await.unwrap();
-            println!("got slot: {:?}", next);
+            // println!("got slot: {:?}", next);
 
         }
 
