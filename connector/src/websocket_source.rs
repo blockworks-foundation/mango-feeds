@@ -45,7 +45,6 @@ async fn feed_data(
     debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
 
-
     let rpc_ws_url: &str = &config.rpc_ws_url;
 
     let connect = ws::try_connect::<RpcSolPubSubClient>(rpc_ws_url).map_err_anyhow()?;

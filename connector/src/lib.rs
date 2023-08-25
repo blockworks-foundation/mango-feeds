@@ -106,8 +106,8 @@ pub struct SnapshotSourceConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub enum EntityFilter {
-    FilterByProgramId(String),
     FilterByAccountIds(Vec<String>),
+    FilterByProgramId(String),
 }
 
 #[derive(Clone, Debug, Deserialize)]
