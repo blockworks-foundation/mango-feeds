@@ -44,12 +44,12 @@ pub async fn get_snapshot_gpa(
         account_config: account_info_config.clone(),
     };
 
-    info!("requesting snapshot {}", program_id);
+    info!("requesting gpa snapshot {}", program_id);
     let account_snapshot = rpc_client
         .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
         .await
         .map_err_anyhow()?;
-    info!("snapshot received {}", program_id);
+    info!("gpa snapshot received {}", program_id);
 
     match account_snapshot {
         OptionalContext::Context(snapshot) => {
@@ -78,12 +78,12 @@ pub async fn get_snapshot_gma(
         min_context_slot: None,
     };
 
-    info!("requesting snapshot {:?}", ids);
+    info!("requesting gma snapshot {:?}", ids);
     let account_snapshot_response = rpc_client
         .get_multiple_accounts(ids.clone(), Some(account_info_config))
         .await
         .map_err_anyhow()?;
-    info!("snapshot received {:?}", ids);
+    info!("gma snapshot received {:?}", ids);
 
     let first_full_shot = account_snapshot_response.context.slot;
 

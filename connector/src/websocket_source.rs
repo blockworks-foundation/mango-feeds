@@ -41,23 +41,22 @@ async fn feed_data(
     config: &SourceConfig,
     filter_config: &FilterConfig,
     sender: async_channel::Sender<WebsocketMessage>,
-    debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
 
     match &filter_config.entity_filter {
-        EntityFilter::FilterByAccountIds(account_ids) => feed_data_by_account(config, account_ids.clone(), sender, debouncer_errorlog).await,
-        EntityFilter::FilterByProgramId(program_id) => feed_data_by_program(config, program_id.clone(), sender, debouncer_errorlog).await,
+        EntityFilter::FilterByAccountIds(account_ids) => feed_data_by_accounts(config, account_ids.clone(), sender).await,
+        EntityFilter::FilterByProgramId(program_id) => feed_data_by_program(config, program_id.clone(), sender).await,
     }
 }
 
 // TODO: the reconnecting should be part of this
 // consume data until an error happens; error must be handled by caller by reconnecting
-async fn feed_data_by_account(
+async fn feed_data_by_accounts(
     config: &SourceConfig,
     account_ids: Vec<String>,
     sender: async_channel::Sender<WebsocketMessage>,
-    debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
+    debug!("feed_data_by_accounts");
 
     let rpc_ws_url: &str = &config.rpc_ws_url;
 
@@ -111,20 +110,18 @@ async fn feed_data_by_account(
             match snapshot {
                 Ok(SnapshotMultipleAccounts { snapshot_slot, snapshot_accounts }) => {
                     debug!(
-                        "fetched new snapshot slot={} len={:?} time={:?}",
+                        "fetched new gma snapshot slot={} len={:?} time={:?}",
                         snapshot_slot,
                         snapshot_accounts.len(),
                         Instant::now() - SNAPSHOT_MAX_AGE - last_snapshot
-                );
+                    );
                     sender
                         .send(WebsocketMessage::SnapshotUpdate((snapshot_slot, snapshot_accounts)))
                         .await
                         .expect("sending must succeed");
                 }
                 Err(err) => {
-                    if debouncer_errorlog.can_fire() {
-                        warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
-                    }
+                    warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
                 }
             }
             last_snapshot = Instant::now();
@@ -146,9 +143,8 @@ async fn feed_data_by_account(
                                     .map_err_anyhow()?)).await.expect("sending must succeed");
                     },
                     None => {
-                        if debouncer_errorlog.can_fire() {
-                            warn!("account stream closed");
-                        }
+                        // note: this might loop if the filter did not return anything
+                        warn!("account stream closed");
                         // that is weired - assume that it is okey to cancel in all cases
                         // if filter_config.program_ids.is_empty() {
                         //     return Ok(());
@@ -181,8 +177,8 @@ async fn feed_data_by_program(
     config: &SourceConfig,
     program_id: String,
     sender: async_channel::Sender<WebsocketMessage>,
-    debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
+    debug!("feed_data_by_program");
 
     let rpc_ws_url: &str = &config.rpc_ws_url;
 
@@ -236,7 +232,7 @@ async fn feed_data_by_program(
                         })
                         .collect();
                     debug!(
-                        "fetched new snapshot slot={} len={:?} time={:?}",
+                        "fetched new gpa snapshot slot={} len={:?} time={:?}",
                         snapshot_slot,
                         accounts.len(),
                         Instant::now() - SNAPSHOT_MAX_AGE - last_snapshot
@@ -247,9 +243,7 @@ async fn feed_data_by_program(
                         .expect("sending must succeed");
                 }
                 Err(err) => {
-                    if debouncer_errorlog.can_fire() {
-                        warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
-                    }
+                    warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
                 }
             }
             last_snapshot = Instant::now();
@@ -300,12 +294,13 @@ pub async fn process_events(
     let filter_config = filter_config.clone();
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
-        let debouncer_errorlog = Arc::new( Debouncer::new(Duration::from_millis(500)));
         loop {
-            let out = feed_data(&config, &filter_config, update_sender.clone(),
-                                debouncer_errorlog.clone());
-            if let Err(err) = out.await {
-                if debouncer_errorlog.can_fire() {
+            let out = feed_data(&config, &filter_config, update_sender.clone());
+            match out.await {
+                Ok(()) => {
+                    info!("feed data - continue");
+                }
+                Err(err) => {
                     warn!("feed data error: {}", err);
                 }
             }
