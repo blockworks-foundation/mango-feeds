@@ -11,10 +11,23 @@ use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
 use crate::{AnyhowWrap, FilterConfig};
 
+/// gPA snapshot struct
+pub struct SnapshotProgramAccounts {
+    pub snapshot_slot: Slot,
+    pub snapshot_accounts: Vec<RpcKeyedAccount>,
+}
+
+/// gMA snapshot struct
+pub struct SnapshotMultipleAccounts {
+    pub snapshot_slot: Slot,
+    pub snapshot_accounts: Vec<(String, Option<UiAccount>)>,
+}
+
+
 pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
-) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
+) -> anyhow::Result<SnapshotProgramAccounts> {
     let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
@@ -37,13 +50,23 @@ pub async fn get_snapshot_gpa(
         .await
         .map_err_anyhow()?;
     info!("snapshot received {}", program_id);
-    Ok(account_snapshot)
+
+    match account_snapshot {
+        OptionalContext::Context(snapshot) => {
+            let snapshot_slot = snapshot.context.slot;
+            return Ok(SnapshotProgramAccounts {
+                snapshot_slot,
+                snapshot_accounts: snapshot.value,
+            });
+        }
+        OptionalContext::NoContext(_) => { anyhow::bail!("bad snapshot format"); }
+    }
 }
 
 pub async fn get_snapshot_gma(
     rpc_http_url: String,
     ids: Vec<String>,
-) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
+) -> anyhow::Result<SnapshotMultipleAccounts> {
     let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
@@ -56,12 +79,19 @@ pub async fn get_snapshot_gma(
     };
 
     info!("requesting snapshot {:?}", ids);
-    let account_snapshot = rpc_client
+    let account_snapshot_response = rpc_client
         .get_multiple_accounts(ids.clone(), Some(account_info_config))
         .await
         .map_err_anyhow()?;
     info!("snapshot received {:?}", ids);
-    Ok(account_snapshot)
+
+    let first_full_shot = account_snapshot_response.context.slot;
+
+    let acc: Vec<(String, Option<UiAccount>)> = ids.iter().zip(account_snapshot_response.value).map(|x| (x.0.clone(), x.1)).collect();
+    Ok(SnapshotMultipleAccounts {
+        snapshot_slot: first_full_shot,
+        snapshot_accounts: acc,
+    })
 }
 
 pub async fn get_snapshot(

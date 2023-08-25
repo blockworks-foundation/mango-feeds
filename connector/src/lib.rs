@@ -6,6 +6,8 @@ pub mod snapshot;
 pub mod websocket_source;
 pub mod debouncer;
 
+use std::future::Future;
+use std::time::Duration;
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
@@ -22,6 +24,7 @@ use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClien
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
+use tokio::time::Timeout;
 
 trait AnyhowWrap {
     type Value;
@@ -102,9 +105,14 @@ pub struct SnapshotSourceConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub enum EntityFilter {
+    FilterByProgramId(String),
+    FilterByAccountIds(Vec<String>),
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct FilterConfig {
-    pub program_ids: Vec<String>,
-    pub account_ids: Vec<String>,
+    pub entity_filter: EntityFilter,
 }
 
 #[derive(Clone, Debug, Deserialize)]

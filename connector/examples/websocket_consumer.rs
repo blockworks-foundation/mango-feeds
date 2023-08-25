@@ -1,4 +1,5 @@
 use mango_feeds_connector::{AccountWrite, FilterConfig, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, websocket_source};
+use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramIds};
 
 ///
 /// test with local test-valiator (1.16.1)
@@ -34,13 +35,15 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // program_ids and account_ids are xor'd
-    let filter_config = FilterConfig {
-        program_ids: vec!["11111111111111111111111111111111".to_string()],
-        // program_ids: vec![],
-        // payer account
-        account_ids: vec!["2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()],   // TOOD
-        // account_ids: vec![],
+    let filter_config1 = FilterConfig {
+        entity_filter: FilterByProgramIds(vec!["11111111111111111111111111111111".to_string()]),
     };
+
+    let filter_config2 = FilterConfig {
+        entity_filter: FilterByAccountIds(vec!["2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()]),
+    };
+
+    let filter_config = filter_config1;
 
     let (account_write_queue_sender, account_write_queue_receiver) =
         async_channel::unbounded::<AccountWrite>();

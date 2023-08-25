@@ -41,6 +41,7 @@ use tokio::{
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
 use serde::Deserialize;
+use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 
 type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;
@@ -615,8 +616,7 @@ async fn main() -> anyhow::Result<()> {
     let all_queue_pks = [perp_queue_pks.clone()].concat();
     let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
     let filter_config = FilterConfig {
-        program_ids: vec![],
-        account_ids: relevant_pubkeys,
+        entity_filter: FilterByAccountIds(relevant_pubkeys),
     };
     if use_geyser {
         grpc_plugin_source::process_events(

@@ -17,12 +17,18 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use std::ops::Sub;
+use std::time::{SystemTime, UNIX_EPOCH};
+use anyhow::Context;
+use solana_client::rpc_response::RpcBlockUpdateError::UnsupportedTransactionVersion;
+use tokio::time::timeout;
 
-use crate::{
-    chain_data::SlotStatus, snapshot::get_snapshot, AccountWrite, AnyhowWrap, FilterConfig,
-    SlotUpdate, SourceConfig,
-};
+use crate::{chain_data::SlotStatus, AccountWrite, AnyhowWrap, FilterConfig, SlotUpdate, SourceConfig};
 use crate::debouncer::Debouncer;
+
+const SNAPSHOT_MAX_AGE: Duration = Duration::from_secs(300);
+const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
+
 
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
@@ -31,6 +37,7 @@ enum WebsocketMessage {
 }
 
 // TODO: the reconnecting should be part of this
+// consume data until an error happens; error must be handled by caller by reconnecting
 async fn feed_data(
     config: &SourceConfig,
     filter_config: &FilterConfig,
@@ -38,10 +45,12 @@ async fn feed_data(
     debouncer_errorlog: Arc<Debouncer>,
 ) -> anyhow::Result<()> {
 
-    let snapshot_duration = Duration::from_secs(300);
 
-    let connect = ws::try_connect::<RpcSolPubSubClient>(&config.rpc_ws_url).map_err_anyhow()?;
-    let client = connect.await.map_err_anyhow()?;
+    let rpc_ws_url: &str = &config.rpc_ws_url;
+
+    let connect = ws::try_connect::<RpcSolPubSubClient>(rpc_ws_url).map_err_anyhow()?;
+    let timeout = timeout(WS_CONNECT_TIMEOUT, connect).await?;
+    let client = timeout.map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -83,19 +92,21 @@ async fn feed_data(
 
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
 
-    let mut last_snapshot = Instant::now().checked_sub(snapshot_duration).unwrap();
+    let mut last_snapshot = Instant::now().sub(SNAPSHOT_MAX_AGE);
 
+    // consume from channels unitl an error happens
     loop {
+
         // occasionally cause a new snapshot to be produced
         // including the first time
-        if last_snapshot + snapshot_duration <= Instant::now() {
-            let rpc_http_url = config.snapshot.rpc_http_url.clone();
-            let snapshot = get_snapshot(rpc_http_url.clone(), filter_config).await;
+        if last_snapshot + SNAPSHOT_MAX_AGE <= Instant::now() {
+            let snapshot_rpc_http_url = config.snapshot.rpc_http_url.clone();
+            let snapshot = crate::snapshot::get_snapshot(snapshot_rpc_http_url.clone(), filter_config).await;
             if let Ok((slot, accounts)) = snapshot {
                 debug!(
                     "fetched new snapshot slot={slot} len={:?} time={:?}",
                     accounts.len(),
-                    Instant::now() - snapshot_duration - last_snapshot
+                    Instant::now() - SNAPSHOT_MAX_AGE - last_snapshot
                 );
                 sender
                     .send(WebsocketMessage::SnapshotUpdate((slot, accounts)))
@@ -103,7 +114,7 @@ async fn feed_data(
                     .expect("sending must succeed");
             } else {
                 if debouncer_errorlog.can_fire() {
-                    warn!("failed to parse snapshot from rpc url {}, filter_config {:?}", rpc_http_url.clone(), filter_config);
+                    warn!("failed to parse snapshot from rpc url {}, filter_config {:?}", snapshot_rpc_http_url.clone(), filter_config);
                 }
             }
             last_snapshot = Instant::now();
@@ -214,7 +225,7 @@ pub async fn process_events(
     // The thread that pulls updates and forwards them to postgres
     //
 
-    // copy websocket updates into the postgres account write queue
+    // consume websocket updates from rust channels
     loop {
         let update = update_receiver.recv().await.unwrap();
         trace!("got update message");

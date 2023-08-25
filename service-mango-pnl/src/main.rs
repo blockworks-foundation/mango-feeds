@@ -153,6 +153,8 @@ struct PnlResponseItem {
 }
 
 use jsonrpsee::http_server::HttpServerHandle;
+use mango_feeds_lib::EntityFilter::FilterByProgramIds;
+
 fn start_jsonrpc_server(
     config: JsonRpcConfig,
     pnl_data: Arc<RwLock<PnlData>>,
@@ -301,8 +303,7 @@ async fn main() -> anyhow::Result<()> {
     // start filling chain_data from the grpc plugin source
     let (account_write_queue_sender, slot_queue_sender) = memory_target::init(chain_data).await?;
     let filter_config = FilterConfig {
-        program_ids: vec!["4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into()],
-        account_ids: vec![],
+        entity_filter: FilterByProgramId("4MangoMjqJ2firMokCjjGgoK8d4MXcrgL7XJaL3w6fVg".into()),
     };
     grpc_plugin_source::process_events(
         &config.source,
