@@ -94,7 +94,7 @@ pub async fn get_snapshot_gma(
     })
 }
 
-pub async fn get_snapshot(
+pub async fn __remove_get_snapshot(
     rpc_http_url: String,
     filter_config: &FilterConfig,
 ) -> anyhow::Result<(Slot, Vec<(String, Option<UiAccount>)>)> {

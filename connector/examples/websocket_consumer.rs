@@ -1,5 +1,5 @@
 use mango_feeds_connector::{AccountWrite, FilterConfig, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, websocket_source};
-use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramIds};
+use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
 
 ///
 /// test with local test-valiator (1.16.1)
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 
     // program_ids and account_ids are xor'd
     let filter_config1 = FilterConfig {
-        entity_filter: FilterByProgramIds(vec!["11111111111111111111111111111111".to_string()]),
+        entity_filter: FilterByProgramId("11111111111111111111111111111111".to_string()),
     };
 
     let filter_config2 = FilterConfig {
