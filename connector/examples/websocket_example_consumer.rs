@@ -18,16 +18,7 @@ async fn main() -> anyhow::Result<()> {
         // only used for geyser
         dedup_queue_size: 50000,
         // only used for geyser
-        grpc_sources: vec![
-            GrpcSourceConfig {
-                // used in metrics
-                name: "example-consumer".to_string(),
-                connection_string: "127.0.0.1:10000".to_string(),
-                token: None,
-                retry_connection_sleep_secs: 10,
-                tls: None,
-            }
-        ],
+        grpc_sources: vec![],
         // used for websocket+geyser
         snapshot: SnapshotSourceConfig { rpc_http_url: "http://127.0.0.1:8899".to_string() },
         // used only for websocket
