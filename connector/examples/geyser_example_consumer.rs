@@ -1,11 +1,10 @@
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use mango_feeds_connector::{AccountWrite, FilterConfig, grpc_plugin_source, GrpcSourceConfig, metrics, MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, websocket_source};
+use mango_feeds_connector::{AccountWrite, FilterConfig, grpc_plugin_source, GrpcSourceConfig, metrics, MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig};
 use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
-use mango_feeds_connector::metrics::Metrics;
 
 ///
-/// test with local test-valiator (1.16.1, yellowstone-grpc v1.6.1+solana.1.16.1)
+/// test with local test-valiator (1.16.1, yellowstone-grpc v1.7.1+solana.1.16.1)
 ///
 /// ```
 /// RUST_LOG=info solana-test-validator --log --geyser-plugin-config /pathto/mango-feeds/connector/examples/config-yellowstone-grpc-testing.json
@@ -50,6 +49,7 @@ async fn main() -> anyhow::Result<()> {
 
         loop {
             let next = slot_queue_receiver.recv().await.unwrap();
+            // println!("got slot: {:?}", next);
 
         }
 
@@ -69,7 +69,22 @@ async fn main() -> anyhow::Result<()> {
         entity_filter: FilterByProgramId("11111111111111111111111111111111".to_string()),
     };
 
-    let filter_config = filter_config1;
+    // an account that exists
+    let filter_config2 = FilterConfig {
+        entity_filter: FilterByAccountIds(vec!["2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()]),
+    };
+
+    // an account that does not exist
+    let filter_config3 = FilterConfig {
+        entity_filter: FilterByAccountIds(vec!["aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip".to_string()]),
+    };
+
+    let filter_config4 = FilterConfig {
+        entity_filter: FilterByAccountIds(vec![]),
+    };
+
+    let filter_config = filter_config4;
+
 
     grpc_plugin_source::process_events(
         &config,
