@@ -395,7 +395,7 @@ pub async fn process_events(
                 );
                 let err = out.await.unwrap_err();
                 warn!(
-                    "error during communication with the geyser plugin. retrying. {:?}",
+                    "error during communication with the geyser plugin - retrying: {:?}",
                     err
                 );
 

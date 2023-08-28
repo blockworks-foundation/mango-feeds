@@ -26,7 +26,7 @@ use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccoun
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
-const DEBOUNCE_RETRY_LOOP: Duration = Duration::from_millis(500);
+const CONNECTION_RETRY_THROTTLE: Duration = Duration::from_millis(500);
 const FATAL_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 
@@ -282,7 +282,7 @@ pub async fn process_events(
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
         loop {
-            let delay_next_until = tokio::time::Instant::now() + DEBOUNCE_RETRY_LOOP;
+            let delay_next_until = tokio::time::Instant::now() + CONNECTION_RETRY_THROTTLE;
 
             let out = feed_data(&config, &filter_config, update_sender.clone());
 
@@ -291,7 +291,7 @@ pub async fn process_events(
                     info!("feed data - continue");
                 }
                 Err(err) => {
-                    warn!("feed data error - continuing: {}", err);
+                    warn!("feed data error - continue: {}", err);
                 }
             }
 
