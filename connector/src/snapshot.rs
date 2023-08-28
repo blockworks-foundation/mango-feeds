@@ -13,14 +13,15 @@ use crate::{AnyhowWrap, EntityFilter, FilterConfig};
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {
-    pub snapshot_slot: Slot,
-    pub snapshot_accounts: Vec<RpcKeyedAccount>,
+    pub slot: Slot,
+    pub accounts: Vec<RpcKeyedAccount>,
 }
 
 /// gMA snapshot struct
 pub struct SnapshotMultipleAccounts {
-    pub snapshot_slot: Slot,
-    pub snapshot_accounts: Vec<(String, Option<UiAccount>)>,
+    pub slot: Slot,
+    // (account pubkey, snapshot account)
+    pub accounts: Vec<(String, Option<UiAccount>)>,
 }
 
 
@@ -55,8 +56,8 @@ pub async fn get_snapshot_gpa(
         OptionalContext::Context(snapshot) => {
             let snapshot_slot = snapshot.context.slot;
             Ok(SnapshotProgramAccounts {
-                snapshot_slot,
-                snapshot_accounts: snapshot.value,
+                slot: snapshot_slot,
+                accounts: snapshot.value,
             })
         }
         OptionalContext::NoContext(_) => anyhow::bail!("bad snapshot format")
@@ -89,7 +90,7 @@ pub async fn get_snapshot_gma(
 
     let acc: Vec<(String, Option<UiAccount>)> = ids.iter().zip(account_snapshot_response.value).map(|x| (x.0.clone(), x.1)).collect();
     Ok(SnapshotMultipleAccounts {
-        snapshot_slot: first_full_shot,
-        snapshot_accounts: acc,
+        slot: first_full_shot,
+        accounts: acc,
     })
 }
