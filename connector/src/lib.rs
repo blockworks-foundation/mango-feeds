@@ -4,10 +4,8 @@ pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
-pub mod debouncer;
 
 use std::future::Future;
-use std::time::Duration;
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},

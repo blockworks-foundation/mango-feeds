@@ -18,17 +18,15 @@ use std::{
     time::{Duration, Instant},
 };
 use std::ops::Sub;
-use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
-use solana_client::rpc_response::RpcBlockUpdateError::UnsupportedTransactionVersion;
 use tokio::time::timeout;
 
 use crate::{chain_data::SlotStatus, AccountWrite, AnyhowWrap, FilterConfig, SlotUpdate, SourceConfig, EntityFilter};
-use crate::debouncer::Debouncer;
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts};
 
-const SNAPSHOT_MAX_AGE: Duration = Duration::from_secs(300);
+const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
+const DEBOUNCE_RETRY_LOOP: Duration = Duration::from_millis(500);
 
 
 enum WebsocketMessage {
@@ -70,14 +68,8 @@ async fn feed_data_by_accounts(
         data_slice: None,
         min_context_slot: None,
     };
-    let program_accounts_config = RpcProgramAccountsConfig {
-        filters: None,
-        with_context: Some(true),
-        account_config: account_info_config.clone(),
-    };
 
     let mut account_subs = SelectAll::new();
-    // let mut program_subs = SelectAll::new();
 
     for account_id in &account_ids {
         account_subs.push(
@@ -93,17 +85,16 @@ async fn feed_data_by_accounts(
 
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
 
-    let mut last_snapshot = Instant::now().sub(SNAPSHOT_MAX_AGE);
+    // note: the snapshot refresh schedule is local to the feed_data method and will be reset in outer loop
+    let mut last_snapshot = Instant::now().sub(SNAPSHOT_REFRESH_INTERVAL);
 
-    // consume from channels unitl an error happens
+    // consume from channels until an error happens
     loop {
 
         // occasionally cause a new snapshot to be produced
         // including the first time
-        if last_snapshot + SNAPSHOT_MAX_AGE <= Instant::now() {
+        if last_snapshot + SNAPSHOT_REFRESH_INTERVAL <= Instant::now() {
             let snapshot_rpc_http_url = config.snapshot.rpc_http_url.clone();
-            // TODO split gMA + gPA
-            // let snapshot = crate::snapshot::get_snapshot(snapshot_rpc_http_url.clone(), filter_config).await;
             let response =
                 get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids.clone()).await;
             let snapshot = response.context("gma snapshot response").map_err_anyhow();
@@ -113,7 +104,7 @@ async fn feed_data_by_accounts(
                         "fetched new gma snapshot slot={} len={:?} time={:?}",
                         snapshot_slot,
                         snapshot_accounts.len(),
-                        Instant::now() - SNAPSHOT_MAX_AGE - last_snapshot
+                        Instant::now() - SNAPSHOT_REFRESH_INTERVAL - last_snapshot
                     );
                     sender
                         .send(WebsocketMessage::SnapshotUpdate((snapshot_slot, snapshot_accounts)))
@@ -200,7 +191,6 @@ async fn feed_data_by_program(
 
     let mut program_subs = SelectAll::new();
 
-    info!("FilterConfig specified program_ids, ignoring account_ids");
     program_subs.push(
         client
             .program_subscribe(program_id.clone(), Some(program_accounts_config.clone()))
@@ -209,16 +199,15 @@ async fn feed_data_by_program(
 
     let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
 
-    let mut last_snapshot = Instant::now().sub(SNAPSHOT_MAX_AGE);
+    let mut last_snapshot = Instant::now().sub(SNAPSHOT_REFRESH_INTERVAL);
 
     // consume from channels unitl an error happens
     loop {
 
         // occasionally cause a new snapshot to be produced
         // including the first time
-        if last_snapshot + SNAPSHOT_MAX_AGE <= Instant::now() {
+        if last_snapshot + SNAPSHOT_REFRESH_INTERVAL <= Instant::now() {
             let snapshot_rpc_http_url = config.snapshot.rpc_http_url.clone();
-            // let snapshot = crate::snapshot::get_snapshot(snapshot_rpc_http_url.clone(), filter_config).await;
             let response =
                 get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.clone()).await;
             let snapshot = response.context("gpa snapshot response").map_err_anyhow();
@@ -235,7 +224,7 @@ async fn feed_data_by_program(
                         "fetched new gpa snapshot slot={} len={:?} time={:?}",
                         snapshot_slot,
                         accounts.len(),
-                        Instant::now() - SNAPSHOT_MAX_AGE - last_snapshot
+                        Instant::now() - SNAPSHOT_REFRESH_INTERVAL - last_snapshot
                     );
                     sender
                         .send(WebsocketMessage::SnapshotUpdate((snapshot_slot, accounts)))
@@ -295,15 +284,20 @@ pub async fn process_events(
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
         loop {
+            let delay_next_until = tokio::time::Instant::now() + DEBOUNCE_RETRY_LOOP;
+
             let out = feed_data(&config, &filter_config, update_sender.clone());
+
             match out.await {
                 Ok(()) => {
                     info!("feed data - continue");
                 }
                 Err(err) => {
-                    warn!("feed data error: {}", err);
+                    warn!("feed data error - continuing: {}", err);
                 }
             }
+
+            tokio::time::sleep_until(delay_next_until).await;
         }
     });
 

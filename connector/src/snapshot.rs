@@ -54,12 +54,12 @@ pub async fn get_snapshot_gpa(
     match account_snapshot {
         OptionalContext::Context(snapshot) => {
             let snapshot_slot = snapshot.context.slot;
-            return Ok(SnapshotProgramAccounts {
+            Ok(SnapshotProgramAccounts {
                 snapshot_slot,
                 snapshot_accounts: snapshot.value,
-            });
+            })
         }
-        OptionalContext::NoContext(_) => { anyhow::bail!("bad snapshot format"); }
+        OptionalContext::NoContext(_) => anyhow::bail!("bad snapshot format")
     }
 }
 
@@ -92,31 +92,4 @@ pub async fn get_snapshot_gma(
         snapshot_slot: first_full_shot,
         snapshot_accounts: acc,
     })
-}
-
-pub async fn __remove_get_snapshot(
-    rpc_http_url: String,
-    filter_config: &FilterConfig,
-) -> anyhow::Result<(Slot, Vec<(String, Option<UiAccount>)>)> {
-    match &filter_config.entity_filter {
-        EntityFilter::FilterByAccountIds(account_ids) => {
-            let response =
-                get_snapshot_gma(rpc_http_url.clone(), account_ids.clone()).await;
-            let snapshot = response.context("gma snapshot response").map_err_anyhow()?;
-            Ok((snapshot.snapshot_slot, snapshot.snapshot_accounts))
-        }
-        EntityFilter::FilterByProgramId(program_id) => {
-            let response =
-                get_snapshot_gpa(rpc_http_url.clone(), program_id.clone()).await;
-            let snapshot = response.context("gpa snapshot response").map_err_anyhow()?;
-            let accounts: Vec<(String, Option<UiAccount>)> = snapshot.snapshot_accounts
-                .iter()
-                .map(|x| {
-                    let deref = x.clone();
-                    (deref.pubkey, Some(deref.account))
-                })
-                .collect();
-            Ok((snapshot.snapshot_slot, accounts))
-        }
-    }
 }

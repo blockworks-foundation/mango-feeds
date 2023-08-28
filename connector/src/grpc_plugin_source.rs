@@ -47,18 +47,18 @@ async fn feed_data_geyser(
     filter_config: &FilterConfig,
     sender: async_channel::Sender<Message>,
 ) -> anyhow::Result<()> {
-    let connection_string = match &grpc_config.connection_string.chars().next().unwrap() {
+    let grpc_connection_string = match &grpc_config.connection_string.chars().next().unwrap() {
         '$' => env::var(&grpc_config.connection_string[1..])
             .expect("reading connection string from env"),
         _ => grpc_config.connection_string.clone(),
     };
-    let rpc_http_url = match &snapshot_config.rpc_http_url.chars().next().unwrap() {
+    let snapshot_rpc_http_url = match &snapshot_config.rpc_http_url.chars().next().unwrap() {
         '$' => env::var(&snapshot_config.rpc_http_url[1..])
             .expect("reading connection string from env"),
         _ => snapshot_config.rpc_http_url.clone(),
     };
-    info!("connecting {}", connection_string);
-    let endpoint = Channel::from_shared(connection_string)?;
+    info!("connecting {}", grpc_connection_string);
+    let endpoint = Channel::from_shared(grpc_connection_string)?;
     let channel = if let Some(tls) = tls_config {
         endpoint.tls_config(tls)?
     } else {
@@ -210,10 +210,10 @@ async fn feed_data_geyser(
                                 snapshot_needed = false;
                                 match &filter_config.entity_filter {
                                     EntityFilter::FilterByAccountIds(account_ids) => {
-                                        snapshot_gma = tokio::spawn(get_snapshot_gma(rpc_http_url.clone(), account_ids.clone())).fuse();
+                                        snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids.clone())).fuse();
                                     },
                                     EntityFilter::FilterByProgramId(program_id) => {
-                                        snapshot_gpa = tokio::spawn(get_snapshot_gpa(rpc_http_url.clone(), program_id.clone())).fuse();
+                                        snapshot_gpa = tokio::spawn(get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.clone())).fuse();
                                     },
                                 };
                             }
@@ -393,14 +393,11 @@ pub async fn process_events(
                     &f,
                     msg_sender.clone(),
                 );
-                let result = out.await;
-                assert!(result.is_err());
-                if let Err(err) = result {
-                    warn!(
-                        "error during communication with the geyser plugin. retrying. {:?}",
-                        err
-                    );
-                }
+                let err = out.await.unwrap_err();
+                warn!(
+                    "error during communication with the geyser plugin. retrying. {:?}",
+                    err
+                );
 
                 metric_connected.set(false);
                 metric_retries.increment();
