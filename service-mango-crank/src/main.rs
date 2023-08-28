@@ -23,10 +23,10 @@ use std::{
     time::Duration,
 };
 
+use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 use mango_feeds_lib::FilterConfig;
 use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
 use serde::Deserialize;
-use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {

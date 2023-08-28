@@ -40,8 +40,8 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
-use serde::Deserialize;
 use mango_feeds_lib::EntityFilter::FilterByAccountIds;
+use serde::Deserialize;
 
 type CheckpointMap = Arc<Mutex<HashMap<String, FillCheckpoint>>>;
 type PeerMap = Arc<Mutex<HashMap<SocketAddr, Peer>>>;

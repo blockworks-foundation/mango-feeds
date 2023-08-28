@@ -32,6 +32,7 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
+use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 use mango_feeds_lib::{
     grpc_plugin_source, metrics, websocket_source, MarketConfig, MetricsConfig, SourceConfig,
 };
@@ -40,7 +41,6 @@ use mango_feeds_lib::{
     FilterConfig, StatusResponse,
 };
 use serde::{Deserialize, Serialize};
-use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 
 use service_mango_orderbook::{BookCheckpoint, LevelCheckpoint, OrderbookFilterMessage};
 
@@ -589,15 +589,17 @@ async fn main() -> anyhow::Result<()> {
         .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])
         .collect_vec();
     let filter_config = FilterConfig {
-        entity_filter: FilterByAccountIds([
-            relevant_pubkeys,
-            market_configs
-                .iter()
-                .map(|(_, mkt)| mkt.oracle.to_string())
-                .collect_vec(),
-        ]
+        entity_filter: FilterByAccountIds(
+            [
+                relevant_pubkeys,
+                market_configs
+                    .iter()
+                    .map(|(_, mkt)| mkt.oracle.to_string())
+                    .collect_vec(),
+            ]
             .concat()
-            .to_vec()),
+            .to_vec(),
+        ),
     };
     let use_geyser = true;
     if use_geyser {

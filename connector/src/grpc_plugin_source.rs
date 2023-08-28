@@ -23,12 +23,12 @@ use yellowstone_grpc_proto::prelude::{
 };
 
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
-use crate::{EntityFilter, FilterConfig};
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
     AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
+use crate::{EntityFilter, FilterConfig};
 
 struct SnapshotData {
     slot: u64,

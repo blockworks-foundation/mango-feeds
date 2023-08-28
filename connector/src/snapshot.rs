@@ -23,7 +23,6 @@ pub struct SnapshotMultipleAccounts {
     pub accounts: Vec<(String, Option<UiAccount>)>,
 }
 
-
 pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
@@ -59,7 +58,7 @@ pub async fn get_snapshot_gpa(
                 accounts: snapshot.value,
             })
         }
-        OptionalContext::NoContext(_) => anyhow::bail!("bad snapshot format")
+        OptionalContext::NoContext(_) => anyhow::bail!("bad snapshot format"),
     }
 }
 
@@ -87,7 +86,11 @@ pub async fn get_snapshot_gma(
 
     let first_full_shot = account_snapshot_response.context.slot;
 
-    let acc: Vec<(String, Option<UiAccount>)> = ids.iter().zip(account_snapshot_response.value).map(|x| (x.0.clone(), x.1)).collect();
+    let acc: Vec<(String, Option<UiAccount>)> = ids
+        .iter()
+        .zip(account_snapshot_response.value)
+        .map(|x| (x.0.clone(), x.1))
+        .collect();
     Ok(SnapshotMultipleAccounts {
         slot: first_full_shot,
         accounts: acc,

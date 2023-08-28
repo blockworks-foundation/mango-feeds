@@ -11,18 +11,23 @@ use solana_sdk::{
     account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, slot_history::Slot,
 };
 
+use anyhow::Context;
 use log::*;
+use std::ops::Sub;
 use std::{
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant},
 };
-use std::ops::Sub;
-use anyhow::Context;
 use tokio::time::timeout;
 
-use crate::{chain_data::SlotStatus, AccountWrite, AnyhowWrap, FilterConfig, SlotUpdate, SourceConfig, EntityFilter};
-use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts};
+use crate::snapshot::{
+    get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
+};
+use crate::{
+    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FilterConfig, SlotUpdate,
+    SourceConfig,
+};
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
@@ -41,10 +46,13 @@ async fn feed_data(
     filter_config: &FilterConfig,
     sender: async_channel::Sender<WebsocketMessage>,
 ) -> anyhow::Result<()> {
-
     match &filter_config.entity_filter {
-        EntityFilter::FilterByAccountIds(account_ids) => feed_data_by_accounts(config, account_ids.clone(), sender).await,
-        EntityFilter::FilterByProgramId(program_id) => feed_data_by_program(config, program_id.clone(), sender).await,
+        EntityFilter::FilterByAccountIds(account_ids) => {
+            feed_data_by_accounts(config, account_ids.clone(), sender).await
+        }
+        EntityFilter::FilterByProgramId(program_id) => {
+            feed_data_by_program(config, program_id.clone(), sender).await
+        }
     }
 }
 
@@ -91,7 +99,6 @@ async fn feed_data_by_accounts(
 
     // consume from channels until an error happens
     loop {
-
         // occasionally cause a new snapshot to be produced
         // including the first time
         if last_snapshot + SNAPSHOT_REFRESH_INTERVAL <= Instant::now() {
@@ -100,7 +107,10 @@ async fn feed_data_by_accounts(
                 get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids.clone()).await;
             let snapshot = response.context("gma snapshot response").map_err_anyhow();
             match snapshot {
-                Ok(SnapshotMultipleAccounts { slot: snapshot_slot, accounts: snapshot_accounts }) => {
+                Ok(SnapshotMultipleAccounts {
+                    slot: snapshot_slot,
+                    accounts: snapshot_accounts,
+                }) => {
                     debug!(
                         "fetched new gma snapshot slot={} len={:?} time={:?}",
                         snapshot_slot,
@@ -108,12 +118,19 @@ async fn feed_data_by_accounts(
                         Instant::now() - SNAPSHOT_REFRESH_INTERVAL - last_snapshot
                     );
                     sender
-                        .send(WebsocketMessage::SnapshotUpdate((snapshot_slot, snapshot_accounts)))
+                        .send(WebsocketMessage::SnapshotUpdate((
+                            snapshot_slot,
+                            snapshot_accounts,
+                        )))
                         .await
                         .expect("sending must succeed");
                 }
                 Err(err) => {
-                    warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
+                    warn!(
+                        "failed to parse snapshot from rpc url {}: {}",
+                        snapshot_rpc_http_url.clone(),
+                        err
+                    );
                 }
             }
             last_snapshot = Instant::now();
@@ -157,7 +174,6 @@ async fn feed_data_by_accounts(
                 return Ok(())
             }
         }
-
     }
 }
 
@@ -201,7 +217,6 @@ async fn feed_data_by_program(
 
     // consume from channels until an error happens
     loop {
-
         // occasionally cause a new snapshot to be produced
         // including the first time
         if last_snapshot + SNAPSHOT_REFRESH_INTERVAL <= Instant::now() {
@@ -210,7 +225,10 @@ async fn feed_data_by_program(
                 get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.clone()).await;
             let snapshot = response.context("gpa snapshot response").map_err_anyhow();
             match snapshot {
-                Ok(SnapshotProgramAccounts { slot: snapshot_slot, accounts: snapshot_accounts } ) => {
+                Ok(SnapshotProgramAccounts {
+                    slot: snapshot_slot,
+                    accounts: snapshot_accounts,
+                }) => {
                     let accounts: Vec<(String, Option<UiAccount>)> = snapshot_accounts
                         .iter()
                         .map(|x| {
@@ -230,7 +248,11 @@ async fn feed_data_by_program(
                         .expect("sending must succeed");
                 }
                 Err(err) => {
-                    warn!("failed to parse snapshot from rpc url {}: {}", snapshot_rpc_http_url.clone(), err);
+                    warn!(
+                        "failed to parse snapshot from rpc url {}: {}",
+                        snapshot_rpc_http_url.clone(),
+                        err
+                    );
                 }
             }
             last_snapshot = Instant::now();
