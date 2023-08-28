@@ -29,7 +29,7 @@ const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
 const CONNECTION_RETRY_THROTTLE: Duration = Duration::from_millis(500);
 const FATAL_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
-
+#[allow(clippy::enum_variant_names)]
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
     SnapshotUpdate((Slot, Vec<(String, Option<UiAccount>)>)),

@@ -5,7 +5,6 @@ pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
 
-use std::future::Future;
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
@@ -22,7 +21,6 @@ use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClien
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
-use tokio::time::Timeout;
 
 trait AnyhowWrap {
     type Value;

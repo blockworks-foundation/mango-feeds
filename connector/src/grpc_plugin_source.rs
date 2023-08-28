@@ -2,7 +2,6 @@ use futures::stream::once;
 use jsonrpc_core::futures::StreamExt;
 
 use solana_account_decoder::UiAccount;
-use solana_client::rpc_response::OptionalContext;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
@@ -267,18 +266,18 @@ async fn feed_data_geyser(
             },
             snapshot = &mut snapshot_gma => {
                 let snapshot = snapshot??;
-                info!("snapshot is for slot {}, first full slot was {}", snapshot.snapshot_slot, first_full_slot);
-                if snapshot.snapshot_slot >= first_full_slot {
+                info!("snapshot is for slot {}, first full slot was {}", snapshot.slot, first_full_slot);
+                if snapshot.slot >= first_full_slot {
                     sender.send(Message::Snapshot(SnapshotData {
-                        accounts: snapshot.snapshot_accounts,
-                        slot: snapshot.snapshot_slot,
+                        accounts: snapshot.accounts,
+                        slot: snapshot.slot,
                     }))
                     .await
                     .expect("send success");
                 } else {
                     info!(
                         "snapshot is too old: has slot {}, expected {} minimum",
-                        snapshot.snapshot_slot,
+                        snapshot.slot,
                         first_full_slot
                     );
                     // try again in another 10 slots
@@ -288,23 +287,23 @@ async fn feed_data_geyser(
             },
             snapshot = &mut snapshot_gpa => {
                 let snapshot = snapshot??;
-                info!("snapshot is for slot {}, first full slot was {}", snapshot.snapshot_slot, first_full_slot);
-                if snapshot.snapshot_slot >= first_full_slot {
-                    let accounts: Vec<(String, Option<UiAccount>)> = snapshot.snapshot_accounts.iter().map(|x| {
+                info!("snapshot is for slot {}, first full slot was {}", snapshot.slot, first_full_slot);
+                if snapshot.slot >= first_full_slot {
+                    let accounts: Vec<(String, Option<UiAccount>)> = snapshot.accounts.iter().map(|x| {
                         let deref = x.clone();
                         (deref.pubkey, Some(deref.account))
                     }).collect();
                     sender
                     .send(Message::Snapshot(SnapshotData {
                         accounts,
-                        slot: snapshot.snapshot_slot,
+                        slot: snapshot.slot,
                     }))
                     .await
                     .expect("send success");
                 } else {
                     info!(
                         "snapshot is too old: has slot {}, expected {} minimum",
-                        snapshot.snapshot_slot,
+                        snapshot.slot,
                         first_full_slot
                     );
                     // try again in another 10 slots

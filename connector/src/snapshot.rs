@@ -1,4 +1,3 @@
-use anyhow::{anyhow, Context};
 use jsonrpc_core_client::transports::http;
 use log::*;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
@@ -9,7 +8,7 @@ use solana_client::{
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
-use crate::{AnyhowWrap, EntityFilter, FilterConfig};
+use crate::AnyhowWrap;
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {

@@ -83,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
         entity_filter: FilterByAccountIds(vec![]),
     };
 
-    let filter_config = filter_config4;
+    let filter_config = filter_config1;
 
 
     grpc_plugin_source::process_events(
