@@ -19,7 +19,8 @@ solana-client = "~1.14.9"
 solana-account-decoder = "~1.14.9"
 solana-sdk = "~1.14.9"
 
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev", features = ["client"] }
+mango-v4 = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"] }
+
 bytemuck = "*"
 fixed = { version = "*", features = ["serde"] }
 
