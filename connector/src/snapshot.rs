@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use anyhow::anyhow;
 use jsonrpc_core_client::transports::http;
 use log::*;
@@ -6,6 +7,7 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{OptionalContext, RpcKeyedAccount},
 };
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 

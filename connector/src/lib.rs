@@ -10,14 +10,14 @@ use {
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
 
-#[cfg(all(feature = "solana-1-14", feature = "solana-1-15"))]
-compile_error!(
-    "feature \"solana-1-14\" and feature \"solana-1-15\" cannot be enabled at the same time"
-);
-
-#[cfg(feature = "solana-1-14")]
+// client stub v 1.15+ moved account scan request to a dedicated
+// module to identify users and allow deprecation (potentially) at same point
+// see https://github.com/solana-labs/solana/pull/28968
+#[cfg(not(feature = "rpc-account-scan-migrated"))]
+// 1.14.x
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClient;
-#[cfg(feature = "solana-1-15")]
+// 1.15.x
+#[cfg(feature = "rpc-account-scan-migrated")]
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
