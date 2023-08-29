@@ -1,10 +1,9 @@
 mod fill_event_filter;
 mod fill_event_postgres_target;
 
-use anchor_client::{
-    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
-    Cluster,
-};
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::signature::Keypair;
+use anchor_client::Cluster;
 use anchor_lang::prelude::Pubkey;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{

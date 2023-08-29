@@ -2,7 +2,7 @@ pub mod memory_target;
 pub mod postgres_types_numeric;
 pub mod serum;
 
-use anchor_lang::prelude::Pubkey;
+use solana_sdk::pubkey::Pubkey;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_derive::Deserialize;
 

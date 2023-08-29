@@ -4,11 +4,10 @@ mod openbook_crank_sink;
 mod transaction_builder;
 mod transaction_sender;
 
-use anchor_client::{
-    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
-    Cluster,
-};
-use anchor_lang::prelude::Pubkey;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::signature::Keypair;
+use solana_sdk::pubkey::Pubkey;
+use anchor_client::Cluster;
 use bytemuck::bytes_of;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
