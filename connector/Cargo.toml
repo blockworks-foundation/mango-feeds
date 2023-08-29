@@ -14,27 +14,27 @@ solana-1-14 = []
 solana-1-15 = []
 
 [dependencies]
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
+jsonrpc-core = { workspace = true }
+jsonrpc-core-client = { workspace = true }
 
-solana-rpc = "1.14.9"
-solana-client = "1.14.9"
-solana-account-decoder = "1.14.9"
-solana-sdk = "1.14.9"
+solana-rpc = { workspace = true }
+solana-client = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-sdk = { workspace = true }
 
-tokio = { version = "1", features = ["full"] }
-rustls = "0.20.8"
+tokio = { workspace = true }
+rustls = { workspace = true }
 
-serde = "1.0.130"
-serde_derive = "1.0.130"
+serde = { workspace = true }
+serde_derive = { workspace = true }
 
-log = "0.4"
-anyhow = "1.0"
+log = { workspace = true }
+anyhow = { workspace = true }
 
-futures = "0.3.17"
+futures = { workspace = true }
 
-async-channel = "1.6"
-async-trait = "0.1"
+async-channel = { workspace = true }
+async-trait = { workspace = true }
 
 warp = "0.3"
 
