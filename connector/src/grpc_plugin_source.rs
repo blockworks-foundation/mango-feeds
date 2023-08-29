@@ -34,6 +34,8 @@ struct SnapshotData {
     slot: u64,
     accounts: Vec<(String, Option<UiAccount>)>,
 }
+
+#[allow(clippy::large_enum_variant)]
 enum Message {
     GrpcUpdate(SubscribeUpdate),
     Snapshot(SnapshotData),

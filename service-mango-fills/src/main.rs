@@ -59,6 +59,7 @@ pub struct Peer {
     pub head_updates: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_connection_error(
     checkpoint_map: CheckpointMap,
     peer_map: PeerMap,

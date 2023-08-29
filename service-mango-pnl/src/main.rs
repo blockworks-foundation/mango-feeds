@@ -153,7 +153,7 @@ struct PnlResponseItem {
 }
 
 use jsonrpsee::http_server::HttpServerHandle;
-use mango_feeds_lib::EntityFilter::FilterByProgramIds;
+use mango_feeds_lib::EntityFilter::FilterByProgramId;
 
 fn start_jsonrpc_server(
     config: JsonRpcConfig,

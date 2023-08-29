@@ -1,6 +1,8 @@
+#![allow(unused_variables)]
+
 use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
 use mango_feeds_connector::{
-    websocket_source, AccountWrite, FilterConfig, GrpcSourceConfig, SlotUpdate,
+    websocket_source, AccountWrite, FilterConfig, SlotUpdate,
     SnapshotSourceConfig, SourceConfig,
 };
 
@@ -43,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         ]),
     };
 
-    // an account that does not exist
+    // an account that does not exis
     let filter_config3 = FilterConfig {
         entity_filter: FilterByAccountIds(vec![
             "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip".to_string()

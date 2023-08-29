@@ -106,6 +106,7 @@ pub struct Config {
     pub mango_group: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_connection_error(
     level_checkpoint_map: LevelCheckpointMap,
     book_checkpoint_map: BookCheckpointMap,

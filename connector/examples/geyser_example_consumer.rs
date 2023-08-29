@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
 use mango_feeds_connector::{
     grpc_plugin_source, metrics, AccountWrite, FilterConfig, GrpcSourceConfig, MetricsConfig,
