@@ -7,9 +7,19 @@ edition = "2018"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
+
 solana-client = "1"
 solana-logger = "1"
 solana-sdk = "1"
+
+anchor-lang = "0.27.0"
+anchor-client = "0.27.0"
+
+mango-v4 = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"] }
+mango-v4-client = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git" }
+
+serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
+
 bs58 = "*"
 log = "*"
 anyhow = "*"
@@ -26,9 +36,3 @@ async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 bytemuck = "1.7.2"
-
-mango-v4 = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"] }
-mango-v4-client = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git" }
-serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
-anchor-lang = "0.27.0"
-anchor-client = "0.27.0"

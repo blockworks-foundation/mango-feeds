@@ -3,7 +3,6 @@ mod fill_event_postgres_target;
 
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::signature::Keypair;
-use anchor_client::Cluster;
 use anchor_lang::prelude::Pubkey;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
@@ -33,6 +32,7 @@ use std::{
     },
     time::Duration,
 };
+use anchor_client::Cluster;
 use tokio::{
     net::{TcpListener, TcpStream},
     pin, time,

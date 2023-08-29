@@ -366,7 +366,7 @@ pub async fn init(
                                 max_staleness_slots: None, // don't check oracle staleness to get an orderbook
                             };
 
-                            if let Ok((oracle_price, _slot)) = state::oracle_price_and_slot(
+                            if let Ok((oracle_price, _state)) = state::oracle_price_and_state(
                                 &keyed_account,
                                 &oracle_config.to_oracle_config(),
                                 mkt.1.base_decimals,

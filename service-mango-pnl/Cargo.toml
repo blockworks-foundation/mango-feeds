@@ -7,8 +7,19 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
-solana-logger = "~1.14.9"
-solana-sdk = "~1.14.9"
+
+solana-client = "1"
+solana-logger = "1"
+solana-sdk = "1"
+
+anchor-lang = "0.27.0"
+anchor-client = "0.27.0"
+
+mango-v4 = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git", features = ["client"] }
+mango-v4-client = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git" }
+
+serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
+
 log = "0.4"
 anyhow = "1.0"
 toml = "0.5"
@@ -22,7 +33,3 @@ tokio = { version = "1", features = ["full"] }
 
 serde = "1.0.130"
 serde_derive = "1.0.130"
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-lang = "0.25.0"
-anchor-client = "0.25.0"
