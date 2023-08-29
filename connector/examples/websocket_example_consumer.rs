@@ -2,8 +2,7 @@
 
 use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
 use mango_feeds_connector::{
-    websocket_source, AccountWrite, FilterConfig, SlotUpdate,
-    SnapshotSourceConfig, SourceConfig,
+    websocket_source, AccountWrite, FilterConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
 };
 
 ///
