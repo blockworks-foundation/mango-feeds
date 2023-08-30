@@ -4,6 +4,7 @@ members = [
         "lib",
         "service-mango-crank",
         "service-mango-fills",
+        "service-mango-swaps",
         "service-mango-pnl",
         "service-mango-orderbook",
 ]

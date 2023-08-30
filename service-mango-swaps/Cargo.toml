@@ -1,0 +1,10 @@
+[package]
+name = "service-mango-swaps"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
+mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }

@@ -5359,6 +5359,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "service-mango-swaps"
+version = "0.1.0"
+dependencies = [
+ "mango-v4",
+ "mango-v4-client",
+]
+
+[[package]]
 name = "sha-1"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
