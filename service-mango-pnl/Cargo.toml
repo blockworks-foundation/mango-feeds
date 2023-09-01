@@ -7,6 +7,7 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
+mango-feeds-connector = { path = "../connector" }
 
 solana-client = "1"
 solana-logger = "1"

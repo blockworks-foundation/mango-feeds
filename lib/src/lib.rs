@@ -1,12 +1,9 @@
-pub mod memory_target;
 pub mod postgres_types_numeric;
 pub mod serum;
 
 use solana_sdk::pubkey::Pubkey;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_derive::Deserialize;
-
-pub use mango_feeds_connector::*;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PostgresConfig {
@@ -36,13 +33,6 @@ pub struct PostgresTlsConfig {
     pub ca_cert_path: String,
     /// PKCS12 client cert path
     pub client_key_path: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct Config {
-    pub postgres_target: PostgresConfig,
-    pub source: SourceConfig,
-    pub metrics: MetricsConfig,
 }
 
 #[derive(Clone, Debug)]
