@@ -227,7 +227,7 @@ impl ChainData {
     }
 
     /// Ref to the most recent live write of the pubkey
-    pub fn account<'a>(&'a self, pubkey: &Pubkey) -> anyhow::Result<&'a AccountData> {
+    pub fn account(&self, pubkey: &Pubkey) -> anyhow::Result<&AccountData> {
         self.accounts
             .get(pubkey)
             .ok_or_else(|| anyhow::anyhow!("account {} not found", pubkey))?
