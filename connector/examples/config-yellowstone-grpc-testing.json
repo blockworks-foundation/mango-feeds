@@ -1,5 +1,5 @@
 {
-    "libpath": "/Users/stefan/mango/code/yellowstone-grpc/target/debug/libyellowstone_grpc_geyser.dylib",
+    "libpath": "/path/to/libyellowstone_grpc_geyser.dylib",
     "log": {
         "level": "debug"
     },
