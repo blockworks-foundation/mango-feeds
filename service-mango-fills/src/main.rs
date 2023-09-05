@@ -12,7 +12,12 @@ use futures_util::{
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
-use mango_feeds_lib::{grpc_plugin_source, metrics, metrics::{MetricType, MetricU64}, websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig, SourceConfig, StatusResponse, EntityFilter};
+use mango_feeds_lib::{
+    grpc_plugin_source, metrics,
+    metrics::{MetricType, MetricU64},
+    websocket_source, EntityFilter, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig,
+    SourceConfig, StatusResponse,
+};
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
 use std::{

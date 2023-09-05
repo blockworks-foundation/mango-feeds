@@ -5,8 +5,8 @@ pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
 
-use std::str::FromStr;
 use itertools::Itertools;
+use std::str::FromStr;
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
@@ -112,10 +112,10 @@ impl EntityFilter {
         EntityFilter::FilterByProgramId(Pubkey::from_str(program_id).unwrap())
     }
     pub fn filter_by_account_ids(account_ids: Vec<&str>) -> Self {
-        let accounts_ids_typed =
-            account_ids.into_iter()
-                .map(|id| Pubkey::from_str(id).unwrap())
-                .collect_vec();
+        let accounts_ids_typed = account_ids
+            .into_iter()
+            .map(|id| Pubkey::from_str(id).unwrap())
+            .collect_vec();
         EntityFilter::FilterByAccountIds(accounts_ids_typed)
     }
 }

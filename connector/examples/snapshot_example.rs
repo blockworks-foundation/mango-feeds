@@ -10,7 +10,6 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 // use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
-
 /// this tool tests the differences between rpc_accounts and rpc_accounts_scan (should be same)
 
 #[derive(Parser, Debug, Clone)]
@@ -27,9 +26,7 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    solana_logger::setup_with_default(
-        "info",
-    );
+    solana_logger::setup_with_default("info");
 
     let cli = Cli::parse_from(std::env::args_os());
 
@@ -37,7 +34,8 @@ async fn main() -> anyhow::Result<()> {
     let program_id = cli.program_account;
 
     let rpc_client = http::connect::<GetProgramAccountsClient>(&rpc_http_url)
-        .await.unwrap();
+        .await
+        .unwrap();
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -52,7 +50,9 @@ async fn main() -> anyhow::Result<()> {
         with_context: Some(true),
     };
 
-    let snapshot = rpc_client.get_program_accounts(program_id.to_string(), Some(program_info_config)).await;
+    let snapshot = rpc_client
+        .get_program_accounts(program_id.to_string(), Some(program_info_config))
+        .await;
     if let OptionalContext::Context(snapshot_data) = snapshot.unwrap() {
         println!("api version: {:?}", snapshot_data.context.api_version);
         println!("#accounts {:?}", snapshot_data.value.len());

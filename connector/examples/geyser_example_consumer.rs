@@ -1,6 +1,9 @@
 #![allow(unused_variables)]
 
-use mango_feeds_connector::{grpc_plugin_source, metrics, AccountWrite, FilterConfig, GrpcSourceConfig, MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, EntityFilter};
+use mango_feeds_connector::{
+    grpc_plugin_source, metrics, AccountWrite, EntityFilter, FilterConfig, GrpcSourceConfig,
+    MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
+};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -74,14 +77,14 @@ async fn main() -> anyhow::Result<()> {
     // an account that exists
     let filter_config2 = FilterConfig {
         entity_filter: EntityFilter::filter_by_account_ids(vec![
-            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb"
+            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb",
         ]),
     };
 
     // an account that does not exist
     let filter_config3 = FilterConfig {
         entity_filter: EntityFilter::filter_by_account_ids(vec![
-            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip"
+            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip",
         ]),
     };
 

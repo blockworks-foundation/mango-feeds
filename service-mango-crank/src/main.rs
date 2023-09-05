@@ -13,6 +13,7 @@ use bytemuck::bytes_of;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
+use std::iter::FromIterator;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -22,7 +23,6 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
-use std::iter::FromIterator;
 
 use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 use mango_feeds_lib::FilterConfig;
