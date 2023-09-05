@@ -1,9 +1,6 @@
 #![allow(unused_variables)]
 
-use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
-use mango_feeds_connector::{
-    websocket_source, AccountWrite, FilterConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
-};
+use mango_feeds_connector::{websocket_source, AccountWrite, FilterConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, EntityFilter};
 
 ///
 /// test with local test-valiator (1.16.1)
@@ -34,25 +31,25 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let filter_config1 = FilterConfig {
-        entity_filter: FilterByProgramId("11111111111111111111111111111111".to_string()),
+        entity_filter: EntityFilter::filter_by_program_id("11111111111111111111111111111111"),
     };
 
     // an account that exists
     let filter_config2 = FilterConfig {
-        entity_filter: FilterByAccountIds(vec![
-            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()
+        entity_filter: EntityFilter::filter_by_account_ids(vec![
+            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb"
         ]),
     };
 
     // an account that does not exis
     let filter_config3 = FilterConfig {
-        entity_filter: FilterByAccountIds(vec![
-            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip".to_string()
+        entity_filter: EntityFilter::filter_by_account_ids(vec![
+            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip"
         ]),
     };
 
     let filter_config4 = FilterConfig {
-        entity_filter: FilterByAccountIds(vec![]),
+        entity_filter: EntityFilter::filter_by_account_ids(vec![]),
     };
 
     let filter_config = filter_config1;

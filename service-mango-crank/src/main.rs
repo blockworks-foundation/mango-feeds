@@ -22,6 +22,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
 };
+use std::iter::FromIterator;
 
 use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 use mango_feeds_lib::FilterConfig;
@@ -154,7 +155,7 @@ async fn main() -> anyhow::Result<()> {
         .collect();
 
     let filter_config = FilterConfig {
-        entity_filter: FilterByAccountIds(all_queue_pks.iter().map(|pk| pk.to_string()).collect()),
+        entity_filter: FilterByAccountIds(Vec::from_iter(all_queue_pks)),
     };
     if use_geyser {
         grpc_plugin_source::process_events(

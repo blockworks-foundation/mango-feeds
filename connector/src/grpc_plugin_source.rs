@@ -108,7 +108,7 @@ async fn feed_data_geyser(
             accounts.insert(
                 "client".to_owned(),
                 SubscribeRequestFilterAccounts {
-                    account: account_ids.into_iter().map(Pubkey::to_string).collect(),
+                    account: account_ids.iter().map(Pubkey::to_string).collect(),
                     owner: vec![],
                     filters: vec![],
                 },
@@ -211,7 +211,7 @@ async fn feed_data_geyser(
                                 snapshot_needed = false;
                                 match &filter_config.entity_filter {
                                     EntityFilter::FilterByAccountIds(account_ids) => {
-                                        let account_ids_typed = account_ids.into_iter().map(Pubkey::to_string).collect();
+                                        let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
                                         snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids_typed)).fuse();
                                     },
                                     EntityFilter::FilterByProgramId(program_id) => {

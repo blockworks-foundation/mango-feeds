@@ -587,7 +587,7 @@ async fn main() -> anyhow::Result<()> {
     let relevant_pubkeys = [market_configs.clone(), serum_market_configs.clone()]
         .concat()
         .iter()
-        .flat_map(|m| [m.1.bids.to_string(), m.1.asks.to_string()])
+        .flat_map(|m| [m.1.bids, m.1.asks])
         .collect_vec();
     let filter_config = FilterConfig {
         entity_filter: FilterByAccountIds(
@@ -595,7 +595,7 @@ async fn main() -> anyhow::Result<()> {
                 relevant_pubkeys,
                 market_configs
                     .iter()
-                    .map(|(_, mkt)| mkt.oracle.to_string())
+                    .map(|(_, mkt)| mkt.oracle)
                     .collect_vec(),
             ]
             .concat()

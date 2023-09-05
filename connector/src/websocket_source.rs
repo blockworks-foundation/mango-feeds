@@ -48,7 +48,7 @@ async fn feed_data(
 ) -> anyhow::Result<()> {
     match &filter_config.entity_filter {
         EntityFilter::FilterByAccountIds(account_ids) => {
-            let account_ids_typed = account_ids.into_iter().map(Pubkey::to_string).collect();
+            let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
             feed_data_by_accounts(config, account_ids_typed, sender).await
         }
         EntityFilter::FilterByProgramId(program_id) => {
