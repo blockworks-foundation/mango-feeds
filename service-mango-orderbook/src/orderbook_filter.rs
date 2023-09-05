@@ -2,15 +2,15 @@ use anchor_lang::AccountDeserialize;
 use fixed::types::I80F48;
 use itertools::Itertools;
 use log::*;
-use mango_feeds_lib::metrics::MetricU64;
-use mango_feeds_lib::{
-    base_lots_to_ui, base_lots_to_ui_perp, price_lots_to_ui, price_lots_to_ui_perp, MarketConfig,
-    OrderbookSide,
-};
-use mango_feeds_lib::{
+use mango_feeds_connector::metrics::MetricU64;
+use mango_feeds_connector::{
     chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::{MetricType, Metrics},
     AccountWrite, SlotUpdate,
+};
+use mango_feeds_lib::{
+    base_lots_to_ui, base_lots_to_ui_perp, price_lots_to_ui, price_lots_to_ui_perp, MarketConfig,
+    OrderbookSide,
 };
 use mango_v4::accounts_zerocopy::{AccountReader, KeyedAccountReader};
 use mango_v4::state::OracleConfigParams;

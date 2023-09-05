@@ -1,7 +1,6 @@
 use {
     log::*,
-    mango_feeds_lib::chain_data::ChainData,
-    mango_feeds_lib::*,
+    mango_feeds_connector::chain_data::ChainData,
     serde_derive::{Deserialize, Serialize},
     solana_sdk::pubkey::Pubkey,
     std::str::FromStr,
@@ -17,7 +16,7 @@ use {
 use anchor_client::Cluster;
 use anchor_lang::Discriminator;
 use fixed::types::I80F48;
-use mango_feeds_lib::metrics::*;
+use mango_feeds_connector::metrics::*;
 use mango_v4::state::{MangoAccount, MangoAccountValue, PerpMarketIndex};
 use mango_v4_client::{
     chain_data, health_cache, AccountFetcher, Client, MangoGroupContext, TransactionBuilderConfig,
@@ -153,6 +152,11 @@ struct PnlResponseItem {
 }
 
 use jsonrpsee::http_server::HttpServerHandle;
+use mango_feeds_connector::{
+    grpc_plugin_source, memory_target, metrics, FilterConfig, MetricsConfig, SnapshotSourceConfig,
+    SourceConfig,
+};
+
 fn start_jsonrpc_server(
     config: JsonRpcConfig,
     pnl_data: Arc<RwLock<PnlData>>,

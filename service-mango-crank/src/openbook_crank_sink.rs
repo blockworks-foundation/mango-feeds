@@ -6,9 +6,8 @@ use std::{
 use async_channel::Sender;
 use async_trait::async_trait;
 use log::*;
-use mango_feeds_lib::{
-    account_write_filter::AccountWriteSink, chain_data::AccountData, serum::SerumEventQueueHeader,
-};
+use mango_feeds_connector::{account_write_filter::AccountWriteSink, chain_data::AccountData};
+use mango_feeds_lib::serum::SerumEventQueueHeader;
 use serum_dex::{instruction::MarketInstruction, state::EventView};
 use solana_sdk::{
     account::ReadableAccount,

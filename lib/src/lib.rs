@@ -1,9 +1,9 @@
 pub mod postgres_types_numeric;
 pub mod serum;
 
-use solana_sdk::pubkey::Pubkey;
 use serde::{ser::SerializeStruct, Serialize, Serializer};
 use serde_derive::Deserialize;
+use solana_sdk::pubkey::Pubkey;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PostgresConfig {

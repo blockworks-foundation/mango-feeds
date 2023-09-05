@@ -15,7 +15,7 @@ solana-client = "~1.14.9"
 solana-account-decoder = "~1.14.9"
 solana-sdk = "~1.14.9"
 
-serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
+serum_dex = { workspace = true }
 
 mango-v4 = { workspace = true }
 mango-v4-client = { workspace = true }

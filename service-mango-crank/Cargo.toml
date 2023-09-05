@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
+mango-feeds-connector = { path = "../connector" }
 
 solana-client = { workspace = true }
 solana-logger = { workspace = true }
