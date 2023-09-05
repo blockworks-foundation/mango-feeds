@@ -52,7 +52,7 @@ async fn compute_pnl(
     account: &MangoAccountValue,
 ) -> anyhow::Result<Vec<(PerpMarketIndex, I80F48)>> {
     let health_cache = health_cache::new(&context, account_fetcher.as_ref(), account).await?;
-    let perp_settle_health = health_cache.perp_settle_health();
+    let perp_settle_health = health_cache.perp_max_settle();
 
     let pnls = account
         .active_perp_positions()
