@@ -5,6 +5,8 @@ pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
 
+use std::str::FromStr;
+use itertools::Itertools;
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
@@ -102,8 +104,20 @@ pub struct SnapshotSourceConfig {
 
 #[derive(Clone, Debug, Deserialize)]
 pub enum EntityFilter {
-    FilterByAccountIds(Vec<String>),
-    FilterByProgramId(String),
+    FilterByAccountIds(Vec<Pubkey>),
+    FilterByProgramId(Pubkey),
+}
+impl EntityFilter {
+    pub fn filter_by_program_id(program_id: &str) -> Self {
+        EntityFilter::FilterByProgramId(Pubkey::from_str(program_id).unwrap())
+    }
+    pub fn filter_by_account_ids(account_ids: Vec<&str>) -> Self {
+        let accounts_ids_typed =
+            account_ids.into_iter()
+                .map(|id| Pubkey::from_str(id).unwrap())
+                .collect_vec();
+        EntityFilter::FilterByAccountIds(accounts_ids_typed)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]

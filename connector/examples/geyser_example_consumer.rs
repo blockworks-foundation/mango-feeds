@@ -1,10 +1,7 @@
 #![allow(unused_variables)]
 
-use mango_feeds_connector::EntityFilter::{FilterByAccountIds, FilterByProgramId};
-use mango_feeds_connector::{
-    grpc_plugin_source, metrics, AccountWrite, FilterConfig, GrpcSourceConfig, MetricsConfig,
-    SlotUpdate, SnapshotSourceConfig, SourceConfig,
-};
+use mango_feeds_connector::EntityFilter::FilterByAccountIds;
+use mango_feeds_connector::{grpc_plugin_source, metrics, AccountWrite, FilterConfig, GrpcSourceConfig, MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, EntityFilter};
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
@@ -72,20 +69,20 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let filter_config1 = FilterConfig {
-        entity_filter: FilterByProgramId("11111111111111111111111111111111".to_string()),
+        entity_filter: EntityFilter::filter_by_program_id("11111111111111111111111111111111"),
     };
 
     // an account that exists
     let filter_config2 = FilterConfig {
-        entity_filter: FilterByAccountIds(vec![
-            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb".to_string()
+        entity_filter: EntityFilter::filter_by_account_ids(vec![
+            "2z5cFZAmL5HgDYXPAfEVpWn33Nixsu3iSsg5PDCFDWSb"
         ]),
     };
 
     // an account that does not exist
     let filter_config3 = FilterConfig {
-        entity_filter: FilterByAccountIds(vec![
-            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip".to_string()
+        entity_filter: EntityFilter::filter_by_account_ids(vec![
+            "aorYUvexUBb6cRFpmauF3ofgUDDpFZcRpHpcp5B2Zip"
         ]),
     };
 

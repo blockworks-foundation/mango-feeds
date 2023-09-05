@@ -48,10 +48,11 @@ async fn feed_data(
 ) -> anyhow::Result<()> {
     match &filter_config.entity_filter {
         EntityFilter::FilterByAccountIds(account_ids) => {
-            feed_data_by_accounts(config, account_ids.clone(), sender).await
+            let account_ids_typed = account_ids.into_iter().map(Pubkey::to_string).collect();
+            feed_data_by_accounts(config, account_ids_typed, sender).await
         }
         EntityFilter::FilterByProgramId(program_id) => {
-            feed_data_by_program(config, program_id.clone(), sender).await
+            feed_data_by_program(config, program_id.to_string(), sender).await
         }
     }
 }
