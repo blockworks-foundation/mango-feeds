@@ -21,36 +21,36 @@ mango-v4 = { workspace = true }
 mango-v4-client = { workspace = true }
 fixed = { workspace = true }
 
-bytemuck = { version = "^1.7.2", features = ["min_const_generics"] }
+bytemuck = { workspace = true }
 
-tokio = { version = "1", features = ["full"] }
-tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
-tokio-postgres-rustls = "0.9.0"
-postgres-types = { version = "0.2", features = ["array-impls", "derive", "with-chrono-0_4"] }
-postgres-native-tls = "0.5"
-native-tls = "0.2"
+tokio = { workspace = true }
+tokio-postgres = { workspace = true }
+tokio-postgres-rustls = { workspace = true }
+postgres-types = { workspace = true }
+postgres-native-tls = { workspace = true }
+native-tls = { workspace = true }
 
 # postgres_query hasn't updated its crate in a while
-postgres_query = { git = "https://github.com/nolanderc/rust-postgres-query", rev = "b4422051c8a31fbba4a35f88004c1cefb1878dd5" }
+postgres_query = { workspace = true }
 
-serde = "1.0.130"
-serde_derive = "1.0.130"
-serde_json = "1.0.68"
+serde = { workspace = true }
+serde_derive = { workspace = true }
+serde_json = { workspace = true }
 
-bs58 = "0.4"
-base64 = "0.21.0"
-log = "0.4"
-rand = "0.7"
-anyhow = "1.0"
-bytes = "1.0"
-itertools = "0.10.5"
-chrono = "0.4.23"
+bs58 = { workspace = true }
+base64 = { workspace = true }
+log = { workspace = true }
+rand = { workspace = true }
+anyhow = { workspace = true }
+bytes = { workspace = true }
+itertools = { workspace = true }
+chrono = { workspace = true }
 
-futures = "0.3.17"
-futures-core = "0.3"
+futures = { workspace = true }
+futures-core = { workspace = true }
 
-async-channel = "1.6"
-async-trait = "0.1"
+async-channel = { workspace = true }
+async-trait = { workspace = true }
 
 [build-dependencies]
 tonic-build = { version = "0.6", features = ["compression"] }
