@@ -394,11 +394,19 @@ pub async fn process_events(
                     &f,
                     msg_sender.clone(),
                 );
-                let err = out.await.unwrap_err();
-                warn!(
-                    "error during communication with the geyser plugin - retrying: {:?}",
-                    err
-                );
+                match out.await {
+                    // happy case!
+                    Err(err) => {
+                        warn!(
+                            "error during communication with the geyser plugin - retrying: {:?}",
+                            err
+                        );
+                    }
+                    // this should never happen
+                    Ok(_) => {
+                        error!("feed_data must return an error, not OK - continue");
+                    }
+                }
 
                 metric_connected.set(false);
                 metric_retries.increment();
