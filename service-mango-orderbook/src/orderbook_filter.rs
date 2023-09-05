@@ -62,6 +62,7 @@ impl KeyedAccountReader for KeyedSharedDataAccountReader {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::ptr_arg)]
 fn publish_changes(
     slot: u64,
     write_version: u64,

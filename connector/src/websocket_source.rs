@@ -23,6 +23,7 @@ use crate::{
     SlotUpdate, SourceConfig,
 };
 
+#[allow(clippy::enum_variant_names)]
 enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
     SnapshotUpdate((Slot, Vec<(String, Option<UiAccount>)>)),
