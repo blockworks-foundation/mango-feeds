@@ -3065,6 +3065,7 @@ dependencies = [
  "async-channel",
  "async-trait",
  "futures 0.3.28",
+ "itertools 0.10.5",
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.17",
