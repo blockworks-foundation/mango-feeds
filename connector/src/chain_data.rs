@@ -50,6 +50,12 @@ pub struct ChainData {
     account_bytes_stored: usize,
 }
 
+impl Default for ChainData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ChainData {
     pub fn new() -> Self {
         Self {
@@ -219,7 +225,7 @@ impl ChainData {
     }
 
     /// Ref to the most recent live write of the pubkey
-    pub fn account<'a>(&'a self, pubkey: &Pubkey) -> anyhow::Result<&'a AccountData> {
+    pub fn account(&self, pubkey: &Pubkey) -> anyhow::Result<&AccountData> {
         self.accounts
             .get(pubkey)
             .ok_or_else(|| anyhow::anyhow!("account {} not found", pubkey))?
@@ -229,7 +235,7 @@ impl ChainData {
             .ok_or_else(|| anyhow::anyhow!("account {} has no live data", pubkey))
     }
 
-    pub fn iter_accounts<'a>(&'a self) -> impl Iterator<Item = (&'a Pubkey, &'a AccountData)> {
+    pub fn iter_accounts(&self) -> impl Iterator<Item = (&Pubkey, &AccountData)> {
         self.accounts.iter().filter_map(|(pk, writes)| {
             writes
                 .iter()
