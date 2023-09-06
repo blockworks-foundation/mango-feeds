@@ -22,6 +22,7 @@ jobs:
       - name: Set rust version
         run: |
           source ci/rust-version.sh
+          echo "Use Rust Version $rust_stable"
 
       # Use docker buildx
       - name: Use docker buildx
