@@ -9,7 +9,11 @@ use futures_util::{
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
-use mango_feeds_connector::{grpc_plugin_source, metrics, metrics::{MetricType, MetricU64}, websocket_source, FilterConfig, MetricsConfig, SourceConfig, EntityFilter};
+use mango_feeds_connector::{
+    grpc_plugin_source, metrics,
+    metrics::{MetricType, MetricU64},
+    websocket_source, EntityFilter, FilterConfig, MetricsConfig, SourceConfig,
+};
 use mango_feeds_lib::MarketConfig;
 use mango_feeds_lib::PostgresConfig;
 use mango_feeds_lib::StatusResponse;

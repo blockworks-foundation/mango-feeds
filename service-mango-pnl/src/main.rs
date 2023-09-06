@@ -152,7 +152,10 @@ struct PnlResponseItem {
 }
 
 use jsonrpsee::http_server::HttpServerHandle;
-use mango_feeds_connector::{grpc_plugin_source, memory_target, metrics, FilterConfig, MetricsConfig, SnapshotSourceConfig, SourceConfig, EntityFilter};
+use mango_feeds_connector::{
+    grpc_plugin_source, memory_target, metrics, EntityFilter, FilterConfig, MetricsConfig,
+    SnapshotSourceConfig, SourceConfig,
+};
 
 fn start_jsonrpc_server(
     config: JsonRpcConfig,
