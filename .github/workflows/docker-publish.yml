@@ -38,8 +38,11 @@ jobs:
       # Build and push the image
       - name: Build and Push Image
         uses: docker/build-push-action@v2
+        run: |
+          source ci/rust-version.sh
         with:
           context: .
+          args: ${{ env.RUST_STABLE }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ github.sha }}
