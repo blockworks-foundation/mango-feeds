@@ -13,6 +13,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Set rust version
+        run: |
+          source ci/rust-version.sh
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -37,8 +41,6 @@ jobs:
       # Build and push the image
       - name: Build and Push Image
         uses: docker/build-push-action@v2
-        run: |
-          source ci/rust-version.sh
         with:
           context: .
           build-args: |
