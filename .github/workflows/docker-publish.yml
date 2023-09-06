@@ -46,7 +46,7 @@ jobs:
         with:
           context: .
           build-args: |
-            RUST_TOOLCHAIN_VERSION=${{ env.RUST_STABLE }}
+            RUST_TOOLCHAIN_VERSION=1.71.0
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ github.sha }}
