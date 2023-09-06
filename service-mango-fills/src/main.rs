@@ -1,10 +1,7 @@
 mod fill_event_filter;
 mod fill_event_postgres_target;
 
-use anchor_client::{
-    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
-    Cluster,
-};
+use anchor_client::Cluster;
 use anchor_lang::prelude::Pubkey;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
@@ -12,14 +9,14 @@ use futures_util::{
     pin_mut, SinkExt, StreamExt, TryStreamExt,
 };
 use log::*;
-use mango_feeds_lib::{
-    grpc_plugin_source, metrics,
-    metrics::{MetricType, MetricU64},
-    websocket_source, EntityFilter, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig,
-    SourceConfig, StatusResponse,
-};
+use mango_feeds_connector::{grpc_plugin_source, metrics, metrics::{MetricType, MetricU64}, websocket_source, FilterConfig, MetricsConfig, SourceConfig, EntityFilter};
+use mango_feeds_lib::MarketConfig;
+use mango_feeds_lib::PostgresConfig;
+use mango_feeds_lib::StatusResponse;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::signature::Keypair;
 use std::{
     collections::{HashMap, HashSet},
     env,

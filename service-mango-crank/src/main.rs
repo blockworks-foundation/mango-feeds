@@ -4,15 +4,14 @@ mod openbook_crank_sink;
 mod transaction_builder;
 mod transaction_sender;
 
-use anchor_client::{
-    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
-    Cluster,
-};
-use anchor_lang::prelude::Pubkey;
+use anchor_client::Cluster;
 use bytemuck::bytes_of;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::Keypair;
 use std::iter::FromIterator;
 use std::{
     collections::HashSet,
@@ -24,10 +23,12 @@ use std::{
     time::Duration,
 };
 
-use mango_feeds_lib::EntityFilter::FilterByAccountIds;
-use mango_feeds_lib::FilterConfig;
-use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
+use mango_feeds_connector::FilterConfig;
+use mango_feeds_connector::{
+    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
+};
 use serde::Deserialize;
+use mango_feeds_connector::EntityFilter::FilterByAccountIds;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {

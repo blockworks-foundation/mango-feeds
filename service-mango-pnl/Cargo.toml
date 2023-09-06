@@ -7,22 +7,31 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 mango-feeds-lib = { path = "../lib" }
-solana-logger = "~1.14.9"
-solana-sdk = "~1.14.9"
-log = "0.4"
-anyhow = "1.0"
-toml = "0.5"
-bytemuck = "1.7.2"
+mango-feeds-connector = { path = "../connector" }
+
+solana-client = { workspace = true }
+solana-logger = { workspace = true }
+solana-sdk = { workspace = true }
+
+anchor-lang = { workspace = true }
+anchor-client = { workspace = true }
+
+mango-v4 = { workspace = true }
+mango-v4-client = { workspace = true }
+
+serum_dex = { workspace = true }
+
+log = { workspace = true }
+anyhow = { workspace = true }
+toml = { workspace = true }
+bytemuck = { workspace = true }
+
 jsonrpsee = { version = "0.9.0", features = ["http-server"] }
 
-async-trait = "0.1"
-fixed = { version = "1.9.0", features = ["serde"] }
-bs58 = "0.3.1"
-tokio = { version = "1", features = ["full"] }
+async-trait = { workspace = true }
+fixed = { workspace = true }
+bs58 = { workspace = true }
+tokio = { workspace = true }
 
-serde = "1.0.130"
-serde_derive = "1.0.130"
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4", branch = "dev" }
-anchor-lang = "0.25.0"
-anchor-client = "0.25.0"
+serde = { workspace = true }
+serde_derive = { workspace = true }

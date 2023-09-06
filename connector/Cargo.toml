@@ -9,40 +9,42 @@ description = "Listen to Solana account updates via geyser or websockets"
 [lib]
 
 [features]
-default = ["solana-1-14"]
+default = []
 solana-1-14 = []
-solana-1-15 = []
+# v1.15.x got yanked
+#solana-1-15 = ["rpc-account-scan-migrated"]
+solana-1-16 = ["rpc-account-scan-migrated"]
+rpc-account-scan-migrated = []
 
 [dependencies]
-jsonrpc-core = "18.0.0"
-jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
+jsonrpc-core = { workspace = true }
+jsonrpc-core-client = { workspace = true }
 
-solana-rpc = "1.14.9"
-solana-client = "1.14.9"
-solana-account-decoder = "1.14.9"
-solana-sdk = "1.14.9"
+solana-rpc = { workspace = true }
+solana-client = { workspace = true }
+solana-account-decoder = { workspace = true }
+solana-sdk = { workspace = true }
+solana-logger = { workspace = true }
 
-tokio = { version = "1", features = ["full"] }
-rustls = "0.20.8"
+tokio = { workspace = true }
+rustls = { workspace = true }
 
-serde = "1.0.130"
-serde_derive = "1.0.130"
+serde = { workspace = true }
+serde_derive = { workspace = true }
 
-log = "0.4"
-anyhow = "1.0"
+log = { workspace = true }
+anyhow = { workspace = true }
 
 itertools = "0.10.5"
 
-futures = "0.3.17"
+futures = { workspace = true }
 
-async-channel = "1.6"
-async-trait = "0.1"
+async-channel = { workspace = true }
+async-trait = { workspace = true }
 
 warp = "0.3"
 
 yellowstone-grpc-proto = "1.1.0"
 
 [dev-dependencies]
-solana-logger = "*"
-clap = { version = "4.4.2", features = ["derive", "env"] }
-
+clap = { version = "3.1.8", features = ["derive", "env"] }

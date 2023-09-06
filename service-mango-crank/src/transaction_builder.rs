@@ -1,4 +1,4 @@
-use mango_feeds_lib::{
+use mango_feeds_connector::{
     account_write_filter::{self, AccountWriteRoute},
     metrics::Metrics,
     AccountWrite, SlotUpdate,
