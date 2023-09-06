@@ -13,14 +13,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set rust version
-        run: |
-          source ci/rust-version.sh
 
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: recursive
+
+      - name: Set rust version
+        run: |
+          source ci/rust-version.sh
 
       # Use docker buildx
       - name: Use docker buildx
