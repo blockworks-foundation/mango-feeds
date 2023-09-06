@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.2
 # Base image containing all binaries, deployed to gcr.io/mango-markets/mango-geyser-services:latest
-FROM rust:1.65.0 as base
+FROM rust:1.71.1-bullseye as base
 RUN cargo install cargo-chef
 RUN rustup component add rustfmt
 RUN apt-get update && apt-get install -y clang cmake ssh
@@ -9,6 +9,7 @@ WORKDIR /app
 FROM base AS plan
 COPY . .
 WORKDIR /app
+RUN rustup show
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base as build
