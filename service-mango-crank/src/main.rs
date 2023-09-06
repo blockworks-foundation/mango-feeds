@@ -13,6 +13,7 @@ use bytemuck::bytes_of;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use solana_client::nonblocking::rpc_client::RpcClient;
+use std::iter::FromIterator;
 use std::{
     collections::HashSet,
     convert::TryFrom,
@@ -23,9 +24,11 @@ use std::{
     time::Duration,
 };
 
+use mango_feeds_lib::EntityFilter::FilterByAccountIds;
 use mango_feeds_lib::FilterConfig;
 use mango_feeds_lib::{grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig};
 use serde::Deserialize;
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub source: SourceConfig,
@@ -152,8 +155,7 @@ async fn main() -> anyhow::Result<()> {
         .collect();
 
     let filter_config = FilterConfig {
-        program_ids: vec![],
-        account_ids: all_queue_pks.iter().map(|pk| pk.to_string()).collect(),
+        entity_filter: FilterByAccountIds(Vec::from_iter(all_queue_pks)),
     };
     if use_geyser {
         grpc_plugin_source::process_events(

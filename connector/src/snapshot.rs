@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use jsonrpc_core_client::transports::http;
 use log::*;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
@@ -9,12 +8,25 @@ use solana_client::{
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
-use crate::{AnyhowWrap, FilterConfig};
+use crate::AnyhowWrap;
+
+/// gPA snapshot struct
+pub struct SnapshotProgramAccounts {
+    pub slot: Slot,
+    pub accounts: Vec<RpcKeyedAccount>,
+}
+
+/// gMA snapshot struct
+pub struct SnapshotMultipleAccounts {
+    pub slot: Slot,
+    // (account pubkey, snapshot account)
+    pub accounts: Vec<(String, Option<UiAccount>)>,
+}
 
 pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
-) -> anyhow::Result<OptionalContext<Vec<RpcKeyedAccount>>> {
+) -> anyhow::Result<SnapshotProgramAccounts> {
     let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
@@ -31,19 +43,29 @@ pub async fn get_snapshot_gpa(
         account_config: account_info_config.clone(),
     };
 
-    info!("requesting snapshot {}", program_id);
+    info!("requesting gpa snapshot {}", program_id);
     let account_snapshot = rpc_client
         .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
         .await
         .map_err_anyhow()?;
-    info!("snapshot received {}", program_id);
-    Ok(account_snapshot)
+    info!("gpa snapshot received {}", program_id);
+
+    match account_snapshot {
+        OptionalContext::Context(snapshot) => {
+            let snapshot_slot = snapshot.context.slot;
+            Ok(SnapshotProgramAccounts {
+                slot: snapshot_slot,
+                accounts: snapshot.value,
+            })
+        }
+        OptionalContext::NoContext(_) => anyhow::bail!("bad snapshot format"),
+    }
 }
 
 pub async fn get_snapshot_gma(
     rpc_http_url: String,
     ids: Vec<String>,
-) -> anyhow::Result<solana_client::rpc_response::Response<Vec<Option<UiAccount>>>> {
+) -> anyhow::Result<SnapshotMultipleAccounts> {
     let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
@@ -55,50 +77,22 @@ pub async fn get_snapshot_gma(
         min_context_slot: None,
     };
 
-    info!("requesting snapshot {:?}", ids);
-    let account_snapshot = rpc_client
+    info!("requesting gma snapshot {:?}", ids);
+    let account_snapshot_response = rpc_client
         .get_multiple_accounts(ids.clone(), Some(account_info_config))
         .await
         .map_err_anyhow()?;
-    info!("snapshot received {:?}", ids);
-    Ok(account_snapshot)
-}
+    info!("gma snapshot received {:?}", ids);
 
-pub async fn get_snapshot(
-    rpc_http_url: String,
-    filter_config: &FilterConfig,
-) -> anyhow::Result<(Slot, Vec<(String, Option<UiAccount>)>)> {
-    if !filter_config.account_ids.is_empty() {
-        let response =
-            get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone()).await;
-        if let Ok(snapshot) = response {
-            let accounts: Vec<(String, Option<UiAccount>)> = filter_config
-                .account_ids
-                .iter()
-                .zip(snapshot.value)
-                .map(|x| (x.0.clone(), x.1))
-                .collect();
-            Ok((snapshot.context.slot, accounts))
-        } else {
-            Err(anyhow!("invalid gma response {:?}", response))
-        }
-    } else if !filter_config.program_ids.is_empty() {
-        let response =
-            get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone()).await;
-        if let Ok(OptionalContext::Context(snapshot)) = response {
-            let accounts: Vec<(String, Option<UiAccount>)> = snapshot
-                .value
-                .iter()
-                .map(|x| {
-                    let deref = x.clone();
-                    (deref.pubkey, Some(deref.account))
-                })
-                .collect();
-            Ok((snapshot.context.slot, accounts))
-        } else {
-            Err(anyhow!("invalid gpa response {:?}", response))
-        }
-    } else {
-        Err(anyhow!("invalid filter_config"))
-    }
+    let first_full_shot = account_snapshot_response.context.slot;
+
+    let acc: Vec<(String, Option<UiAccount>)> = ids
+        .iter()
+        .zip(account_snapshot_response.value)
+        .map(|x| (x.0.clone(), x.1))
+        .collect();
+    Ok(SnapshotMultipleAccounts {
+        slot: first_full_shot,
+        accounts: acc,
+    })
 }

@@ -15,8 +15,8 @@ use log::*;
 use mango_feeds_lib::{
     grpc_plugin_source, metrics,
     metrics::{MetricType, MetricU64},
-    websocket_source, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig, SourceConfig,
-    StatusResponse,
+    websocket_source, EntityFilter, FilterConfig, MarketConfig, MetricsConfig, PostgresConfig,
+    SourceConfig, StatusResponse,
 };
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
 use service_mango_fills::{Command, FillCheckpoint, FillEventFilterMessage, FillEventType};
@@ -58,6 +58,7 @@ pub struct Peer {
     pub head_updates: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle_connection_error(
     checkpoint_map: CheckpointMap,
     peer_map: PeerMap,
@@ -613,10 +614,9 @@ async fn main() -> anyhow::Result<()> {
     );
     let use_geyser = true;
     let all_queue_pks = [perp_queue_pks.clone()].concat();
-    let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1.to_string()).collect();
+    let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1).collect();
     let filter_config = FilterConfig {
-        program_ids: vec![],
-        account_ids: relevant_pubkeys,
+        entity_filter: EntityFilter::FilterByAccountIds(relevant_pubkeys),
     };
     if use_geyser {
         grpc_plugin_source::process_events(

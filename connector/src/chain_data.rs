@@ -50,12 +50,6 @@ pub struct ChainData {
     account_bytes_stored: usize,
 }
 
-impl Default for ChainData {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl ChainData {
     pub fn new() -> Self {
         Self {
@@ -68,7 +62,15 @@ impl ChainData {
             account_bytes_stored: 0,
         }
     }
+}
 
+impl Default for ChainData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ChainData {
     pub fn update_slot(&mut self, new_slot: SlotData) {
         let new_processed_head = new_slot.slot > self.newest_processed_slot;
         if new_processed_head {

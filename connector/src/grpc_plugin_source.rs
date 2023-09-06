@@ -2,7 +2,6 @@ use futures::stream::once;
 use jsonrpc_core::futures::StreamExt;
 
 use solana_account_decoder::UiAccount;
-use solana_client::rpc_response::OptionalContext;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
@@ -24,17 +23,18 @@ use yellowstone_grpc_proto::prelude::{
 };
 
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
-use crate::FilterConfig;
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
     AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
+use crate::{EntityFilter, FilterConfig};
 
 struct SnapshotData {
     slot: u64,
     accounts: Vec<(String, Option<UiAccount>)>,
 }
+
 #[allow(clippy::large_enum_variant)]
 enum Message {
     GrpcUpdate(SubscribeUpdate),
@@ -48,18 +48,18 @@ async fn feed_data_geyser(
     filter_config: &FilterConfig,
     sender: async_channel::Sender<Message>,
 ) -> anyhow::Result<()> {
-    let connection_string = match &grpc_config.connection_string.chars().next().unwrap() {
+    let grpc_connection_string = match &grpc_config.connection_string.chars().next().unwrap() {
         '$' => env::var(&grpc_config.connection_string[1..])
             .expect("reading connection string from env"),
         _ => grpc_config.connection_string.clone(),
     };
-    let rpc_http_url = match &snapshot_config.rpc_http_url.chars().next().unwrap() {
+    let snapshot_rpc_http_url = match &snapshot_config.rpc_http_url.chars().next().unwrap() {
         '$' => env::var(&snapshot_config.rpc_http_url[1..])
             .expect("reading connection string from env"),
         _ => snapshot_config.rpc_http_url.clone(),
     };
-    info!("connecting {}", connection_string);
-    let endpoint = Channel::from_shared(connection_string)?;
+    info!("connecting {}", grpc_connection_string);
+    let endpoint = Channel::from_shared(grpc_connection_string)?;
     let channel = if let Some(tls) = tls_config {
         endpoint.tls_config(tls)?
     } else {
@@ -85,25 +85,38 @@ async fn feed_data_geyser(
         Ok(req)
     });
 
-    // If account_ids are provided, snapshot will be gMA. If only program_ids, then only the first id will be snapshot
-    // TODO: handle this better
-    if filter_config.program_ids.len() > 1 {
-        warn!("only one program id is supported for gPA snapshots")
-    }
     let mut accounts = HashMap::new();
-    accounts.insert(
-        "client".to_owned(),
-        SubscribeRequestFilterAccounts {
-            account: filter_config.account_ids.clone(),
-            owner: filter_config.program_ids.clone(),
-            filters: vec![],
-        },
-    );
     let mut slots = HashMap::new();
-    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
     let blocks = HashMap::new();
-    let blocks_meta = HashMap::new();
     let transactions = HashMap::new();
+    let blocks_meta = HashMap::new();
+
+    match &filter_config.entity_filter {
+        EntityFilter::FilterByProgramId(program_id) => {
+            // note: the v0.1 (commit 2925926) logic allowed to have one program_id (the owner) plus account_ids which is not allowed with the new filter design
+
+            accounts.insert(
+                "client".to_owned(),
+                SubscribeRequestFilterAccounts {
+                    account: vec![],
+                    owner: vec![program_id.to_string()],
+                    filters: vec![],
+                },
+            );
+        }
+        EntityFilter::FilterByAccountIds(account_ids) => {
+            accounts.insert(
+                "client".to_owned(),
+                SubscribeRequestFilterAccounts {
+                    account: account_ids.iter().map(Pubkey::to_string).collect(),
+                    owner: vec![],
+                    filters: vec![],
+                },
+            );
+        }
+    }
+
+    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
 
     let request = SubscribeRequest {
         accounts,
@@ -196,11 +209,15 @@ async fn feed_data_geyser(
 
                             if snapshot_needed && max_rooted_slot - rooted_to_finalized_slots > first_full_slot {
                                 snapshot_needed = false;
-                                if !filter_config.account_ids.is_empty() {
-                                    snapshot_gma = tokio::spawn(get_snapshot_gma(rpc_http_url.clone(), filter_config.account_ids.clone())).fuse();
-                                } else if !filter_config.program_ids.is_empty() {
-                                    snapshot_gpa = tokio::spawn(get_snapshot_gpa(rpc_http_url.clone(), filter_config.program_ids[0].clone())).fuse();
-                                }
+                                match &filter_config.entity_filter {
+                                    EntityFilter::FilterByAccountIds(account_ids) => {
+                                        let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
+                                        snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids_typed)).fuse();
+                                    },
+                                    EntityFilter::FilterByProgramId(program_id) => {
+                                        snapshot_gpa = tokio::spawn(get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.to_string())).fuse();
+                                    },
+                                };
                             }
                         }
                     },
@@ -252,20 +269,18 @@ async fn feed_data_geyser(
             },
             snapshot = &mut snapshot_gma => {
                 let snapshot = snapshot??;
-                info!("snapshot is for slot {}, first full slot was {}", snapshot.context.slot, first_full_slot);
-                if snapshot.context.slot >= first_full_slot {
-                    let accounts: Vec<(String, Option<UiAccount>)> = filter_config.account_ids.iter().zip(snapshot.value).map(|x| (x.0.clone(), x.1)).collect();
-                    sender
-                    .send(Message::Snapshot(SnapshotData {
-                        accounts,
-                        slot: snapshot.context.slot,
+                info!("snapshot is for slot {}, first full slot was {}", snapshot.slot, first_full_slot);
+                if snapshot.slot >= first_full_slot {
+                    sender.send(Message::Snapshot(SnapshotData {
+                        accounts: snapshot.accounts,
+                        slot: snapshot.slot,
                     }))
                     .await
                     .expect("send success");
                 } else {
                     info!(
                         "snapshot is too old: has slot {}, expected {} minimum",
-                        snapshot.context.slot,
+                        snapshot.slot,
                         first_full_slot
                     );
                     // try again in another 10 slots
@@ -275,32 +290,28 @@ async fn feed_data_geyser(
             },
             snapshot = &mut snapshot_gpa => {
                 let snapshot = snapshot??;
-                if let OptionalContext::Context(snapshot_data) = snapshot {
-                    info!("snapshot is for slot {}, first full slot was {}", snapshot_data.context.slot, first_full_slot);
-                    if snapshot_data.context.slot >= first_full_slot {
-                        let accounts: Vec<(String, Option<UiAccount>)> = snapshot_data.value.iter().map(|x| {
-                            let deref = x.clone();
-                            (deref.pubkey, Some(deref.account))
-                        }).collect();
-                        sender
-                        .send(Message::Snapshot(SnapshotData {
-                            accounts,
-                            slot: snapshot_data.context.slot,
-                        }))
-                        .await
-                        .expect("send success");
-                    } else {
-                        info!(
-                            "snapshot is too old: has slot {}, expected {} minimum",
-                            snapshot_data.context.slot,
-                            first_full_slot
-                        );
-                        // try again in another 10 slots
-                        snapshot_needed = true;
-                        rooted_to_finalized_slots += 10;
-                    }
+                info!("snapshot is for slot {}, first full slot was {}", snapshot.slot, first_full_slot);
+                if snapshot.slot >= first_full_slot {
+                    let accounts: Vec<(String, Option<UiAccount>)> = snapshot.accounts.iter().map(|x| {
+                        let deref = x.clone();
+                        (deref.pubkey, Some(deref.account))
+                    }).collect();
+                    sender
+                    .send(Message::Snapshot(SnapshotData {
+                        accounts,
+                        slot: snapshot.slot,
+                    }))
+                    .await
+                    .expect("send success");
                 } else {
-                    anyhow::bail!("bad snapshot format");
+                    info!(
+                        "snapshot is too old: has slot {}, expected {} minimum",
+                        snapshot.slot,
+                        first_full_slot
+                    );
+                    // try again in another 10 slots
+                    snapshot_needed = true;
+                    rooted_to_finalized_slots += 10;
                 }
             },
             _ = tokio::time::sleep(fatal_idle_timeout) => {
@@ -384,13 +395,18 @@ pub async fn process_events(
                     &f,
                     msg_sender.clone(),
                 );
-                let result = out.await;
-                assert!(result.is_err());
-                if let Err(err) = result {
-                    warn!(
-                        "error during communication with the geyser plugin. retrying. {:?}",
-                        err
-                    );
+                match out.await {
+                    // happy case!
+                    Err(err) => {
+                        warn!(
+                            "error during communication with the geyser plugin - retrying: {:?}",
+                            err
+                        );
+                    }
+                    // this should never happen
+                    Ok(_) => {
+                        error!("feed_data must return an error, not OK - continue");
+                    }
                 }
 
                 metric_connected.set(false);

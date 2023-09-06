@@ -1,0 +1,52 @@
+{
+    "libpath": "/path/to/libyellowstone_grpc_geyser.dylib",
+    "log": {
+        "level": "debug"
+    },
+    "grpc": {
+        "address": "0.0.0.0:10000",
+        "channel_capacity": "100_000",
+        "unary_concurrency_limit": 100,
+        "unary_disabled": false,
+        "filters": {
+            "accounts": {
+                "max": 1,
+                "any": false,
+                "account_max": 10,
+                "account_reject": [],
+                "owner_max": 10,
+                "owner_reject": []
+            },
+            "slots": {
+                "max": 1
+            },
+            "transactions": {
+                "max": 1,
+                "any": false,
+                "account_include_max": 10,
+                "account_include_reject": [],
+                "account_exclude_max": 10,
+                "account_required_max": 10
+            },
+            "blocks": {
+                "max": 1,
+                "account_include_max": 10,
+                "account_include_any": false,
+                "account_include_reject": [],
+                "include_transactions": true,
+                "include_accounts" : false,
+                "include_entries" : false
+            },
+            "blocks_meta": {
+                "max": 1
+            },
+            "entry": {
+                "max": 1
+            }
+        }
+    },
+    "prometheus": {
+        "address": "0.0.0.0:8999"
+    },
+    "block_fail_action": "log"
+}
