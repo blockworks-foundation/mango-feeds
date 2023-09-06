@@ -2,7 +2,9 @@ name: Publish Docker Image
 
 on:
   push:
-    branches: [main, experimental-github-actions]
+    branches:
+      - main
+      - experimental-github-actions
 
 env:
   IMAGE: mango-feeds
