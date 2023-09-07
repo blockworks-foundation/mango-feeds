@@ -1,6 +1,6 @@
 name: Publish Docker Image
 
-# ping
+# ping2
 
 on:
   push:
