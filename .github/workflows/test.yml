@@ -62,4 +62,5 @@ jobs:
           args: --workspace --all-targets #-- --deny=warnings
 
       - name: Build
-        run: ./ci/cargo-build-test.sh
+        run: |
+          cargo build --all-targets
