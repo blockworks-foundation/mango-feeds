@@ -2,7 +2,9 @@ name: Publish Docker Image
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - experimental-github-actions
 
 env:
   IMAGE: mango-feeds
@@ -13,10 +15,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: recursive
+
+      - name: Set rust version
+        run: |
+          source ci/rust-version.sh
+          echo "RUST_STABLE=$rust_stable" | tee -a $GITHUB_ENV
 
       # Use docker buildx
       - name: Use docker buildx
@@ -39,6 +47,8 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
+          build-args: |
+            RUST_TOOLCHAIN_VERSION=${{ env.RUST_STABLE }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ github.sha }}
