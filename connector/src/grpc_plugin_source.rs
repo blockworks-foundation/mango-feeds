@@ -16,11 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
-use yellowstone_grpc_proto::prelude::{
-    geyser_client::GeyserClient, subscribe_update, SubscribeRequest,
-    SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate,
-    SubscribeUpdateSlotStatus,
-};
+use yellowstone_grpc_proto::prelude::{CommitmentLevel, geyser_client::GeyserClient, subscribe_update, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate};
 
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
 use crate::{
@@ -122,8 +118,11 @@ async fn feed_data_geyser(
         accounts,
         blocks,
         blocks_meta,
+        entry: Default::default(),
+        commitment: None,
         slots,
         transactions,
+        accounts_data_slice: vec![],
     };
     info!("Going to send request: {:?}", request);
 
@@ -195,7 +194,7 @@ async fn feed_data_geyser(
                 match update.update_oneof.as_mut().expect("invalid grpc") {
                     UpdateOneof::Slot(slot_update) => {
                         let status = slot_update.status;
-                        if status == SubscribeUpdateSlotStatus::Finalized as i32 {
+                        if status == CommitmentLevel::Finalized as i32 {
                             if first_full_slot == u64::MAX {
                                 // TODO: is this equivalent to before? what was highesy_write_slot?
                                 first_full_slot = slot_update.slot + 1;
@@ -504,10 +503,10 @@ pub async fn process_events(
                         metric_slot_queue.set(slot_queue_sender.len() as u64);
 
                         let status =
-                            SubscribeUpdateSlotStatus::from_i32(update.status).map(|v| match v {
-                                SubscribeUpdateSlotStatus::Processed => SlotStatus::Processed,
-                                SubscribeUpdateSlotStatus::Confirmed => SlotStatus::Confirmed,
-                                SubscribeUpdateSlotStatus::Finalized => SlotStatus::Rooted,
+                            CommitmentLevel::from_i32(update.status).map(|v| match v {
+                                CommitmentLevel::Processed => SlotStatus::Processed,
+                                CommitmentLevel::Confirmed => SlotStatus::Confirmed,
+                                CommitmentLevel::Finalized => SlotStatus::Rooted,
                             });
                         if status.is_none() {
                             error!("unexpected slot status: {}", update.status);

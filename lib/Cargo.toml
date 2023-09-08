@@ -11,9 +11,9 @@ license = "AGPL-3.0-or-later"
 [dependencies]
 #mango-feeds-connector = { path = "../connector" }
 
-solana-client = "~1.14.9"
-solana-account-decoder = "~1.14.9"
-solana-sdk = "~1.14.9"
+solana-client = "~1.16.1"
+solana-account-decoder = "~1.16.1"
+solana-sdk = "~1.16.1"
 
 serum_dex = { workspace = true }
 

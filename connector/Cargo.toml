@@ -9,7 +9,7 @@ description = "Listen to Solana account updates via geyser or websockets"
 [lib]
 
 [features]
-default = []
+default = ["solana-1-16"]
 solana-1-14 = []
 # v1.15.x got yanked
 #solana-1-15 = ["rpc-account-scan-migrated"]
@@ -44,7 +44,8 @@ async-trait = { workspace = true }
 
 warp = "0.3"
 
-yellowstone-grpc-proto = "1.1.0"
+yellowstone-grpc-client = "1.9.0+solana.1.16.1"
+yellowstone-grpc-proto = "1.9.0+solana.1.16.1"
 
 [dev-dependencies]
 clap = { version = "3.1.8", features = ["derive", "env"] }
