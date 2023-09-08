@@ -1,12 +1,11 @@
 name: Publish Docker Image
 
-# ping2
-
 on:
   push:
     branches:
       - main
     tags:
+      # use this tag to test CI build for this workflow without merging into main branch
       - experimental-github-actions
 
 env:
