@@ -13,7 +13,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust version
         run: |
@@ -31,12 +31,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libudev-dev libssl-dev libsasl2-dev libzstd-dev
 
-      - uses: actions-rs/toolchain@v1
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
-          override: true
-          profile: minimal
           components: rustfmt
+          # fresh install is faster than using the cache (11 secs vs 1 minute)
+          cache: false
+          # avoid the default "-D warnings" which thrashes cache
+          rustflags: ""
 
       - name: Check Solana version
         run: |

@@ -19,7 +19,7 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -46,7 +46,7 @@ jobs:
 
       # Build and push the image
       - name: Build and Push Image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v4
         with:
           context: .
           build-args: |
