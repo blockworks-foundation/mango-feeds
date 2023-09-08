@@ -16,10 +16,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout
         uses: actions/checkout@v2
         with:
           submodules: recursive
+
+      - name: Set rust version
+        run: |
+          source ci/rust-version.sh
+          echo "RUST_STABLE=$rust_stable" | tee -a $GITHUB_ENV
 
       # Use docker buildx
       - name: Use docker buildx
@@ -44,7 +50,8 @@ jobs:
           source ci/rust-version.sh
         with:
           context: .
-          args: ${{ env.RUST_STABLE }}
+          build-args: |
+            RUST_TOOLCHAIN_VERSION=${{ env.RUST_STABLE }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.IMAGE }}:${{ github.sha }}

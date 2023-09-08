@@ -1,8 +1,6 @@
 # syntax = docker/dockerfile:1.2
-
-ARG RUST_TOOLCHAIN_VERSION
-
 # Base image containing all binaries, deployed to gcr.io/mango-markets/mango-geyser-services:latest
+ARG RUST_TOOLCHAIN_VERSION
 FROM rust:${RUST_TOOLCHAIN_VERSION}-bullseye as base
 RUN cargo install cargo-chef
 RUN rustup component add rustfmt
@@ -12,7 +10,6 @@ WORKDIR /app
 FROM base AS plan
 COPY . .
 WORKDIR /app
-RUN rustup show
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM base as build
