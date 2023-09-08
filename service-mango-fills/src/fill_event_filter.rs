@@ -1,11 +1,10 @@
 use log::*;
-use mango_feeds_connector::{
+use mango_feeds_lib::{
     chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::{MetricType, Metrics},
-    AccountWrite, SlotUpdate,
+    serum::SerumEventQueueHeader,
+    AccountWrite, MarketConfig, SlotUpdate,
 };
-use mango_feeds_lib::serum::SerumEventQueueHeader;
-use mango_feeds_lib::MarketConfig;
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
     clock::Epoch,

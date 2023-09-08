@@ -1,6 +1,10 @@
 mod orderbook_filter;
 
-use anchor_client::Cluster;
+use anchor_client::{
+    solana_sdk::{commitment_config::CommitmentConfig, signature::Keypair},
+    Cluster,
+};
+use anchor_lang::prelude::Pubkey;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{
     future::{self, Ready},
@@ -9,9 +13,6 @@ use futures_util::{
 use itertools::Itertools;
 use log::*;
 use mango_v4_client::{Client, MangoGroupContext, TransactionBuilderConfig};
-use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Keypair;
 use std::{
     collections::{HashMap, HashSet},
     fmt,
@@ -31,16 +32,14 @@ use tokio::{
 };
 use tokio_tungstenite::tungstenite::{protocol::Message, Error};
 
-use mango_feeds_connector::EntityFilter::FilterByAccountIds;
-use mango_feeds_connector::{
-    grpc_plugin_source, metrics, websocket_source, MetricsConfig, SourceConfig,
+use mango_feeds_lib::EntityFilter::FilterByAccountIds;
+use mango_feeds_lib::{
+    grpc_plugin_source, metrics, websocket_source, MarketConfig, MetricsConfig, SourceConfig,
 };
-use mango_feeds_connector::{
+use mango_feeds_lib::{
     metrics::{MetricType, MetricU64},
-    FilterConfig,
+    FilterConfig, StatusResponse,
 };
-use mango_feeds_lib::MarketConfig;
-use mango_feeds_lib::StatusResponse;
 use serde::{Deserialize, Serialize};
 
 use service_mango_orderbook::{BookCheckpoint, LevelCheckpoint, OrderbookFilterMessage};
