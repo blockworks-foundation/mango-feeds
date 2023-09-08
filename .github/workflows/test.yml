@@ -37,8 +37,9 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
           components: rustfmt, clippy
+          # fresh install is faster than using the cache (11 secs vs 1 minute)
           cache: false
-          # avoid the default "-D warnings"
+          # avoid the default "-D warnings" which thrashes cache
           rustflags: ""
 
       # https://github.com/actions/cache/blob/main/examples.md#rust---cargo
