@@ -37,6 +37,7 @@ jobs:
         with:
           toolchain: ${{ env.RUST_STABLE }}
           components: rustfmt, clippy
+          cache: false
           # avoid the default "-D warnings"
           rustflags: ""
 
