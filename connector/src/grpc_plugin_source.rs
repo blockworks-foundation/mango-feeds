@@ -262,6 +262,7 @@ async fn feed_data_geyser(
                     UpdateOneof::Block(_) => {},
                     UpdateOneof::Transaction(_) => {},
                     UpdateOneof::BlockMeta(_) => {},
+                    UpdateOneof::Entry(_) => {},
                     UpdateOneof::Ping(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
@@ -526,6 +527,7 @@ pub async fn process_events(
                     UpdateOneof::Block(_) => {}
                     UpdateOneof::Transaction(_) => {}
                     UpdateOneof::BlockMeta(_) => {}
+                    UpdateOneof::Entry(_) => {}
                     UpdateOneof::Ping(_) => {}
                 }
             }
