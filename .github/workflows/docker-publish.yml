@@ -46,8 +46,6 @@ jobs:
       # Build and push the image
       - name: Build and Push Image
         uses: docker/build-push-action@v2
-        run: |
-          source ci/rust-version.sh
         with:
           context: .
           build-args: |
