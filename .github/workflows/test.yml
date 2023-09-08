@@ -1,6 +1,8 @@
 # Source:
 # https://github.com/solana-labs/solana-accountsdb-plugin-postgres/blob/master/.github/workflows/test.yml
 
+# ping
+
 on:
   push:
   pull_request:
