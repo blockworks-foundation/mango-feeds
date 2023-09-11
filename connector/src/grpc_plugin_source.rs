@@ -16,7 +16,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
 
-use yellowstone_grpc_proto::prelude::{CommitmentLevel, geyser_client::GeyserClient, subscribe_update, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate};
+use yellowstone_grpc_proto::prelude::{
+    geyser_client::GeyserClient, subscribe_update, CommitmentLevel, SubscribeRequest,
+    SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate,
+};
 
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
 use crate::{
@@ -503,12 +506,11 @@ pub async fn process_events(
                         metric_slot_updates.increment();
                         metric_slot_queue.set(slot_queue_sender.len() as u64);
 
-                        let status =
-                            CommitmentLevel::from_i32(update.status).map(|v| match v {
-                                CommitmentLevel::Processed => SlotStatus::Processed,
-                                CommitmentLevel::Confirmed => SlotStatus::Confirmed,
-                                CommitmentLevel::Finalized => SlotStatus::Rooted,
-                            });
+                        let status = CommitmentLevel::from_i32(update.status).map(|v| match v {
+                            CommitmentLevel::Processed => SlotStatus::Processed,
+                            CommitmentLevel::Confirmed => SlotStatus::Confirmed,
+                            CommitmentLevel::Finalized => SlotStatus::Rooted,
+                        });
                         if status.is_none() {
                             error!("unexpected slot status: {}", update.status);
                             continue;
