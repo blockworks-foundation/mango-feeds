@@ -2070,15 +2070,25 @@ dependencies = [
 
 [[package]]
 name = "fixed"
-version = "1.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79386fdcec5e0fde91b1a6a5bcd89677d1f9304f7f986b154a1b9109038854d9"
+version = "1.11.0"
+source = "git+https://gitlab.com/ckamm/fixed.git?branch=v1.11.0-mango#95bf614b09742333451e073704f11ea502d4563b"
 dependencies = [
  "az",
- "borsh 0.10.3",
+ "borsh 0.9.3",
  "bytemuck",
- "half",
+ "half 1.8.2",
  "serde",
+ "typenum",
+]
+
+[[package]]
+name = "fixed"
+version = "1.23.0"
+source = "git+https://gitlab.com/ckamm/fixed.git?rev=2363acc4#2363acc48c4912b5b7f01856b4aaa7a1626b7121"
+dependencies = [
+ "az",
+ "bytemuck",
+ "half 2.3.1",
  "typenum",
 ]
 
@@ -2392,6 +2402,16 @@ name = "half"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
+
+[[package]]
+name = "half"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc52e53916c08643f1b56ec082790d1e86a32e58dc5268f897f313fbae7b4872"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crunchy",
+]
 
 [[package]]
 name = "hash32"
@@ -3306,6 +3326,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "mango-feeds-connector"
+version = "0.1.1"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "async-trait",
+ "futures 0.3.28",
+ "itertools 0.10.5",
+ "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-core-client",
+ "log 0.4.20",
+ "rustls 0.20.9",
+ "serde",
+ "serde_derive",
+ "solana-account-decoder",
+ "solana-client",
+ "solana-logger",
+ "solana-rpc",
+ "solana-sdk",
+ "tokio",
+ "warp",
+ "yellowstone-grpc-client",
+ "yellowstone-grpc-proto",
+]
+
+[[package]]
 name = "mango-feeds-lib"
 version = "0.1.0"
 dependencies = [
@@ -3317,7 +3364,7 @@ dependencies = [
  "bytemuck",
  "bytes 1.4.0",
  "chrono",
- "fixed",
+ "fixed 1.23.0",
  "futures 0.3.28",
  "futures-core",
  "itertools 0.10.5",
@@ -3345,6 +3392,7 @@ dependencies = [
 [[package]]
 name = "mango-v4"
 version = "0.18.0"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
 dependencies = [
  "anchor-lang 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
  "anchor-spl 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
@@ -3354,7 +3402,7 @@ dependencies = [
  "bytemuck",
  "default-env",
  "derivative",
- "fixed",
+ "fixed 1.11.0",
  "num_enum 0.5.11",
  "pyth-sdk-solana",
  "serde",
@@ -3371,6 +3419,7 @@ dependencies = [
 [[package]]
 name = "mango-v4-client"
 version = "0.3.0"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
 dependencies = [
  "anchor-client 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
  "anchor-lang 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
@@ -3382,12 +3431,12 @@ dependencies = [
  "atty",
  "base64 0.13.1",
  "bincode",
- "fixed",
+ "fixed 1.11.0",
  "futures 0.3.28",
  "itertools 0.10.5",
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
- "mango-feeds-connector",
+ "mango-feeds-connector 0.1.1 (git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28)",
  "mango-v4",
  "pyth-sdk-solana",
  "reqwest",
@@ -5494,7 +5543,7 @@ dependencies = [
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.20",
- "mango-feeds-connector",
+ "mango-feeds-connector 0.1.1",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5531,7 +5580,7 @@ dependencies = [
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.20",
- "mango-feeds-connector",
+ "mango-feeds-connector 0.1.1",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5563,12 +5612,12 @@ dependencies = [
  "async-trait",
  "bs58 0.5.0",
  "bytemuck",
- "fixed",
+ "fixed 1.23.0",
  "futures-channel",
  "futures-util",
  "itertools 0.10.5",
  "log 0.4.20",
- "mango-feeds-connector",
+ "mango-feeds-connector 0.1.1",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5595,10 +5644,10 @@ dependencies = [
  "async-trait",
  "bs58 0.5.0",
  "bytemuck",
- "fixed",
+ "fixed 1.23.0",
  "jsonrpsee",
  "log 0.4.20",
- "mango-feeds-connector",
+ "mango-feeds-connector 0.1.1",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -7326,7 +7375,7 @@ dependencies = [
 [[package]]
 name = "switchboard-v2"
 version = "0.4.0"
-source = "git+https://github.com/switchboard-xyz/solana-sdk.git?tag=sbv2-crate-0.4.0#9b2b41b3def6e2f926401e724a08b97b5b05e65f"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
 dependencies = [
  "anchor-lang 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "anchor-spl 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
