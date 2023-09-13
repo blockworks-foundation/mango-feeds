@@ -33,7 +33,7 @@ serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
-fixed = { git = "https://gitlab.com/ckamm/fixed.git", rev = "2363acc4" }
+fixed = { git = "https://github.com/blockworks-foundation/fixed.git", branch = "v1.11.0-borsh0_10-mango" }
 bs58 = "0.5"
 base64 = "0.21.0"
 log = "0.4"
