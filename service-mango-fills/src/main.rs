@@ -298,6 +298,10 @@ fn handle_commands(
         }
         Ok(Command::GetMarkets) => {
             info!("getMarkets");
+            info!(
+                "{:?}",
+                Message::Text(serde_json::to_string(&market_ids).unwrap())
+            );
             peer.sender
                 .unbounded_send(Message::Text(serde_json::to_string(&market_ids).unwrap()))
                 .unwrap();
@@ -441,7 +445,13 @@ async fn main() -> anyhow::Result<()> {
         .map(|context| (context.address, context.market.event_queue))
         .collect();
 
-    let _a: Vec<(String, String)> = group_context
+    let spot_queue_pks: Vec<(Pubkey, Pubkey)> = group_context
+        .serum3_markets
+        .values()
+        .map(|context| (context.address, context.event_q))
+        .collect();
+
+    let a: Vec<(String, String)> = group_context
         .serum3_markets
         .values()
         .map(|context| {
@@ -451,6 +461,7 @@ async fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
+
     let b: Vec<(String, String)> = group_context
         .perp_markets
         .values()
@@ -461,7 +472,7 @@ async fn main() -> anyhow::Result<()> {
             )
         })
         .collect();
-    let market_pubkey_strings: HashMap<String, String> = [b].concat().into_iter().collect();
+    let market_pubkey_strings: HashMap<String, String> = [a, b].concat().into_iter().collect();
 
     let postgres_update_sender = match config.postgres {
         Some(postgres_config) => Some(
@@ -613,7 +624,7 @@ async fn main() -> anyhow::Result<()> {
             .collect::<String>()
     );
     let use_geyser = true;
-    let all_queue_pks = [perp_queue_pks.clone()].concat();
+    let all_queue_pks = [perp_queue_pks.clone(), spot_queue_pks].concat();
     let relevant_pubkeys = all_queue_pks.iter().map(|m| m.1).collect();
     let filter_config = FilterConfig {
         entity_filter: EntityFilter::FilterByAccountIds(relevant_pubkeys),

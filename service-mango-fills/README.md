@@ -109,3 +109,6 @@ If the fill ocurred on a fork, an event will be sent with the 'status' field set
    dont want to analyze performance of the service.
 
 ## fly.io
+
+
+cargo run --bin service-mango-fills ./service-mango-fills/conf/example-config.toml 

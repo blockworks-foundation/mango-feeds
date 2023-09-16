@@ -29,6 +29,7 @@ rpc_ws_url = "$RPC_WS_URL"
 name = "accountsdb-client"
 connection_string = "$GEYSER_CONNECTION_STRING"
 retry_connection_sleep_secs = 30
+token = "<token>"
 
 [source.snapshot]
 rpc_http_url = "$RPC_HTTP_URL"

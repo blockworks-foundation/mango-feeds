@@ -5,6 +5,7 @@ use mango_feeds_lib::{
     serum::SerumEventQueueHeader,
     AccountWrite, MarketConfig, SlotUpdate,
 };
+use serum_dex::state::EventView as SpotEvent;
 use solana_sdk::{
     account::{ReadableAccount, WritableAccount},
     clock::Epoch,
@@ -15,10 +16,12 @@ use std::{
     cmp::max,
     collections::{HashMap, HashSet},
     iter::FromIterator,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
+    time::SystemTime,
 };
 
 use crate::metrics::MetricU64;
@@ -218,140 +221,185 @@ fn publish_changes_perp(
 
 #[allow(clippy::too_many_arguments)]
 fn publish_changes_serum(
-    _slot: u64,
-    _write_version: u64,
-    _mkt: &(Pubkey, MarketConfig),
-    _header: &SerumEventQueueHeader,
-    _events: &[serum_dex::state::Event],
-    _prev_seq_num: u64,
-    _prev_events: &[serum_dex::state::Event],
-    _fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
-    _metric_events_new: &mut MetricU64,
-    _metric_events_change: &mut MetricU64,
-    _metric_events_drop: &mut MetricU64,
+    slot: u64,
+    write_version: u64,
+    mkt: &(Pubkey, MarketConfig),
+    header: &SerumEventQueueHeader,
+    events: &[serum_dex::state::Event],
+    prev_seq_num: u64,
+    prev_events: &[serum_dex::state::Event],
+    fill_update_sender: &async_channel::Sender<FillEventFilterMessage>,
+    metric_events_new: &mut MetricU64,
+    metric_events_change: &mut MetricU64,
+    metric_events_drop: &mut MetricU64,
 ) {
-    // // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
-    // let start_seq_num = max(prev_seq_num, header.seq_num)
-    //     .checked_sub(MAX_NUM_EVENTS as u64)
-    //     .unwrap_or(0);
-    // let mut checkpoint = Vec::new();
-    // let mkt_pk_string = mkt.0.to_string();
-    // let evq_pk_string = mkt.1.event_queue.to_string();
-    // let header_seq_num = header.seq_num;
-    // debug!("start seq {} header seq {}", start_seq_num, header_seq_num);
+    // seq_num = N means that events (N-QUEUE_LEN) until N-1 are available
+    let mut checkpoint = Vec::new();
+    let mkt_pk_string = mkt.0.to_string();
+    let evq_pk_string = mkt.1.event_queue.to_string();
+    let header_seq_num = header.seq_num;
 
-    // // Timestamp for spot events is time scraped
-    // let timestamp = SystemTime::now()
-    //     .duration_since(SystemTime::UNIX_EPOCH)
-    //     .unwrap()
-    //     .as_secs();
-    // for seq_num in start_seq_num..header_seq_num {
-    //     let idx = (seq_num % MAX_NUM_EVENTS as u64) as usize;
-    //     let event_view = events[idx].as_view().unwrap();
-    //     let old_event_view = prev_events[idx].as_view().unwrap();
+    // Timestamp for spot events is time scraped
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
+    // for (idx, event) in events.iter().enumerate() {
+    //     let event_view = event.as_view().unwrap();
     //     match event_view {
-    //         SpotEvent::Fill { .. } => {
-    //             // there are three possible cases:
-    //             // 1) the event is past the old seq num, hence guaranteed new event
-    //             // 2) the event is not matching the old event queue
-    //             // 3) all other events are matching the old event queue
-    //             // the order of these checks is important so they are exhaustive
-    //             let fill = FillEvent::new_from_spot(event_view, timestamp, seq_num, &mkt.1);
-    //             if seq_num >= prev_seq_num {
-    //                 debug!("found new serum fill {} idx {}", mkt_pk_string, idx,);
-
-    //                 metric_events_new.increment();
-    //                 fill_update_sender
-    //                     .try_send(FillEventFilterMessage::Update(FillUpdate {
-    //                         slot,
-    //                         write_version,
-    //                         event: fill.clone(),
-    //                         status: FillUpdateStatus::New,
-    //                         market_key: mkt_pk_string.clone(),
-    //                         market_name: mkt.1.name.clone(),
-    //                     }))
-    //                     .unwrap(); // TODO: use anyhow to bubble up error
-    //                 checkpoint.push(fill);
-    //                 continue;
-    //             }
-
-    //             match old_event_view {
-    //                 SpotEvent::Fill {
-    //                     client_order_id, ..
-    //                 } => {
-    //                     let client_order_id = match client_order_id {
-    //                         Some(id) => id.into(),
-    //                         None => 0u64,
-    //                     };
-    //                     if client_order_id != fill.client_order_id {
-    //                         debug!(
-    //                             "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //                             mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
-    //                         );
-
-    //                         metric_events_change.increment();
-
-    //                         let old_fill = FillEvent::new_from_spot(
-    //                             old_event_view,
-    //                             timestamp,
-    //                             seq_num,
-    //                             &mkt.1,
-    //                         );
-    //                         // first revoke old event
-    //                         fill_update_sender
-    //                             .try_send(FillEventFilterMessage::Update(FillUpdate {
-    //                                 slot,
-    //                                 write_version,
-    //                                 event: old_fill,
-    //                                 status: FillUpdateStatus::Revoke,
-    //                                 market_key: mkt_pk_string.clone(),
-    //                                 market_name: mkt.1.name.clone(),
-    //                             }))
-    //                             .unwrap(); // TODO: use anyhow to bubble up error
-
-    //                         // then publish new
-    //                         fill_update_sender
-    //                             .try_send(FillEventFilterMessage::Update(FillUpdate {
-    //                                 slot,
-    //                                 write_version,
-    //                                 event: fill.clone(),
-    //                                 status: FillUpdateStatus::New,
-    //                                 market_key: mkt_pk_string.clone(),
-    //                                 market_name: mkt.1.name.clone(),
-    //                             }))
-    //                             .unwrap(); // TODO: use anyhow to bubble up error
-    //                     }
-
-    //                     // record new event in checkpoint
-    //                     checkpoint.push(fill);
-    //                 }
-    //                 SpotEvent::Out { .. } => {
-    //                     debug!(
-    //                         "found changed type event {} idx {} seq_num {} header seq num {} old seq num {}",
-    //                         mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
-    //                     );
-
-    //                     metric_events_change.increment();
-
-    //                     // publish new fill and record in checkpoint
-    //                     fill_update_sender
-    //                         .try_send(FillEventFilterMessage::Update(FillUpdate {
-    //                             slot,
-    //                             write_version,
-    //                             event: fill.clone(),
-    //                             status: FillUpdateStatus::New,
-    //                             market_key: mkt_pk_string.clone(),
-    //                             market_name: mkt.1.name.clone(),
-    //                         }))
-    //                         .unwrap(); // TODO: use anyhow to bubble up error
-    //                     checkpoint.push(fill);
-    //                 }
+    //         SpotEvent::Fill { order_id, .. } => {
+    //             if !prev_fills_cache.contains_key(&order_id) {
+    //                 prev_fills_cache.insert(order_id, event_view);
+    //                 info!(" added: {:?} at idx {}", order_id, idx);
     //             }
     //         }
-    //         _ => continue,
+    //         _ => {}
     //     }
     // }
+
+    let mut seq_num = prev_seq_num;
+
+    while seq_num < header_seq_num {
+        let idx = (seq_num % events.len() as u64) as usize;
+        let event_view = events[idx].as_view().unwrap();
+        let old_event_view = prev_events[idx].as_view().unwrap();
+
+        match event_view {
+            SpotEvent::Fill { maker, client_order_id, ..} => {
+                // there are three possible cases:
+                // 1) the event is past the old seq num, hence guaranteed new event
+                // 2) the event is not matching the old event queue
+                // 3) all other events are matching the old event queue
+                // the order of these checks is important so they are exhaustive
+
+
+                // It's necessary to match up maker and taker sides to get a complete event
+                // We don't know before hand in which order the Fill and Out events were added to the queue
+                // At least we know they can come in FFOO or FOFO order, so need to check for both
+                let next = events[(idx + 1) % events.len()].as_view().unwrap(); 
+                let nn = events[(idx + 2) % events.len()].as_view().unwrap(); 
+
+                let pair_view = match next {
+                    SpotEvent::Fill { .. } => {
+                        next
+                    },
+                    SpotEvent::Out { .. } => {
+                    nn
+                    },
+                };
+                    
+                println!("bing, {:?}", seq_num);
+                println!("{:?}", event_view);
+                println!("{:?}", events[(idx + 1) % events.len()].as_view().unwrap());
+                println!("{:?}", events[(idx + 2) % events.len()].as_view().unwrap());
+                println!("{:?}", events[(idx + 3) % events.len()].as_view().unwrap());
+
+                let (maker_view, taker_view) = if maker {
+                    (event_view, pair_view)
+                } else {
+                    (pair_view, event_view)
+                };
+
+                let fill = FillEvent::new_from_spot(maker_view, taker_view, timestamp, seq_num, &mkt.1);
+                if seq_num >= prev_seq_num {
+                    info!("found new serum fill {} idx {}", mkt_pk_string, idx);
+
+                    metric_events_new.increment();
+                    fill_update_sender
+                        .try_send(FillEventFilterMessage::Update(FillUpdate {
+                            slot,
+                            write_version,
+                            event: fill.clone(),
+                            status: FillUpdateStatus::New,
+                            market_key: mkt_pk_string.clone(),
+                            market_name: mkt.1.name.clone(),
+                        }))
+                        .unwrap(); // TODO: use anyhow to bubble up error
+                    checkpoint.push(fill);
+                    seq_num += 3;
+                    continue;
+                }
+
+
+                // match old_event_view {
+                //     SpotEvent::Fill {
+                //         client_order_id, ..
+                //     } => {
+                //         let client_order_id = match client_order_id {
+                //             Some(id) => id.into(),
+                //             None => 0u64,
+                //         };
+                //         if client_order_id != fill.client_order_id {
+                //             debug!(
+                //                 "found changed id event {} idx {} seq_num {} header seq num {} old seq num {}",
+                //                 mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
+                //             );
+
+                //             metric_events_change.increment();
+
+                //             let old_fill = FillEvent::new_from_spot(
+                //                 old_event_view,
+                //                 timestamp,
+                //                 seq_num,
+                //                 &mkt.1,
+                //             );
+                //             // first revoke old event
+                //             fill_update_sender
+                //                 .try_send(FillEventFilterMessage::Update(FillUpdate {
+                //                     slot,
+                //                     write_version,
+                //                     event: old_fill,
+                //                     status: FillUpdateStatus::Revoke,
+                //                     market_key: mkt_pk_string.clone(),
+                //                     market_name: mkt.1.name.clone(),
+                //                 }))
+                //                 .unwrap(); // TODO: use anyhow to bubble up error
+
+                //             // then publish new
+                //             fill_update_sender
+                //                 .try_send(FillEventFilterMessage::Update(FillUpdate {
+                //                     slot,
+                //                     write_version,
+                //                     event: fill.clone(),
+                //                     status: FillUpdateStatus::New,
+                //                     market_key: mkt_pk_string.clone(),
+                //                     market_name: mkt.1.name.clone(),
+                //                 }))
+                //                 .unwrap(); // TODO: use anyhow to bubble up error
+                //         }
+
+                //         // record new event in checkpoint
+                //         checkpoint.push(fill);
+                //     }
+                //     SpotEvent::Out { .. } => {
+                //         debug!(
+                //             "found changed type event {} idx {} seq_num {} header seq num {} old seq num {}",
+                //             mkt_pk_string, idx, seq_num, header_seq_num, prev_seq_num
+                //         );
+
+                //         metric_events_change.increment();
+
+                //         // publish new fill and record in checkpoint
+                //         fill_update_sender
+                //             .try_send(FillEventFilterMessage::Update(FillUpdate {
+                //                 slot,
+                //                 write_version,
+                //                 event: fill.clone(),
+                //                 status: FillUpdateStatus::New,
+                //                 market_key: mkt_pk_string.clone(),
+                //                 market_name: mkt.1.name.clone(),
+                //             }))
+                //             .unwrap(); // TODO: use anyhow to bubble up error
+                //         checkpoint.push(fill);
+                //     }
+                // }
+            }
+            _ => {
+                seq_num += 1;
+            },
+        }
+    }
 
     // // in case queue size shrunk due to a fork we need revoke all previous fills
     // for seq_num in header_seq_num..prev_seq_num {
@@ -382,15 +430,15 @@ fn publish_changes_serum(
     //     }
     // }
 
-    // fill_update_sender
-    //     .try_send(FillEventFilterMessage::Checkpoint(FillCheckpoint {
-    //         slot,
-    //         write_version,
-    //         events: checkpoint,
-    //         market: mkt_pk_string,
-    //         queue: evq_pk_string,
-    //     }))
-    //     .unwrap()
+    fill_update_sender
+        .try_send(FillEventFilterMessage::Checkpoint(FillCheckpoint {
+            slot,
+            write_version,
+            events: checkpoint,
+            market: mkt_pk_string,
+            queue: evq_pk_string,
+        }))
+        .unwrap()
 }
 
 pub async fn init(
@@ -577,32 +625,40 @@ pub async fn init(
                             let events = &rest[..new_len];
                             debug!("evq {} header_span {} header_seq_num {} header_count {} inner_len {} events_len {} sizeof Event {}", evq_pk_string, header_span, seq_num, count, inner_data.len(), events.len(), std::mem::size_of::<serum_dex::state::Event>());
                             let events: &[serum_dex::state::Event] = bytemuck::cast_slice(events);
-
-                            match seq_num_cache.get(&evq_pk_string) {
-                                Some(prev_seq_num) => {
-                                    match serum_events_cache.get(&evq_pk_string) {
-                                        Some(prev_events) => publish_changes_serum(
-                                            account_info.slot,
-                                            account_info.write_version,
-                                            mkt,
-                                            &header,
-                                            events,
-                                            *prev_seq_num,
-                                            prev_events,
-                                            &fill_update_sender,
-                                            &mut metric_events_new_serum,
-                                            &mut metric_events_change_serum,
-                                            &mut metrics_events_drop_serum,
-                                        ),
-                                        _ => {
-                                            debug!(
-                                                "serum_events_cache could not find {}",
-                                                evq_pk_string
-                                            )
+                            if mkt.0.eq(&Pubkey::from_str(
+                                "8BnEgHoWFysVcuFFX7QztDmzuH8r5ZFvyP3sYwn1XTh6",
+                            )
+                            .unwrap())
+                            {
+                                match seq_num_cache.get(&evq_pk_string) {
+                                    Some(prev_seq_num) => {
+                                        match serum_events_cache.get(&evq_pk_string) {
+                                            Some(prev_events) => {
+                                                info!("q tick");
+                                                publish_changes_serum(
+                                                    account_info.slot,
+                                                    account_info.write_version,
+                                                    mkt,
+                                                    &header,
+                                                    events,
+                                                    *prev_seq_num,
+                                                    prev_events,
+                                                    &fill_update_sender,
+                                                    &mut metric_events_new_serum,
+                                                    &mut metric_events_change_serum,
+                                                    &mut metrics_events_drop_serum,
+                                                )
+                                            }
+                                            _ => {
+                                                debug!(
+                                                    "serum_events_cache could not find {}",
+                                                    evq_pk_string
+                                                )
+                                            }
                                         }
                                     }
+                                    _ => debug!("seq_num_cache could not find {}", evq_pk_string),
                                 }
-                                _ => debug!("seq_num_cache could not find {}", evq_pk_string),
                             }
 
                             seq_num_cache.insert(evq_pk_string.clone(), seq_num);
