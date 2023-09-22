@@ -3,12 +3,12 @@
 use clap::Parser;
 
 use jsonrpc_core_client::transports::http;
+use mango_feeds_connector::GetProgramAccountsClient;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::OptionalContext;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
-use mango_feeds_connector::GetProgramAccountsClient;
 
 #[derive(Parser, Debug, Clone)]
 #[clap()]
@@ -31,10 +31,9 @@ async fn main() -> anyhow::Result<()> {
     let rpc_http_url = cli.rpc_url;
     let program_id = cli.program_account;
 
-    let rpc_client_scan =
-        http::connect::<GetProgramAccountsClient>(&rpc_http_url)
-            .await
-            .unwrap();
+    let rpc_client_scan = http::connect::<GetProgramAccountsClient>(&rpc_http_url)
+        .await
+        .unwrap();
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
