@@ -629,6 +629,12 @@ checksum = "6b4930d2cb77ce62f89ee5d5289b4ac049559b1c45539271f5ed4fdc7db34545"
 
 [[package]]
 name = "arrayvec"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
+
+[[package]]
+name = "arrayvec"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
@@ -648,7 +654,7 @@ dependencies = [
  "asn1-rs-derive",
  "asn1-rs-impl",
  "displaydoc",
- "nom",
+ "nom 7.1.3",
  "num-traits",
  "rusticata-macros",
  "thiserror",
@@ -967,7 +973,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "199c42ab6972d92c9f8995f086273d25c42fc0f7b2a1fcefba465c1352d25ba5"
 dependencies = [
  "arrayref",
- "arrayvec",
+ "arrayvec 0.7.4",
  "cc",
  "cfg-if 1.0.0",
  "constant_time_eq",
@@ -1267,7 +1273,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
 dependencies = [
- "nom",
+ "nom 7.1.3",
 ]
 
 [[package]]
@@ -1510,6 +1516,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cron"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ff76b51e4c068c52bfd2866e1567bee7c567ae8f24ada09fd4307019e25eab7"
+dependencies = [
+ "chrono",
+ "nom 7.1.3",
+ "once_cell",
+]
+
+[[package]]
 name = "crossbeam-channel"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1692,7 +1709,7 @@ checksum = "dbd676fbbab537128ef0278adb5576cf363cff6aa22a7b24effe97347cfab61e"
 dependencies = [
  "asn1-rs",
  "displaydoc",
- "nom",
+ "nom 7.1.3",
  "num-bigint 0.4.4",
  "num-traits",
  "rusticata-macros",
@@ -1981,6 +1998,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "envy"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f47e0157f2cb54f5ae1bd371b30a2ae4311e1c028f575cd4e81de7353215965"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2071,24 +2097,13 @@ dependencies = [
 [[package]]
 name = "fixed"
 version = "1.11.0"
-source = "git+https://gitlab.com/ckamm/fixed.git?branch=v1.11.0-mango#95bf614b09742333451e073704f11ea502d4563b"
+source = "git+https://github.com/blockworks-foundation/fixed.git?branch=v1.11.0-borsh0_10-mango#01516ae3e29418feb066b67830540aa81d04df05"
 dependencies = [
  "az",
- "borsh 0.9.3",
+ "borsh 0.10.3",
  "bytemuck",
- "half 1.8.2",
+ "half",
  "serde",
- "typenum",
-]
-
-[[package]]
-name = "fixed"
-version = "1.23.0"
-source = "git+https://gitlab.com/ckamm/fixed.git?rev=2363acc4#2363acc48c4912b5b7f01856b4aaa7a1626b7121"
-dependencies = [
- "az",
- "bytemuck",
- "half 2.3.1",
  "typenum",
 ]
 
@@ -2402,16 +2417,6 @@ name = "half"
 version = "1.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
-
-[[package]]
-name = "half"
-version = "2.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc52e53916c08643f1b56ec082790d1e86a32e58dc5268f897f313fbae7b4872"
-dependencies = [
- "cfg-if 1.0.0",
- "crunchy",
-]
 
 [[package]]
 name = "hash32"
@@ -3043,7 +3048,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22abc3274b265dcefe2e26c4beecf9fda4fffa48cf94930443a6c73678f020d5"
 dependencies = [
  "anyhow",
- "arrayvec",
+ "arrayvec 0.7.4",
  "async-channel",
  "async-trait",
  "beef",
@@ -3132,6 +3137,19 @@ name = "lazycell"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
+
+[[package]]
+name = "lexical-core"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6607c62aa161d23d17a9072cc5da0be67cdfc89d3afb1e8d9c842bebc2525ffe"
+dependencies = [
+ "arrayvec 0.5.2",
+ "bitflags 1.3.2",
+ "cfg-if 1.0.0",
+ "ryu",
+ "static_assertions",
+]
 
 [[package]]
 name = "libc"
@@ -3300,7 +3318,7 @@ dependencies = [
 
 [[package]]
 name = "mango-feeds-connector"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -3327,8 +3345,8 @@ dependencies = [
 
 [[package]]
 name = "mango-feeds-connector"
-version = "0.1.1"
-source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
+version = "0.2.0"
+source = "git+https://github.com/blockworks-foundation/mango-feeds.git?branch=update-solana-1-16-anchor-28#d5d36f64b862aee565eec8dcc02faf19c2db7b37"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -3364,7 +3382,7 @@ dependencies = [
  "bytemuck",
  "bytes 1.4.0",
  "chrono",
- "fixed 1.23.0",
+ "fixed",
  "futures 0.3.28",
  "futures-core",
  "itertools 0.10.5",
@@ -3392,7 +3410,7 @@ dependencies = [
 [[package]]
 name = "mango-v4"
 version = "0.18.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#659944e1f3e8f97b30e05026f925d5127a039845"
 dependencies = [
  "anchor-lang 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
  "anchor-spl 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
@@ -3402,7 +3420,7 @@ dependencies = [
  "bytemuck",
  "default-env",
  "derivative",
- "fixed 1.11.0",
+ "fixed",
  "num_enum 0.5.11",
  "pyth-sdk-solana",
  "serde",
@@ -3413,13 +3431,13 @@ dependencies = [
  "solana-security-txt",
  "static_assertions",
  "switchboard-program",
- "switchboard-v2",
+ "switchboard-solana",
 ]
 
 [[package]]
 name = "mango-v4-client"
 version = "0.3.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
+source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#659944e1f3e8f97b30e05026f925d5127a039845"
 dependencies = [
  "anchor-client 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
  "anchor-lang 0.28.0 (git+https://github.com/coral-xyz/anchor.git?rev=2af9cc669)",
@@ -3431,12 +3449,12 @@ dependencies = [
  "atty",
  "base64 0.13.1",
  "bincode",
- "fixed 1.11.0",
+ "fixed",
  "futures 0.3.28",
  "itertools 0.10.5",
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
- "mango-feeds-connector 0.1.1 (git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28)",
+ "mango-feeds-connector 0.2.0 (git+https://github.com/blockworks-foundation/mango-feeds.git?branch=update-solana-1-16-anchor-28)",
  "mango-v4",
  "pyth-sdk-solana",
  "reqwest",
@@ -3738,6 +3756,17 @@ dependencies = [
  "libc",
  "memoffset 0.7.1",
  "pin-utils",
+]
+
+[[package]]
+name = "nom"
+version = "5.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08959a387a676302eebf4ddbcbc611da04285579f76f88ee0506c63b1a61dd4b"
+dependencies = [
+ "lexical-core",
+ "memchr",
+ "version_check 0.9.4",
 ]
 
 [[package]]
@@ -5105,7 +5134,7 @@ version = "1.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee9164faf726e4f3ece4978b25ca877ddc6802fa77f38cdccb32c7f805ecd70c"
 dependencies = [
- "arrayvec",
+ "arrayvec 0.7.4",
  "num-traits",
  "serde",
 ]
@@ -5156,7 +5185,7 @@ version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf0c4a6ece9950b9abdb62b1cfcf2a68b3b67a10ba445b3bb85be2a293d0632"
 dependencies = [
- "nom",
+ "nom 7.1.3",
 ]
 
 [[package]]
@@ -5543,7 +5572,7 @@ dependencies = [
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.20",
- "mango-feeds-connector 0.1.1",
+ "mango-feeds-connector 0.2.0",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5580,7 +5609,7 @@ dependencies = [
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
  "log 0.4.20",
- "mango-feeds-connector 0.1.1",
+ "mango-feeds-connector 0.2.0",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5612,12 +5641,12 @@ dependencies = [
  "async-trait",
  "bs58 0.5.0",
  "bytemuck",
- "fixed 1.23.0",
+ "fixed",
  "futures-channel",
  "futures-util",
  "itertools 0.10.5",
  "log 0.4.20",
- "mango-feeds-connector 0.1.1",
+ "mango-feeds-connector 0.2.0",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5644,10 +5673,10 @@ dependencies = [
  "async-trait",
  "bs58 0.5.0",
  "bytemuck",
- "fixed 1.23.0",
+ "fixed",
  "jsonrpsee",
  "log 0.4.20",
- "mango-feeds-connector 0.1.1",
+ "mango-feeds-connector 0.2.0",
  "mango-feeds-lib",
  "mango-v4",
  "mango-v4-client",
@@ -5659,6 +5688,15 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "toml",
+]
+
+[[package]]
+name = "sgx-quote"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1640577af7b81d10db340c4b31006b77972e3918f351eec4e65c389c8b58e21"
+dependencies = [
+ "nom 5.1.3",
 ]
 
 [[package]]
@@ -7328,6 +7366,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab16ced94dbd8a46c82fd81e3ed9a8727dac2977ea869d217bcc4ea1f122e81f"
 
 [[package]]
+name = "switchboard-common"
+version = "0.8.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfd44010d7cc59eb0d70c2547b3f5ad144bac1cccf6bdcdb390efaf95cee9aae"
+dependencies = [
+ "envy",
+ "getrandom 0.2.10",
+ "hex",
+ "serde",
+ "serde_json",
+ "sgx-quote",
+ "sha2 0.10.7",
+]
+
+[[package]]
 name = "switchboard-program"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7356,6 +7409,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "switchboard-solana"
+version = "0.28.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5470816a1cea4cbf0075afff853ee1a70570b3dca74f4f465127de902697ea1a"
+dependencies = [
+ "anchor-client 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anchor-lang 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "anchor-spl 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "bincode",
+ "bytemuck",
+ "chrono",
+ "cron",
+ "hex",
+ "rust_decimal",
+ "sgx-quote",
+ "solana-address-lookup-table-program",
+ "solana-client",
+ "solana-program",
+ "superslice",
+ "switchboard-common",
+ "tokio",
+ "url 2.4.1",
+]
+
+[[package]]
 name = "switchboard-utils"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7370,19 +7448,6 @@ dependencies = [
  "rust_decimal_macros",
  "solana-program",
  "switchboard-protos",
-]
-
-[[package]]
-name = "switchboard-v2"
-version = "0.4.0"
-source = "git+https://github.com/blockworks-foundation/mango-v4.git?branch=update-solana-1-16-anchor-28#0964250880cf2e688bfa47bbb4f8c1ee34ab77db"
-dependencies = [
- "anchor-lang 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "anchor-spl 0.28.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "bytemuck",
- "rust_decimal",
- "solana-program",
- "superslice",
 ]
 
 [[package]]
@@ -8835,7 +8900,7 @@ dependencies = [
  "data-encoding",
  "der-parser",
  "lazy_static",
- "nom",
+ "nom 7.1.3",
  "oid-registry",
  "rusticata-macros",
  "thiserror",

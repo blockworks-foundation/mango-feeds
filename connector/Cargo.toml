@@ -9,12 +9,7 @@ description = "Listen to Solana account updates via geyser or websockets"
 [lib]
 
 [features]
-default = ["solana-1-16"]
-solana-1-14 = []
-# v1.15.x got yanked
-#solana-1-15 = ["rpc-account-scan-migrated"]
-solana-1-16 = ["rpc-account-scan-migrated"]
-rpc-account-scan-migrated = []
+default = []
 
 [dependencies]
 jsonrpc-core = { workspace = true }

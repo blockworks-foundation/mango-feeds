@@ -13,15 +13,6 @@ use {
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
 
-// TODO make it private as soon as mango-v4-client does not need it anymore
-// client stub v 1.15+ moved account scan request to a dedicated
-// module to identify users and allow deprecation (potentially) at same point
-// see https://github.com/solana-labs/solana/pull/28968
-#[cfg(not(feature = "rpc-account-scan-migrated"))]
-// 1.14.x
-pub use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClient;
-// 1.16.x
-#[cfg(feature = "rpc-account-scan-migrated")]
 pub use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
