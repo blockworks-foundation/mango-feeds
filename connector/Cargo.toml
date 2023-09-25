@@ -30,17 +30,18 @@ serde_derive = { workspace = true }
 log = { workspace = true }
 anyhow = { workspace = true }
 
-itertools = "0.10.5"
+itertools = { workspace = true }
 
 futures = { workspace = true }
 
 async-channel = { workspace = true }
 async-trait = { workspace = true }
 
-warp = "0.3"
+warp = { workspace = true }
 
-yellowstone-grpc-client = "1.9.0+solana.1.16.1"
-yellowstone-grpc-proto = "1.9.0+solana.1.16.1"
+# 1.9.0+solana.1.16.1
+yellowstone-grpc-client = { workspace = true }
+yellowstone-grpc-proto = { workspace = true }
 
 [dev-dependencies]
-clap = { version = "3.1.8", features = ["derive", "env"] }
+clap = { workspace = true }
