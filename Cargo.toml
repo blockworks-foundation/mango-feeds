@@ -1,11 +1,6 @@
 [workspace]
 members = [
         "connector",
-        "lib",
-        "service-mango-crank",
-        "service-mango-fills",
-        "service-mango-pnl",
-        "service-mango-orderbook",
 ]
 
 [patch.crates-io]
@@ -23,8 +18,8 @@ anchor-spl = "0.28.0"
 anchor-lang = "0.28.0"
 anchor-client = "0.28.0"
 
-mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", branch = "update-solana-1-16-anchor-28" }
-mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git", branch = "update-solana-1-16-anchor-28" }
+mango-v4 = { git = "https://github.com/blockworks-foundation/mango-v4.git", branch = "move-mango-feeds-services" }
+mango-v4-client = { git = "https://github.com/blockworks-foundation/mango-v4.git", branch = "move-mango-feeds-services" }
 
 serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
 # this works in solana-rpc-client-simple; solves anchor 0.28.0 issue
