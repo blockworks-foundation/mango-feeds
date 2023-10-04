@@ -8,18 +8,27 @@ members = [
 jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
 
 [workspace.dependencies]
-solana-rpc = "~1.16.7"
-solana-client = "~1.16.7"
-solana-account-decoder = "~1.16.7"
-solana-sdk = "~1.16.7"
-solana-logger = "~1.16.7"
+solana-rpc = "~1.14.9"
+solana-client = "~1.14.9"
+solana-account-decoder = "~1.14.9"
+solana-sdk = "~1.14.9"
+solana-logger = "~1.14.9"
 
-yellowstone-grpc-client = "1.9.0"
-yellowstone-grpc-proto = "1.9.0"
+anchor-spl = "0.27.0"
+anchor-lang = "0.27.0"
+anchor-client = "0.27.0"
+
+mango-v4 = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git"}
+mango-v4-client = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git" }
+
+serum_dex = { git = "https://github.com/jup-ag/openbook-program", branch = "feat/expose-things", features = ["no-entrypoint"] }
+# this works in solana-rpc-client-simple; solves anchor 0.28.0 issue
+#serum_dex = { git = "https://github.com/openbook-dex/program.git", tag = "v0.5.10", default-features=false, features = ["no-entrypoint", "program"] }
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
+fixed = { tag = "program-v0.16.0", git = "https://github.com/blockworks-foundation/mango-v4.git" }
 bs58 = "0.5"
 base64 = "0.21.0"
 log = "0.4"
@@ -42,13 +51,16 @@ async-trait = "0.1"
 bytemuck = "1.7.2"
 jemallocator = "0.3.2"
 chrono = "0.4.23"
-clap = { version = "3.1.8", features = ["derive", "env"] }
 
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+tokio-postgres-rustls = "0.9.0"
+postgres-types = { version = "0.2", features = ["array-impls", "derive", "with-chrono-0_4"] }
+postgres-native-tls = "0.5"
+native-tls = "0.2"
 rustls = "0.20.8"
-
-warp = "0.3"
-
+# postgres_query hasn't updated its crate in a while
+postgres_query = { git = "https://github.com/nolanderc/rust-postgres-query", rev = "b4422051c8a31fbba4a35f88004c1cefb1878dd5" }
 
 

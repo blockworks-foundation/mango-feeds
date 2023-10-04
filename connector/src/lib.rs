@@ -1,7 +1,6 @@
 pub mod account_write_filter;
 pub mod chain_data;
 pub mod grpc_plugin_source;
-pub mod memory_target;
 pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;

@@ -3,8 +3,6 @@
 
 on:
   push:
-    branches:
-      - main
   pull_request:
 
 env:
@@ -14,7 +12,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set rust version
         run: |
@@ -32,31 +30,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libudev-dev libssl-dev libsasl2-dev libzstd-dev
 
-      - uses: actions-rs/toolchain@v1
+      # The toolchain action should definitely be run before the cache action
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ env.RUST_STABLE }}
-          override: true
-          profile: minimal
           components: rustfmt, clippy
+          # fresh install is faster than using the cache (11 secs vs 1 minute)
+          cache: false
+          # avoid the default "-D warnings" which thrashes cache
+          rustflags: ""
 
-      - uses: actions/cache@v2
+      # https://github.com/actions/cache/blob/main/examples.md#rust---cargo
+      - uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: cargo-build-${{ hashFiles('**/Cargo.lock') }}-${{ env.RUST_STABLE}}
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      - name: cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace --all-targets #-- --deny=warnings
+      - name: Run fmt+clippy
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets
 
       - name: Build
-        run: ./ci/cargo-build-test.sh
+        run: |
+          cargo build --all-targets
