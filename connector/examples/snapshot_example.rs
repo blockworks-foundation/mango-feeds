@@ -1,16 +1,14 @@
 #![allow(unused_variables)]
 
 use clap::Parser;
+
 use jsonrpc_core_client::transports::http;
+use mango_feeds_connector::GetProgramAccountsClient;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::OptionalContext;
-use solana_rpc::rpc::rpc_accounts::AccountsDataClient as GetProgramAccountsClient;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
-// use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
-
-/// this tool tests the differences between rpc_accounts and rpc_accounts_scan (should be same)
 
 #[derive(Parser, Debug, Clone)]
 #[clap()]
@@ -33,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let rpc_http_url = cli.rpc_url;
     let program_id = cli.program_account;
 
-    let rpc_client = http::connect::<GetProgramAccountsClient>(&rpc_http_url)
+    let rpc_client_scan = http::connect::<GetProgramAccountsClient>(&rpc_http_url)
         .await
         .unwrap();
 
@@ -50,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
         with_context: Some(true),
     };
 
-    let snapshot = rpc_client
+    let snapshot = rpc_client_scan
         .get_program_accounts(program_id.to_string(), Some(program_info_config))
         .await;
     if let OptionalContext::Context(snapshot_data) = snapshot.unwrap() {
