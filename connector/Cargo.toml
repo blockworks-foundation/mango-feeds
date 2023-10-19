@@ -21,6 +21,8 @@ solana-account-decoder = { workspace = true }
 solana-sdk = { workspace = true }
 solana-logger = { workspace = true }
 
+fixed = { workspace = true }
+
 tokio = { workspace = true }
 rustls = { workspace = true }
 

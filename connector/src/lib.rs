@@ -1,5 +1,6 @@
 pub mod account_write_filter;
 pub mod chain_data;
+pub mod feeds_chain_data_fetcher;
 pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
