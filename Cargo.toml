@@ -50,6 +50,8 @@ tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 rustls = "0.20.8"
 
+async-once-cell = { version = "0.4.2", features = ["unpin"] }
+
 warp = "0.3"
 
 

@@ -16,13 +16,6 @@ use solana_sdk::clock::Slot;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 
-/// A complex account fetcher that mostly depends on an external job keeping
-/// the chain_data up to date.
-///
-/// In addition to the usual async fetching interface, it also has synchronous
-/// functions to access some kinds of data with less overhead.
-///
-/// Also, there's functions for fetching up to date data via rpc.
 pub struct FeedsAccountFetcher {
     pub chain_data: Arc<RwLock<ChainData>>,
     // pub rpc: RpcClientAsync,

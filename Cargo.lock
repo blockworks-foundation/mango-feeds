@@ -364,6 +364,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-once-cell"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b49bd4c5b769125ea6323601c39815848972880efd33ffb2d01f9f909adc699"
+
+[[package]]
 name = "async-stream"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2666,6 +2672,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "async-once-cell",
  "async-trait",
  "clap 3.2.25",
  "fixed",
