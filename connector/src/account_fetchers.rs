@@ -55,12 +55,12 @@ impl AccountFetcherFeeds for RpcAccountFetcher {
         // workaround: get the slot using another RPC call because get_program_accounts_with_config does not return the RpcContext!
         // the slot is fetched BEFORE the second call to guarantee that the result reflects the state at that slot ar after
         let slot_workaround = self.rpc.get_slot_with_commitment(commitment).await?;
-        let response = self
+        let accounts = self
             .rpc
             .get_program_accounts_with_config(program, config)
             .await
             .with_context(|| format!("fetch program account {}", *program))?;
-        Ok((response
+        Ok((accounts
             .into_iter()
             .map(|(pk, acc)| (pk, acc.into()))
             .collect::<Vec<_>>(), slot_workaround))
