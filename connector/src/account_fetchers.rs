@@ -1,43 +1,45 @@
-// TODO move to feeds
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use async_once_cell::unpin::Lazy;
 
-use anyhow::{anyhow, Context, Error};
+use anyhow::{anyhow, Context};
+use itertools::Itertools;
 
 
 use solana_client::nonblocking::rpc_client::RpcClient as RpcClientAsync;
 use solana_sdk::account::{AccountSharedData, ReadableAccount};
+use solana_sdk::clock::Slot;
 use solana_sdk::pubkey::Pubkey;
 use crate::account_fetcher::AccountFetcherFeeds;
 
 
 #[async_trait::async_trait]
 impl AccountFetcherFeeds for RpcAccountFetcher {
-    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<AccountSharedData> {
-        let sdfs: Result<AccountSharedData, anyhow::Error> = self.rpc
+    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<(AccountSharedData, Slot)> {
+        let response = self.rpc
             .get_account_with_commitment(address, self.rpc.commitment())
             .await
-            .with_context(|| format!("fetch account {}", *address))?
+            .with_context(|| format!("fetch account {}", *address))?;
+
+        response
             .value
-            // .ok_or(ClientError::AccountNotFound)
-            .ok_or(anyhow!("Account not found")) // TODO is this correct?
+            .ok_or(anyhow!("Account not found"))
             .with_context(|| format!("fetch account {}", *address))
-            .map(Into::into);
-        sdfs
+            .map(Into::into)
+            .map(|acc| (acc, response.context.slot))
     }
 
     async fn feeds_fetch_program_accounts(
         &self,
         program: &Pubkey,
         discriminator: [u8; 8],
-    ) -> anyhow::Result<Vec<(Pubkey, AccountSharedData)>> {
+    ) -> anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)> {
         use solana_account_decoder::UiAccountEncoding;
         use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
         use solana_client::rpc_filter::{Memcmp, RpcFilterType};
+        let commitment = self.rpc.commitment();
         let config = RpcProgramAccountsConfig {
             filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
                 0,
@@ -45,20 +47,23 @@ impl AccountFetcherFeeds for RpcAccountFetcher {
             ))]),
             account_config: RpcAccountInfoConfig {
                 encoding: Some(UiAccountEncoding::Base64),
-                commitment: Some(self.rpc.commitment()),
+                commitment: Some(commitment),
                 ..RpcAccountInfoConfig::default()
             },
             with_context: Some(true),
         };
-        let accs = self
+        // workaround: get the slot using another RPC call because get_program_accounts_with_config does not return the RpcContext!
+        let slot_workaround = self.rpc.get_slot_with_commitment(commitment).await?;
+        let response = self
             .rpc
             .get_program_accounts_with_config(program, config)
-            .await?;
+            .await
+            .with_context(|| format!("fetch program account {}", *program))?;
         // convert Account -> AccountSharedData
-        Ok(accs
+        Ok((response
             .into_iter()
             .map(|(pk, acc)| (pk, acc.into()))
-            .collect::<Vec<_>>())
+            .collect::<Vec<_>>(), slot_workaround))
     }
 }
 
@@ -101,12 +106,12 @@ impl<Key: std::cmp::Eq + std::hash::Hash, Output: 'static> CoalescedAsyncJob<Key
 
 #[derive(Default)]
 struct AccountCache {
-    accounts: HashMap<Pubkey, AccountSharedData>,
-    keys_for_program_and_discriminator: HashMap<(Pubkey, [u8; 8]), Vec<Pubkey>>,
+    accounts: HashMap<Pubkey, (AccountSharedData, Slot)>,
+    keys_for_program_and_discriminator: HashMap<(Pubkey, [u8; 8]), (Vec<Pubkey>, Slot)>,
 
-    account_jobs: CoalescedAsyncJob<Pubkey, anyhow::Result<AccountSharedData>>,
+    account_jobs: CoalescedAsyncJob<Pubkey, anyhow::Result<(AccountSharedData, Slot)>>,
     program_accounts_jobs:
-    CoalescedAsyncJob<(Pubkey, [u8; 8]), anyhow::Result<Vec<(Pubkey, AccountSharedData)>>>,
+    CoalescedAsyncJob<(Pubkey, [u8; 8]), anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)>>,
 }
 
 impl AccountCache {
@@ -146,11 +151,11 @@ impl<T: AccountFetcherFeeds> CachedAccountFetcher<T> {
 
 #[async_trait::async_trait]
 impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetcher<T> {
-    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<AccountSharedData> {
+    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<(AccountSharedData, Slot)> {
         let fetch_job = {
             let mut cache = self.cache.lock().unwrap();
-            if let Some(acc) = cache.accounts.get(address) {
-                return Ok(acc.clone());
+            if let Some((acc, slot)) = cache.accounts.get(address) {
+                return Ok((acc.clone(), *slot));
             }
 
             // Start or fetch a reference to the fetch + cache update job
@@ -164,8 +169,8 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
                 cache.account_jobs.remove(&address_copy);
 
                 // store a successful fetch
-                if let Ok(account) = result.as_ref() {
-                    cache.accounts.insert(address_copy, account.clone());
+                if let Ok((acc, slot)) = result.as_ref() {
+                    cache.accounts.insert(address_copy, (acc.clone(), *slot));
                 }
                 result
             })
@@ -185,15 +190,16 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
         &self,
         program: &Pubkey,
         discriminator: [u8; 8],
-    ) -> anyhow::Result<Vec<(Pubkey, AccountSharedData)>> {
+    ) -> anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)> {
         let cache_key = (*program, discriminator);
         let fetch_job = {
             let mut cache = self.cache.lock().unwrap();
-            if let Some(accounts) = cache.keys_for_program_and_discriminator.get(&cache_key) {
-                return Ok(accounts
-                    .iter()
-                    .map(|pk| (*pk, cache.accounts.get(&pk).unwrap().clone()))
-                    .collect::<Vec<_>>());
+            if let Some((accounts, slot)) = cache.keys_for_program_and_discriminator.get(&cache_key) {
+                return Ok((accounts
+                  .iter()
+                  .map(|pk| (*pk, cache.accounts.get(&pk).unwrap().clone()))
+                  .map(|(pk, (acc, _))| (pk, acc))
+                  .collect::<Vec<_>>(), *slot));
             }
 
             let self_copy = self.clone();
@@ -207,12 +213,12 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
                         .await;
                     let mut cache = self_copy.cache.lock().unwrap();
                     cache.program_accounts_jobs.remove(&cache_key);
-                    if let Ok(accounts) = result.as_ref() {
+                    if let Ok((accounts, slot)) = result.as_ref() {
                         cache
                             .keys_for_program_and_discriminator
-                            .insert(cache_key, accounts.iter().map(|(pk, _)| *pk).collect());
+                            .insert(cache_key, (accounts.iter().map(|(pk, _)| *pk).collect(), *slot));
                         for (pk, acc) in accounts.iter() {
-                            cache.accounts.insert(*pk, acc.clone());
+                            cache.accounts.insert(*pk, (acc.clone(), *slot));
                         }
                     }
                     result
