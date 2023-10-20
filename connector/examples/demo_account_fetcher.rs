@@ -28,7 +28,7 @@ async fn main() {
 }
 
 /// get program accounts for Swap program and print the discriminators
-/// 318 accounts on devnet,
+/// 4636 accounts on devnet
 async fn program_accounts_rpc(rpc_url: &String) {
     let rpc_client = RpcClientAsync::new(rpc_url.clone());
 
@@ -44,7 +44,7 @@ async fn program_accounts_rpc(rpc_url: &String) {
 
     let accounts = rpc_client
         .get_program_accounts_with_config(&program, program_accounts_config).await.unwrap();
-    println!("num_of_accounts: {}", accounts.len());
+    println!("num_of_accounts(unfiltered): {}", accounts.len());
     for (_pk, acc) in accounts {
         let discriminator = &acc.data()[..8];
         let mut di = [0;8];
@@ -68,7 +68,7 @@ async fn account_fetcher(rpc_url: String) {
 
 
 
-
+/// 318 accounts on devnet by discriminator
 async fn program_account_fetcher(rpc_url: String) {
     let client = RpcClientAsync::new(rpc_url);
 
@@ -86,5 +86,4 @@ async fn program_account_fetcher(rpc_url: String) {
 
     println!("program has {} accounts for discriminator {:02X?}", acc.len(), discriminator);
     println!("slot was {}", slot);
-    assert!(acc.len() > 0, "expect apprx 318 accounts on devnet");
 }
