@@ -8,18 +8,20 @@ use anyhow::{anyhow, Context};
 use itertools::Itertools;
 use log::debug;
 
-
+use crate::account_fetcher::AccountFetcherFeeds;
 use solana_client::nonblocking::rpc_client::RpcClient as RpcClientAsync;
 use solana_sdk::account::{AccountSharedData, ReadableAccount};
 use solana_sdk::clock::Slot;
 use solana_sdk::pubkey::Pubkey;
-use crate::account_fetcher::AccountFetcherFeeds;
-
 
 #[async_trait::async_trait]
 impl AccountFetcherFeeds for RpcAccountFetcher {
-    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<(AccountSharedData, Slot)> {
-        let response = self.rpc
+    async fn feeds_fetch_raw_account(
+        &self,
+        address: &Pubkey,
+    ) -> anyhow::Result<(AccountSharedData, Slot)> {
+        let response = self
+            .rpc
             .get_account_with_commitment(address, self.rpc.commitment())
             .await
             .with_context(|| format!("fetch account {}", *address))?;
@@ -61,19 +63,19 @@ impl AccountFetcherFeeds for RpcAccountFetcher {
             .get_program_accounts_with_config(program, config)
             .await
             .with_context(|| format!("fetch program account {}", *program))?;
-        Ok((accounts
-            .into_iter()
-            .map(|(pk, acc)| (pk, acc.into()))
-            .collect::<Vec<_>>(), slot_workaround))
+        Ok((
+            accounts
+                .into_iter()
+                .map(|(pk, acc)| (pk, acc.into()))
+                .collect::<Vec<_>>(),
+            slot_workaround,
+        ))
     }
 }
-
-
 
 pub struct RpcAccountFetcher {
     pub rpc: RpcClientAsync,
 }
-
 
 struct CoalescedAsyncJob<Key, Output> {
     jobs: HashMap<Key, Arc<Lazy<Output>>>,
@@ -111,8 +113,10 @@ struct AccountCache {
     keys_for_program_and_discriminator: HashMap<(Pubkey, [u8; 8]), (Vec<Pubkey>, Slot)>,
 
     account_jobs: CoalescedAsyncJob<Pubkey, anyhow::Result<(AccountSharedData, Slot)>>,
-    program_accounts_jobs:
-    CoalescedAsyncJob<(Pubkey, [u8; 8]), anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)>>,
+    program_accounts_jobs: CoalescedAsyncJob<
+        (Pubkey, [u8; 8]),
+        anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)>,
+    >,
 }
 
 impl AccountCache {
@@ -152,7 +156,10 @@ impl<T: AccountFetcherFeeds> CachedAccountFetcher<T> {
 
 #[async_trait::async_trait]
 impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetcher<T> {
-    async fn feeds_fetch_raw_account(&self, address: &Pubkey) -> anyhow::Result<(AccountSharedData, Slot)> {
+    async fn feeds_fetch_raw_account(
+        &self,
+        address: &Pubkey,
+    ) -> anyhow::Result<(AccountSharedData, Slot)> {
         // returns Result<(AccountSharedData, Slot)>
         let fetch_job = {
             let mut cache = self.cache.lock().unwrap();
@@ -179,7 +186,10 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
                         debug!("inserted data from wrapped fetcher for {}", address_copy);
                     }
                     Err(wrapped_fetcher_err) => {
-                        debug!("error in wrapped fetcher for {}: {}", address_copy, wrapped_fetcher_err);
+                        debug!(
+                            "error in wrapped fetcher for {}: {}",
+                            address_copy, wrapped_fetcher_err
+                        );
                     }
                 }
                 result
@@ -204,12 +214,16 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
         let cache_key = (*program, discriminator);
         let fetch_job = {
             let mut cache = self.cache.lock().unwrap();
-            if let Some((accounts, slot)) = cache.keys_for_program_and_discriminator.get(&cache_key) {
-                return Ok((accounts
-                  .iter()
-                  .map(|pk| (*pk, cache.accounts.get(&pk).unwrap().clone()))
-                  .map(|(pk, (acc, _))| (pk, acc))
-                  .collect::<Vec<_>>(), *slot));
+            if let Some((accounts, slot)) = cache.keys_for_program_and_discriminator.get(&cache_key)
+            {
+                return Ok((
+                    accounts
+                        .iter()
+                        .map(|pk| (*pk, cache.accounts.get(&pk).unwrap().clone()))
+                        .map(|(pk, (acc, _))| (pk, acc))
+                        .collect::<Vec<_>>(),
+                    *slot,
+                ));
             }
 
             let self_copy = self.clone();
@@ -224,9 +238,10 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
                     let mut cache = self_copy.cache.lock().unwrap();
                     cache.program_accounts_jobs.remove(&cache_key);
                     if let Ok((accounts, slot)) = result.as_ref() {
-                        cache
-                            .keys_for_program_and_discriminator
-                            .insert(cache_key, (accounts.iter().map(|(pk, _)| *pk).collect(), *slot));
+                        cache.keys_for_program_and_discriminator.insert(
+                            cache_key,
+                            (accounts.iter().map(|(pk, _)| *pk).collect(), *slot),
+                        );
                         for (pk, acc) in accounts.iter() {
                             cache.accounts.insert(*pk, (acc.clone(), *slot));
                         }
@@ -246,3 +261,120 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use solana_sdk::account::AccountSharedData;
+    use solana_sdk::clock::Slot;
+    use solana_sdk::pubkey::Pubkey;
+    use crate::account_fetcher::AccountFetcherFeeds;
+    use crate::account_fetchers::CachedAccountFetcher;
+
+    struct MockExampleFetcher {
+        fetched_mango_calls: AtomicU32,
+        scenario: Scenario,
+    }
+
+    #[derive(Clone, Copy)]
+    enum Scenario {
+        Happy,
+        Error,
+    }
+
+    impl MockExampleFetcher {
+
+
+        pub fn new(scenario: Scenario) -> Self {
+            Self {
+                fetched_mango_calls: AtomicU32::new(0),
+                scenario,
+            }
+        }
+
+        pub fn assert_call_count(&self, expected: u32) {
+            assert_eq!(self.fetched_mango_calls.load(Ordering::Acquire), expected);
+        }
+
+        fn inc_call(&self) {
+            self.fetched_mango_calls.fetch_add(1, Ordering::Release);
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl AccountFetcherFeeds for MockExampleFetcher {
+        async fn feeds_fetch_raw_account(
+            &self, _address: &Pubkey,
+        ) -> anyhow::Result<(AccountSharedData, Slot)> {
+
+            self.inc_call();
+
+            match self.scenario {
+
+                Scenario::Happy => {
+                    let account_owner =
+                        Pubkey::from_str("66fEFnKyCPUWzxKeB9GngcvZDakjvFCVnYLRtcBk9t5D").unwrap();
+                    let acc = AccountSharedData::new(420000, 0, &account_owner);
+                    return Ok((acc, 2409999333));
+                }
+
+                Scenario::Error => {
+                    return Err(anyhow::anyhow!("simulated error in mock fetcher"));
+                }
+
+            }
+
+        }
+
+        async fn feeds_fetch_program_accounts(
+            &self,
+            _program: &Pubkey,
+            _discriminator: [u8; 8],
+        ) -> anyhow::Result<(Vec<(Pubkey, AccountSharedData)>, Slot)> {
+            unreachable!("program accounts not mocked")
+        }
+
+    }
+
+    #[tokio::test]
+    async fn test_cache_hit_success() {
+        let account = Pubkey::from_str("7v8bovqsYfFfEeiXnGLiGTg2VJAn62hSoSCPidKjKL8w").unwrap();
+
+        let mut mock = Arc::new(MockExampleFetcher::new(Scenario::Happy));
+
+        let cache = CachedAccountFetcher::new(mock.clone());
+
+        let _first_call = cache.feeds_fetch_raw_account(&account).await;
+        mock.assert_call_count(1);
+
+        // must load from cache
+        let _second_call_cached = cache.feeds_fetch_raw_account(&account).await;
+        mock.assert_call_count(1);
+
+        // clear
+        cache.clear_cache();
+
+        let _third_call_cached = cache.feeds_fetch_raw_account(&account).await;;
+        mock.assert_call_count(2);
+    }
+
+    #[tokio::test]
+    async fn test_cache_retry_error() {
+        let account = Pubkey::from_str("7v8bovqsYfFfEeiXnGLiGTg2VJAn62hSoSCPidKjKL8w").unwrap();
+
+        let mut mock = Arc::new(MockExampleFetcher::new(Scenario::Error));
+
+        let cache = CachedAccountFetcher::new(mock.clone());
+
+        let _first_call = cache.feeds_fetch_raw_account(&account).await;
+        mock.assert_call_count(1);
+
+        // must hit wrapped fetcher again on error
+        let _second_call_retry = cache.feeds_fetch_raw_account(&account).await;
+        mock.assert_call_count(2);
+
+    }
+
+}
