@@ -133,30 +133,18 @@ impl ChainData {
             self.account_bytes_stored = 0;
 
             for (_, writes) in self.accounts.iter_mut() {
-                let newest_rooted_write = writes
-                    .iter()
-                    .rev()
-                    .find(|w| {
-                        w.slot <= self.newest_rooted_slot
-                            && self
-                                .slots
-                                .get(&w.slot)
-                                .map(|s| {
-                                    // sometimes we seem not to get notifications about slots
-                                    // getting rooted, hence assume non-uncle slots < newest_rooted_slot
-                                    // are rooted too
-                                    s.status == SlotStatus::Rooted
-                                        || s.chain == self.best_chain_slot
-                                })
-                                // preserved account writes for deleted slots <= newest_rooted_slot
-                                // are expected to be rooted
-                                .unwrap_or(true)
-                    })
-                    .map(|w| w.slot)
-                    // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
-                    .unwrap_or(self.newest_rooted_slot + 1);
-                writes
-                    .retain(|w| w.slot == newest_rooted_write || w.slot > self.newest_rooted_slot);
+                let newest_rooted_write_slot = Self::newest_rooted_write(
+                    writes,
+                    self.newest_rooted_slot,
+                    self.best_chain_slot,
+                    &self.slots,
+                )
+                .map(|w| w.slot)
+                // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
+                .unwrap_or(self.newest_rooted_slot + 1);
+                writes.retain(|w| {
+                    w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot
+                });
                 self.account_versions_stored += writes.len();
                 self.account_bytes_stored +=
                     writes.iter().map(|w| w.account.data().len()).sum::<usize>()
@@ -212,17 +200,32 @@ impl ChainData {
             .unwrap_or(write.slot <= self.newest_rooted_slot || write.slot > self.best_chain_slot)
     }
 
+    fn newest_rooted_write<'a>(
+        writes: &'a [AccountData],
+        newest_rooted_slot: u64,
+        best_chain_slot: u64,
+        slots: &HashMap<u64, SlotData>,
+    ) -> Option<&'a AccountData> {
+        writes.iter().rev().find(|w| {
+            w.slot <= newest_rooted_slot
+                && slots
+                    .get(&w.slot)
+                    .map(|s| {
+                        // sometimes we seem not to get notifications about slots
+                        // getting rooted, hence assume non-uncle slots < newest_rooted_slot
+                        // are rooted too
+                        s.status == SlotStatus::Rooted || s.chain == best_chain_slot
+                    })
+                    // preserved account writes for deleted slots <= newest_rooted_slot
+                    // are expected to be rooted
+                    .unwrap_or(true)
+        })
+    }
+
     /// Cloned snapshot of all the most recent live writes per pubkey
     pub fn accounts_snapshot(&self) -> HashMap<Pubkey, AccountData> {
-        self.accounts
-            .iter()
-            .filter_map(|(pubkey, writes)| {
-                let latest_good_write = writes
-                    .iter()
-                    .rev()
-                    .find(|w| self.is_account_write_live(w))?;
-                Some((*pubkey, latest_good_write.clone()))
-            })
+        self.iter_accounts()
+            .map(|(pk, a)| (*pk, a.clone()))
             .collect()
     }
 
@@ -237,6 +240,7 @@ impl ChainData {
             .ok_or_else(|| anyhow::anyhow!("account {} has no live data", pubkey))
     }
 
+    /// Iterate over the most recent live data for all stored accounts
     pub fn iter_accounts(&self) -> impl Iterator<Item = (&Pubkey, &AccountData)> {
         self.accounts.iter().filter_map(|(pk, writes)| {
             writes
@@ -244,6 +248,19 @@ impl ChainData {
                 .rev()
                 .find(|w| self.is_account_write_live(w))
                 .map(|latest_write| (pk, latest_write))
+        })
+    }
+
+    /// Iterate over the most recent rooted data for all stored accounts
+    pub fn iter_accounts_rooted(&self) -> impl Iterator<Item = (&Pubkey, &AccountData)> {
+        self.accounts.iter().filter_map(|(pk, writes)| {
+            Self::newest_rooted_write(
+                writes,
+                self.newest_rooted_slot,
+                self.best_chain_slot,
+                &self.slots,
+            )
+            .map(|latest_write| (pk, latest_write))
         })
     }
 
@@ -269,6 +286,18 @@ impl ChainData {
 
     pub fn newest_rooted_slot(&self) -> u64 {
         self.newest_rooted_slot
+    }
+
+    pub fn newest_processed_slot(&self) -> u64 {
+        self.newest_processed_slot
+    }
+
+    pub fn raw_account_data(&self) -> &HashMap<Pubkey, Vec<AccountData>> {
+        &self.accounts
+    }
+
+    pub fn raw_slot_data(&self) -> &HashMap<u64, SlotData> {
+        &self.slots
     }
 }
 
