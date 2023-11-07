@@ -17,6 +17,8 @@ solana-logger = "~1.16.7"
 yellowstone-grpc-client = "1.9.0"
 yellowstone-grpc-proto = "1.9.0"
 
+fixed = { git = "https://github.com/blockworks-foundation/fixed.git", branch = "v1.11.0-borsh0_10-mango" }
+
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
@@ -47,6 +49,8 @@ clap = { version = "3.1.8", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.17"
 rustls = "0.20.8"
+
+async-once-cell = { version = "0.4.2", features = ["unpin"] }
 
 warp = "0.3"
 
