@@ -6,6 +6,7 @@ use async_once_cell::unpin::Lazy;
 
 use anyhow::{anyhow, Context};
 use itertools::Itertools;
+use log::debug;
 
 
 use solana_client::nonblocking::rpc_client::RpcClient as RpcClientAsync;
@@ -156,6 +157,7 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
         let fetch_job = {
             let mut cache = self.cache.lock().unwrap();
             if let Some((acc, slot)) = cache.accounts.get(address) {
+                // cache HIT
                 return Ok((acc.clone(), *slot));
             }
 
@@ -163,15 +165,22 @@ impl<T: AccountFetcherFeeds + 'static> AccountFetcherFeeds for CachedAccountFetc
             let self_copy = self.clone();
             let address_copy = address.clone();
             cache.account_jobs.run_coalesced(*address, async move {
-                let result = self_copy.fetcher.feeds_fetch_raw_account(&address_copy).await;
+                let wrapped_fetcher = self_copy.fetcher;
+                let result = wrapped_fetcher.feeds_fetch_raw_account(&address_copy).await;
                 let mut cache = self_copy.cache.lock().unwrap();
 
                 // remove the job from the job list, so it can be redone if it errored
                 cache.account_jobs.remove(&address_copy);
 
                 // store a successful fetch
-                if let Ok((acc, slot)) = result.as_ref() {
-                    cache.accounts.insert(address_copy, (acc.clone(), *slot));
+                match result.as_ref() {
+                    Ok((acc, slot)) => {
+                        cache.accounts.insert(address_copy, (acc.clone(), *slot));
+                        debug!("inserted data from wrapped fetcher for {}", address_copy);
+                    }
+                    Err(wrapped_fetcher_err) => {
+                        debug!("error in wrapped fetcher for {}: {}", address_copy, wrapped_fetcher_err);
+                    }
                 }
                 result
             })
