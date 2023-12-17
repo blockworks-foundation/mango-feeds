@@ -14,8 +14,8 @@ solana-account-decoder = "~1.16.7"
 solana-sdk = "~1.16.7"
 solana-logger = "~1.16.7"
 
-yellowstone-grpc-client = "1.9.0"
-yellowstone-grpc-proto = "1.9.0"
+yellowstone-grpc-client = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.8.0+solana.1.16.14" }
+yellowstone-grpc-proto = { git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.8.0+solana.1.16.14" }
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
