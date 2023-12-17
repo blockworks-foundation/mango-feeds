@@ -2639,7 +2639,7 @@ dependencies = [
 
 [[package]]
 name = "mango-feeds-connector"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -7300,9 +7300,8 @@ dependencies = [
 
 [[package]]
 name = "yellowstone-grpc-client"
-version = "1.9.0+solana.1.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "638fc820f10c6d836732d43f7c8f93a85301a7d90705a0db38b3bc11fc6657f6"
+version = "1.10.0+solana.1.16.14"
+source = "git+https://github.com/rpcpool/yellowstone-grpc.git?tag=v1.8.0+solana.1.16.14#a6cb542167f5eb9ec59e4a074c1671fa132e2f00"
 dependencies = [
  "bytes 1.5.0",
  "futures 0.3.28",
@@ -7315,9 +7314,8 @@ dependencies = [
 
 [[package]]
 name = "yellowstone-grpc-proto"
-version = "1.9.0+solana.1.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22b29533f1a9486a84b2ffc1fc53d19607af3b71e0554dbde38a841b72026be6"
+version = "1.9.0+solana.1.16.14"
+source = "git+https://github.com/rpcpool/yellowstone-grpc.git?tag=v1.8.0+solana.1.16.14#a6cb542167f5eb9ec59e4a074c1671fa132e2f00"
 dependencies = [
  "anyhow",
  "prost",

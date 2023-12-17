@@ -39,7 +39,7 @@ async-trait = { workspace = true }
 
 warp = { workspace = true }
 
-# 1.9.0+solana.1.16.1
+# 1.8.0+solana.1.16.1
 yellowstone-grpc-client = { workspace = true }
 yellowstone-grpc-proto = { workspace = true }
 
