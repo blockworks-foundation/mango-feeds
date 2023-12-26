@@ -8,14 +8,14 @@ members = [
 jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
 
 [workspace.dependencies]
-solana-rpc = "~1.16.7"
-solana-client = "~1.16.7"
-solana-account-decoder = "~1.16.7"
-solana-sdk = "~1.16.7"
-solana-logger = "~1.16.7"
+solana-rpc = "~1.17.12"
+solana-client = "~1.17.12"
+solana-account-decoder = "~1.17.12"
+solana-sdk = "~1.17.12"
+solana-logger = "~1.17.12"
 
-yellowstone-grpc-client = "1.9.0"
-yellowstone-grpc-proto = "1.9.0"
+yellowstone-grpc-client = {git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.11.2+solana.1.17.12"}
+yellowstone-grpc-proto = {git = "https://github.com/rpcpool/yellowstone-grpc.git", tag = "v1.11.2+solana.1.17.12"}
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
@@ -44,7 +44,8 @@ jemallocator = "0.3.2"
 chrono = "0.4.23"
 clap = { version = "3.1.8", features = ["derive", "env"] }
 
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.28.1", features = ["full"] }
+tokio-util = "0.7.10"
 tokio-tungstenite = "0.17"
 rustls = "0.20.8"
 

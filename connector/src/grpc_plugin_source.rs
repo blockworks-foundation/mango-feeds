@@ -115,7 +115,9 @@ async fn feed_data_geyser(
         }
     }
 
-    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
+    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {
+        filter_by_commitment: None,
+    });
 
     let request = SubscribeRequest {
         accounts,
@@ -126,6 +128,7 @@ async fn feed_data_geyser(
         slots,
         transactions,
         accounts_data_slice: vec![],
+        ping: None,
     };
     info!("Going to send request: {:?}", request);
 
@@ -267,6 +270,7 @@ async fn feed_data_geyser(
                     UpdateOneof::BlockMeta(_) => {},
                     UpdateOneof::Entry(_) => {},
                     UpdateOneof::Ping(_) => {},
+                    UpdateOneof::Pong(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -531,6 +535,7 @@ pub async fn process_events(
                     UpdateOneof::BlockMeta(_) => {}
                     UpdateOneof::Entry(_) => {}
                     UpdateOneof::Ping(_) => {}
+                    UpdateOneof::Pong(_) => {}
                 }
             }
             Message::Snapshot(update) => {
