@@ -1,14 +1,13 @@
-use jsonrpc_core_client::transports::http;
 use log::*;
+use serde_json::json;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
+    nonblocking::rpc_client::RpcClient,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
-    rpc_response::{OptionalContext, RpcKeyedAccount},
+    rpc_request::RpcRequest,
+    rpc_response::{OptionalContext, Response, RpcKeyedAccount},
 };
-use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
-
-use crate::AnyhowWrap;
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {
@@ -27,9 +26,7 @@ pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<SnapshotProgramAccounts> {
-    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
+    let rpc_client = RpcClient::new(rpc_http_url);
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -45,9 +42,11 @@ pub async fn get_snapshot_gpa(
 
     info!("requesting gpa snapshot {}", program_id);
     let account_snapshot = rpc_client
-        .get_program_accounts(program_id.clone(), Some(program_accounts_config.clone()))
-        .await
-        .map_err_anyhow()?;
+        .send::<OptionalContext<Vec<RpcKeyedAccount>>>(
+            RpcRequest::GetProgramAccounts,
+            json!([program_id, program_accounts_config]),
+        )
+        .await?;
     info!("gpa snapshot received {}", program_id);
 
     match account_snapshot {
@@ -66,9 +65,7 @@ pub async fn get_snapshot_gma(
     rpc_http_url: String,
     ids: Vec<String>,
 ) -> anyhow::Result<SnapshotMultipleAccounts> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
+    let rpc_client = RpcClient::new(rpc_http_url);
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -78,10 +75,12 @@ pub async fn get_snapshot_gma(
     };
 
     info!("requesting gma snapshot {:?}", ids);
-    let account_snapshot_response = rpc_client
-        .get_multiple_accounts(ids.clone(), Some(account_info_config))
-        .await
-        .map_err_anyhow()?;
+    let account_snapshot_response: Response<Vec<Option<UiAccount>>> = rpc_client
+        .send(
+            RpcRequest::GetMultipleAccounts,
+            json!([ids, account_info_config]),
+        )
+        .await?;
     info!("gma snapshot received {:?}", ids);
 
     let first_full_shot = account_snapshot_response.context.slot;

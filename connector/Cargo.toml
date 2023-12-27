@@ -15,7 +15,6 @@ default = []
 jsonrpc-core = { workspace = true }
 jsonrpc-core-client = { workspace = true }
 
-solana-rpc = { workspace = true }
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-sdk = { workspace = true }
@@ -26,6 +25,7 @@ rustls = { workspace = true }
 
 serde = { workspace = true }
 serde_derive = { workspace = true }
+serde_json = { workspace = true }
 
 log = { workspace = true }
 anyhow = { workspace = true }
@@ -39,7 +39,7 @@ async-trait = { workspace = true }
 
 warp = { workspace = true }
 
-# 1.9.0+solana.1.16.1
+# 1.11.0+solana.1.16.17
 yellowstone-grpc-client = { workspace = true }
 yellowstone-grpc-proto = { workspace = true }
 

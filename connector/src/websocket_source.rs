@@ -1,12 +1,11 @@
 use futures::stream::{SelectAll, StreamExt};
-use jsonrpc_core_client::transports::ws;
 
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
+    nonblocking::pubsub_client::PubsubClient,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{Response, RpcKeyedAccount},
 };
-use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
 use solana_sdk::{
     account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, slot_history::Slot,
 };
@@ -67,8 +66,7 @@ async fn feed_data_by_accounts(
     debug!("feed_data_by_accounts");
 
     let rpc_ws_url: &str = &config.rpc_ws_url;
-
-    let connect = ws::try_connect::<RpcSolPubSubClient>(rpc_ws_url).map_err_anyhow()?;
+    let connect = PubsubClient::new(rpc_ws_url);
     let timeout = timeout(WS_CONNECT_TIMEOUT, connect).await?;
     let client = timeout.map_err_anyhow()?;
 
@@ -82,18 +80,23 @@ async fn feed_data_by_accounts(
     let mut account_subs = SelectAll::new();
 
     for account_id in &account_ids {
-        account_subs.push(
-            client
-                .account_subscribe(account_id.clone(), Some(account_info_config.clone()))
-                .map(|s| {
-                    let account_id = account_id.clone();
-                    s.map(move |r| (account_id.clone(), r))
-                })
-                .map_err_anyhow()?,
-        );
+        let subscription = client
+            .account_subscribe(
+                &Pubkey::from_str(account_id)?,
+                Some(account_info_config.clone()),
+            )
+            .await?
+            .0;
+
+        let mapped = subscription.map(|s| {
+            let account_id = account_id.clone();
+            (account_id.clone(), s)
+        });
+
+        account_subs.push(mapped);
     }
 
-    let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
+    let mut slot_sub = client.slot_updates_subscribe().await?.0;
 
     // note: the snapshot refresh schedule is local to the feed_data method and will be reset as soon as we iterate the outer loop
     let mut last_snapshot = Instant::now().sub(SNAPSHOT_REFRESH_INTERVAL);
@@ -141,16 +144,16 @@ async fn feed_data_by_accounts(
             account = account_subs.next() => {
                 match account {
                     Some((account_id, response)) => {
+                        let keyed_account =  RpcKeyedAccount {
+                            pubkey: account_id.clone(),
+                            account: response.value,
+                        };
                         sender.send(
                             WebsocketMessage::SingleUpdate(
-                                response
-                                    .map( |r: Response<UiAccount>|
                                         Response {
-                                            context: r.context,
-                                            value: RpcKeyedAccount {
-                                                pubkey: account_id.clone(),
-                                                account: r.value }})
-                                    .map_err_anyhow()?)).await.expect("sending must succeed");
+                                            context: response.context,
+                                            value: keyed_account
+                                        })).await.expect("sending must succeed");
                     },
                     None => {
                         // note: this might loop if the filter did not return anything
@@ -162,7 +165,7 @@ async fn feed_data_by_accounts(
             slot_update = slot_sub.next() => {
                 match slot_update {
                     Some(slot_update) => {
-                        sender.send(WebsocketMessage::SlotUpdate(slot_update.map_err_anyhow()?)).await.expect("sending must succeed");
+                        sender.send(WebsocketMessage::SlotUpdate(slot_update.into())).await.expect("sending must succeed");
                     },
                     None => {
                         warn!("slot update stream closed");
@@ -186,8 +189,7 @@ async fn feed_data_by_program(
     debug!("feed_data_by_program");
 
     let rpc_ws_url: &str = &config.rpc_ws_url;
-
-    let connect = ws::try_connect::<RpcSolPubSubClient>(rpc_ws_url).map_err_anyhow()?;
+    let connect = PubsubClient::new(rpc_ws_url);
     let timeout = timeout(WS_CONNECT_TIMEOUT, connect).await?;
     let client = timeout.map_err_anyhow()?;
 
@@ -205,13 +207,16 @@ async fn feed_data_by_program(
 
     let mut program_subs = SelectAll::new();
 
-    program_subs.push(
-        client
-            .program_subscribe(program_id.clone(), Some(program_accounts_config.clone()))
-            .map_err_anyhow()?,
-    );
+    let subscription = client
+        .program_subscribe(
+            &Pubkey::from_str(&program_id)?,
+            Some(program_accounts_config.clone()),
+        )
+        .await?
+        .0;
+    program_subs.push(subscription);
 
-    let mut slot_sub = client.slots_updates_subscribe().map_err_anyhow()?;
+    let mut slot_sub = client.slot_updates_subscribe().await?.0;
 
     // note: the snapshot refresh schedule is local to the feed_data method and will be reset as soon as we iterate the outer loop
     let mut last_snapshot = Instant::now().sub(SNAPSHOT_REFRESH_INTERVAL);
@@ -263,7 +268,7 @@ async fn feed_data_by_program(
             program_account = program_subs.next() => {
                 match program_account {
                     Some(account) => {
-                        sender.send(WebsocketMessage::SingleUpdate(account.map_err_anyhow()?)).await.expect("sending must succeed");
+                        sender.send(WebsocketMessage::SingleUpdate(account)).await.expect("sending must succeed");
                     },
                     None => {
                         warn!("program account stream closed");
@@ -274,7 +279,7 @@ async fn feed_data_by_program(
             slot_update = slot_sub.next() => {
                 match slot_update {
                     Some(slot_update) => {
-                        sender.send(WebsocketMessage::SlotUpdate(slot_update.map_err_anyhow()?)).await.expect("sending must succeed");
+                        sender.send(WebsocketMessage::SlotUpdate(slot_update.into())).await.expect("sending must succeed");
                     },
                     None => {
                         warn!("slot update stream closed");
