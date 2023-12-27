@@ -38,6 +38,7 @@ enum WebsocketMessage {
     SingleUpdate(Response<RpcKeyedAccount>),
     SnapshotUpdate((Slot, Vec<(String, Option<UiAccount>)>)),
     SlotUpdate(Arc<solana_client::rpc_response::SlotUpdate>),
+    //TransactionUpdate(),
 }
 
 async fn feed_data(
@@ -49,6 +50,9 @@ async fn feed_data(
         EntityFilter::FilterByAccountIds(account_ids) => {
             let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
             feed_data_by_accounts(config, account_ids_typed, sender).await
+        }
+        EntityFilter::FilterByAccountIdsTransactions(_) => {
+            todo!("Implement transaction subscriptions for websockets");
         }
         EntityFilter::FilterByProgramId(program_id) => {
             feed_data_by_program(config, program_id.to_string(), sender).await
@@ -393,7 +397,7 @@ pub async fn process_events(
                 if let Some(message) = message {
                     slot_queue_sender.send(message).await.expect("send success");
                 }
-            }
+            } //TransactionUpdate
         }
     }
 }

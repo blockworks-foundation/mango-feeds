@@ -7,12 +7,11 @@ pub mod websocket_source;
 
 use itertools::Itertools;
 use std::str::FromStr;
+use yellowstone_grpc_proto::prelude::{Transaction, TransactionStatusMeta};
 use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
-
-pub use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
 
@@ -64,6 +63,13 @@ pub struct SlotUpdate {
     pub status: chain_data::SlotStatus,
 }
 
+#[derive(Clone, Debug)]
+pub struct TransactionUpdate {
+    pub slot: u64,
+    pub transaction: Transaction,
+    pub meta: TransactionStatusMeta,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct TlsConfig {
     pub ca_cert_path: String,
@@ -97,6 +103,7 @@ pub struct SnapshotSourceConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub enum EntityFilter {
     FilterByAccountIds(Vec<Pubkey>),
+    FilterByAccountIdsTransactions(Vec<Pubkey>),
     FilterByProgramId(Pubkey),
 }
 impl EntityFilter {
@@ -109,6 +116,13 @@ impl EntityFilter {
             .map(|id| Pubkey::from_str(id).unwrap())
             .collect_vec();
         EntityFilter::FilterByAccountIds(accounts_ids_typed)
+    }
+    pub fn filter_by_account_ids_transactions(account_ids: Vec<&str>) -> Self {
+        let accounts_ids_typed = account_ids
+            .into_iter()
+            .map(|id| Pubkey::from_str(id).unwrap())
+            .collect_vec();
+        EntityFilter::FilterByAccountIdsTransactions(accounts_ids_typed)
     }
 }
 

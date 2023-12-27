@@ -5,10 +5,13 @@ use solana_account_decoder::UiAccount;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
-use yellowstone_grpc_proto::tonic::{
-    metadata::MetadataValue,
-    transport::{Certificate, Channel, ClientTlsConfig, Identity},
-    Request,
+use yellowstone_grpc_proto::{
+    prelude::SubscribeRequestFilterTransactions,
+    tonic::{
+        metadata::MetadataValue,
+        transport::{Certificate, Channel, ClientTlsConfig, Identity},
+        Request,
+    },
 };
 
 use log::*;
@@ -22,6 +25,7 @@ use yellowstone_grpc_proto::prelude::{
 };
 
 use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
+use crate::TransactionUpdate;
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
@@ -87,7 +91,7 @@ async fn feed_data_geyser(
     let mut accounts = HashMap::new();
     let mut slots = HashMap::new();
     let blocks = HashMap::new();
-    let transactions = HashMap::new();
+    let mut transactions = HashMap::new();
     let blocks_meta = HashMap::new();
 
     match &filter_config.entity_filter {
@@ -113,9 +117,28 @@ async fn feed_data_geyser(
                 },
             );
         }
+
+        EntityFilter::FilterByAccountIdsTransactions(account_ids) => {
+            transactions.insert(
+                "client".to_owned(),
+                SubscribeRequestFilterTransactions {
+                    vote: Some(false),
+                    failed: Some(false),
+                    signature: None,
+                    account_include: account_ids.iter().map(Pubkey::to_string).collect(),
+                    account_exclude: vec![],
+                    account_required: vec![],
+                },
+            );
+        }
     }
 
-    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
+    slots.insert(
+        "client".to_owned(),
+        SubscribeRequestFilterSlots {
+            filter_by_commitment: None,
+        },
+    );
 
     let request = SubscribeRequest {
         accounts,
@@ -126,6 +149,7 @@ async fn feed_data_geyser(
         slots,
         transactions,
         accounts_data_slice: vec![],
+        ping: None,
     };
     info!("Going to send request: {:?}", request);
 
@@ -216,6 +240,10 @@ async fn feed_data_geyser(
                                         let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
                                         snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids_typed)).fuse();
                                     },
+                                    EntityFilter::FilterByAccountIdsTransactions(account_ids) => {
+                                        let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
+                                        snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids_typed)).fuse();
+                                    },
                                     EntityFilter::FilterByProgramId(program_id) => {
                                         snapshot_gpa = tokio::spawn(get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.to_string())).fuse();
                                     },
@@ -267,6 +295,7 @@ async fn feed_data_geyser(
                     UpdateOneof::BlockMeta(_) => {},
                     UpdateOneof::Entry(_) => {},
                     UpdateOneof::Ping(_) => {},
+                    UpdateOneof::Pong(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -360,6 +389,7 @@ pub async fn process_events(
     filter_config: &FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
+    transaction_queue_sender: async_channel::Sender<TransactionUpdate>,
     metrics_sender: Metrics,
     exit: Arc<AtomicBool>,
 ) {
@@ -443,6 +473,10 @@ pub async fn process_events(
         metrics_sender.register_u64("grpc_slot_update_queue".into(), MetricType::Gauge);
     let mut metric_slot_updates =
         metrics_sender.register_u64("grpc_slot_updates".into(), MetricType::Counter);
+    let mut metric_transaction_queue =
+        metrics_sender.register_u64("grpc_transaction_queue".into(), MetricType::Gauge);
+    let mut metric_transaction_updates =
+        metrics_sender.register_u64("grpc_transaction_updates".into(), MetricType::Counter);
     let mut metric_snapshots =
         metrics_sender.register_u64("grpc_snapshots".into(), MetricType::Counter);
     let mut metric_snapshot_account_writes =
@@ -527,10 +561,38 @@ pub async fn process_events(
                             .expect("send success");
                     }
                     UpdateOneof::Block(_) => {}
-                    UpdateOneof::Transaction(_) => {}
+                    UpdateOneof::Transaction(update) => {
+                        metric_transaction_updates.increment();
+                        metric_transaction_queue.set(transaction_queue_sender.len() as u64);
+
+                        if update.transaction.is_none() {
+                            // TODO: handle error
+                            continue;
+                        }
+                        let transaction_info = update.transaction.unwrap();
+                        if transaction_info.transaction.is_none() || transaction_info.meta.is_none()
+                        {
+                            // TODO: handle error
+                            continue;
+                        }
+                        let transaction = transaction_info.transaction.unwrap();
+                        let meta = transaction_info.meta.unwrap();
+
+                        let transaction_update = TransactionUpdate {
+                            slot: update.slot,
+                            transaction,
+                            meta,
+                        };
+
+                        transaction_queue_sender
+                            .send(transaction_update)
+                            .await
+                            .expect("send success");
+                    }
                     UpdateOneof::BlockMeta(_) => {}
                     UpdateOneof::Entry(_) => {}
                     UpdateOneof::Ping(_) => {}
+                    UpdateOneof::Pong(_) => {}
                 }
             }
             Message::Snapshot(update) => {
