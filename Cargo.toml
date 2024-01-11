@@ -14,8 +14,8 @@ solana-account-decoder = "~1.16.7"
 solana-sdk = "~1.16.7"
 solana-logger = "~1.16.7"
 
-yellowstone-grpc-client = "1.9.0"
-yellowstone-grpc-proto = "1.9.0"
+yellowstone-grpc-client = "1.11.0+solana.1.16.17"
+yellowstone-grpc-proto = "1.11.0+solana.1.16.17"
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
