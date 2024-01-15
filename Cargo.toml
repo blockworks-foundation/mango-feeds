@@ -8,14 +8,14 @@ members = [
 jsonrpc-core-client = { git = "https://github.com/ckamm/jsonrpc.git", branch = "ckamm/http-with-gzip-default-v18.0.0" }
 
 [workspace.dependencies]
-solana-rpc = "~1.16.7"
-solana-client = "~1.16.7"
-solana-account-decoder = "~1.16.7"
-solana-sdk = "~1.16.7"
-solana-logger = "~1.16.7"
+solana-rpc = "~1.16.17"
+solana-client = "~1.16.17"
+solana-account-decoder = "~1.16.17"
+solana-sdk = "~1.16.17"
+solana-logger = "~1.16.17"
 
-yellowstone-grpc-client = "1.11.0+solana.1.16.17"
-yellowstone-grpc-proto = "1.11.0+solana.1.16.17"
+yellowstone-grpc-client = "1.11.0"
+yellowstone-grpc-proto = "1.11.0"
 
 jsonrpc-core = "18.0.0"
 jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
