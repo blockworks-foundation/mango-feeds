@@ -71,8 +71,9 @@ impl Default for ChainData {
 }
 
 impl ChainData {
-    /// Updates the ChainData with the provided slot
-    /// Returns a tuple of expired slots and slots that are not on the best chain
+    /// Updates the ChainData with the provided slot.
+    /// Returns a tuple of expired slots and slots that are not on the best chain. The returned slots are NOT ordered.
+    /// Expired slots are older than the newest rooted slot and are not retained in the ChainData.
     pub fn update_slot(&mut self, new_slot: SlotData) -> (Vec<u64>, Vec<u64>) {
         let new_processed_head = new_slot.slot > self.newest_processed_slot;
         if new_processed_head {
@@ -157,7 +158,7 @@ impl ChainData {
             // now it's fine to drop any slots before the new rooted head
             // as account writes for non-rooted slots before it have been dropped
             // also check for slots that are not on the best chain
-            for (slot, data) in self.slots.iter_mut() {
+            for (slot, data) in self.slots.iter() {
                 if *slot < self.newest_rooted_slot {
                     expired_slots.push(*slot);
                 } else if data.chain != self.best_chain_slot {
