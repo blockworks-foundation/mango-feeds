@@ -25,8 +25,8 @@ use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
 };
 use crate::{
-    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FilterConfig, SlotUpdate,
-    SourceConfig,
+    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedFilterType, FilterConfig,
+    SlotUpdate, SourceConfig,
 };
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
@@ -53,6 +53,15 @@ async fn feed_data(
         }
         EntityFilter::FilterByProgramId(program_id) => {
             feed_data_by_program(config, program_id.to_string(), sender).await
+        }
+        EntityFilter::FilterByProgramIdAndCustomCriteria(program_id, filters) => {
+            feed_data_by_program_and_filters(
+                config,
+                program_id.to_string(),
+                sender,
+                Some(filters.clone()),
+            )
+            .await
         }
     }
 }
@@ -183,6 +192,15 @@ async fn feed_data_by_program(
     program_id: String,
     sender: async_channel::Sender<WebsocketMessage>,
 ) -> anyhow::Result<()> {
+    feed_data_by_program_and_filters(config, program_id, sender, None).await
+}
+
+async fn feed_data_by_program_and_filters(
+    config: &SourceConfig,
+    program_id: String,
+    sender: async_channel::Sender<WebsocketMessage>,
+    filters: Option<Vec<FeedFilterType>>,
+) -> anyhow::Result<()> {
     debug!("feed_data_by_program");
 
     let rpc_ws_url: &str = &config.rpc_ws_url;
@@ -198,7 +216,7 @@ async fn feed_data_by_program(
         min_context_slot: None,
     };
     let program_accounts_config = RpcProgramAccountsConfig {
-        filters: None,
+        filters: filters.map(|v| v.iter().map(|f| f.to_rpc_filter()).collect()),
         with_context: Some(true),
         account_config: account_info_config.clone(),
     };
@@ -292,16 +310,14 @@ async fn feed_data_by_program(
 
 // TODO: rename / split / rework
 pub async fn process_events(
-    config: &SourceConfig,
-    filter_config: &FilterConfig,
+    config: SourceConfig,
+    filter_config: FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
 ) {
     // Subscribe to program account updates websocket
     let (update_sender, update_receiver) = async_channel::unbounded::<WebsocketMessage>();
     info!("using config {config:?}");
-    let config = config.clone();
-    let filter_config = filter_config.clone();
     tokio::spawn(async move {
         // if the websocket disconnects, we get no data in a while etc, reconnect and try again
         loop {

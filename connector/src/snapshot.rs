@@ -6,9 +6,10 @@ use solana_client::{
     rpc_response::{OptionalContext, RpcKeyedAccount},
 };
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
+use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
-use crate::AnyhowWrap;
+use crate::{AnyhowWrap, FeedFilterType};
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {
@@ -27,9 +28,18 @@ pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<SnapshotProgramAccounts> {
-    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
-        .await
-        .map_err_anyhow()?;
+    get_filtered_snapshot_gpa(rpc_http_url, program_id, None).await
+}
+
+pub async fn get_filtered_snapshot_gpa(
+    rpc_http_url: String,
+    program_id: String,
+    fitlers: Option<Vec<FeedFilterType>>,
+) -> anyhow::Result<SnapshotProgramAccounts> {
+    let rpc_client =
+        http::connect_with_options::<AccountsScanClient>(&rpc_http_url, true)
+            .await
+            .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
@@ -38,7 +48,7 @@ pub async fn get_snapshot_gpa(
         min_context_slot: None,
     };
     let program_accounts_config = RpcProgramAccountsConfig {
-        filters: None,
+        filters: fitlers.map(|v| v.iter().map(|f| f.to_rpc_filter()).collect()),
         with_context: Some(true),
         account_config: account_info_config.clone(),
     };
