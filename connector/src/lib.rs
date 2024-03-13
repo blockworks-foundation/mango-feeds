@@ -30,6 +30,17 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
 }
 
 #[derive(Clone, PartialEq, Debug)]
+pub enum FeedWrite {
+    Account(AccountWrite),
+    Snapshot(SnapshotWrite),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct SnapshotWrite {
+    pub accounts: Vec<AccountWrite>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
 pub struct AccountWrite {
     pub pubkey: Pubkey,
     pub slot: u64,

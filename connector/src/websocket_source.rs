@@ -25,8 +25,8 @@ use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
 };
 use crate::{
-    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedFilterType, FilterConfig,
-    SlotUpdate, SourceConfig,
+    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedFilterType, FeedWrite,
+    FilterConfig, SlotUpdate, SnapshotWrite, SourceConfig,
 };
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
@@ -312,7 +312,7 @@ async fn feed_data_by_program_and_filters(
 pub async fn process_events(
     config: SourceConfig,
     filter_config: FilterConfig,
-    account_write_queue_sender: async_channel::Sender<AccountWrite>,
+    account_write_queue_sender: async_channel::Sender<FeedWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
 ) {
     // Subscribe to program account updates websocket
@@ -353,26 +353,33 @@ pub async fn process_events(
                 let account: Account = update.value.account.decode().unwrap();
                 let pubkey = Pubkey::from_str(&update.value.pubkey).unwrap();
                 account_write_queue_sender
-                    .send(AccountWrite::from(pubkey, update.context.slot, 0, account))
+                    .send(FeedWrite::Account(AccountWrite::from(
+                        pubkey,
+                        update.context.slot,
+                        0,
+                        account,
+                    )))
                     .await
                     .expect("send success");
             }
             WebsocketMessage::SnapshotUpdate((slot, accounts)) => {
                 trace!("snapshot update {slot}");
+                let mut to_send = vec![];
                 for (pubkey, account) in accounts {
                     if let Some(account) = account {
                         let pubkey = Pubkey::from_str(&pubkey).unwrap();
-                        account_write_queue_sender
-                            .send(AccountWrite::from(
-                                pubkey,
-                                slot,
-                                0,
-                                account.decode().unwrap(),
-                            ))
-                            .await
-                            .expect("send success");
+                        to_send.push(AccountWrite::from(
+                            pubkey,
+                            slot,
+                            0,
+                            account.decode().unwrap(),
+                        ));
                     }
                 }
+                account_write_queue_sender
+                    .send(FeedWrite::Snapshot(SnapshotWrite { accounts: to_send }))
+                    .await
+                    .expect("send success");
             }
             WebsocketMessage::SlotUpdate(update) => {
                 trace!("slot update");

@@ -36,10 +36,9 @@ pub async fn get_filtered_snapshot_gpa(
     program_id: String,
     fitlers: Option<Vec<FeedFilterType>>,
 ) -> anyhow::Result<SnapshotProgramAccounts> {
-    let rpc_client =
-        http::connect_with_options::<AccountsScanClient>(&rpc_http_url, true)
-            .await
-            .map_err_anyhow()?;
+    let rpc_client = http::connect_with_options::<AccountsScanClient>(&rpc_http_url, true)
+        .await
+        .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),
