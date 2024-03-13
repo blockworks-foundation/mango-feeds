@@ -2708,7 +2708,7 @@ dependencies = [
 
 [[package]]
 name = "mango-feeds-connector"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-channel",
@@ -2718,7 +2718,6 @@ dependencies = [
  "itertools 0.10.5",
  "jsonrpc-core 18.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core-client",
- "log 0.4.21",
  "rustls 0.20.9",
  "serde",
  "serde_derive",
@@ -2728,6 +2727,7 @@ dependencies = [
  "solana-rpc",
  "solana-sdk",
  "tokio",
+ "tracing",
  "warp",
  "yellowstone-grpc-client",
  "yellowstone-grpc-proto",

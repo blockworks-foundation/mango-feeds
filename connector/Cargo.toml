@@ -1,6 +1,6 @@
 [package]
 name = "mango-feeds-connector"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
@@ -27,7 +27,6 @@ rustls = { workspace = true }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 
-log = { workspace = true }
 anyhow = { workspace = true }
 
 itertools = { workspace = true }
@@ -40,6 +39,7 @@ async-trait = { workspace = true }
 warp = { workspace = true }
 
 # 1.9.0+solana.1.16.1
+tracing = { workspace = true }
 yellowstone-grpc-client = { workspace = true }
 yellowstone-grpc-proto = { workspace = true }
 
