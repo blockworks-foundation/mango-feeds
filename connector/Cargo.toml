@@ -1,6 +1,6 @@
 [package]
 name = "mango-feeds-connector"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Christian Kamm <mail@ckamm.de>"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
@@ -27,7 +27,7 @@ rustls = { workspace = true }
 serde = { workspace = true }
 serde_derive = { workspace = true }
 
-log = { workspace = true }
+tracing = { workspace = true }
 anyhow = { workspace = true }
 
 itertools = { workspace = true }

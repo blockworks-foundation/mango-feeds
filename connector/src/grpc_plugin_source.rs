@@ -11,10 +11,10 @@ use yellowstone_grpc_proto::tonic::{
     Request,
 };
 
-use log::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
+use tracing::*;
 use yellowstone_grpc_proto::geyser::{
     subscribe_request_filter_accounts_filter, subscribe_request_filter_accounts_filter_memcmp,
     SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp,

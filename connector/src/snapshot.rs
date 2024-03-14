@@ -1,5 +1,4 @@
 use jsonrpc_core_client::transports::http;
-use log::*;
 use solana_account_decoder::{UiAccount, UiAccountEncoding};
 use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
@@ -8,6 +7,7 @@ use solana_client::{
 use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
+use tracing::*;
 
 use crate::{AnyhowWrap, FeedFilterType};
 

@@ -1,10 +1,10 @@
 use {
     crate::MetricsConfig,
-    log::*,
     std::collections::HashMap,
     std::fmt,
     std::sync::{atomic, Arc, Mutex, RwLock},
     tokio::time,
+    tracing::*,
     warp::{Filter, Rejection, Reply},
 };
 

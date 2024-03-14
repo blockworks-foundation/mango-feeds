@@ -12,7 +12,6 @@ use solana_sdk::{
 };
 
 use anyhow::Context;
-use log::*;
 use std::ops::Sub;
 use std::{
     str::FromStr,
@@ -20,6 +19,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::time::timeout;
+use tracing::*;
 
 use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
@@ -363,7 +363,7 @@ pub async fn process_events(
                     .expect("send success");
             }
             WebsocketMessage::SnapshotUpdate((slot, accounts)) => {
-                trace!("snapshot update {slot}");
+                debug!("snapshot update {slot}");
                 let mut to_send = vec![];
                 for (pubkey, account) in accounts {
                     if let Some(account) = account {
