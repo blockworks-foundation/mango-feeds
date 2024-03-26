@@ -1,17 +1,17 @@
 use crate::{
     chain_data::{AccountData, ChainData, ChainDataMetrics, SlotData},
     metrics::Metrics,
-    AccountWrite, SlotUpdate,
+    FeedWrite, SlotUpdate,
 };
 
 use async_trait::async_trait;
-use log::*;
 use solana_sdk::{account::WritableAccount, pubkey::Pubkey, stake_history::Epoch};
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,
     time::{Duration, Instant},
 };
+use tracing::*;
 
 #[async_trait]
 pub trait AccountWriteSink {
@@ -36,11 +36,11 @@ pub fn init(
     routes: Vec<AccountWriteRoute>,
     metrics_sender: Metrics,
 ) -> anyhow::Result<(
-    async_channel::Sender<AccountWrite>,
+    async_channel::Sender<FeedWrite>,
     async_channel::Sender<SlotUpdate>,
 )> {
     let (account_write_queue_sender, account_write_queue_receiver) =
-        async_channel::unbounded::<AccountWrite>();
+        async_channel::unbounded::<FeedWrite>();
 
     // Slot updates flowing from the outside into this processing thread. From
     // there the AccountWriteRoute::sink() callback is triggered.
@@ -61,7 +61,7 @@ pub fn init(
     tokio::spawn(async move {
         loop {
             tokio::select! {
-                Ok(account_write) = account_write_queue_receiver.recv() => {
+                Ok(FeedWrite::Account(account_write)) = account_write_queue_receiver.recv() => {
                     if !all_queue_pks.contains(&account_write.pubkey) {
                         trace!("account write skipped {:?}", account_write.pubkey);
                         continue;
@@ -83,6 +83,31 @@ pub fn init(
                             ),
                         },
                     );
+                }
+                Ok(FeedWrite::Snapshot(snapshot_write)) = account_write_queue_receiver.recv() => {
+                    for account_write in snapshot_write.accounts {
+                        if !all_queue_pks.contains(&account_write.pubkey) {
+                            trace!("account write skipped {:?}", account_write.pubkey);
+                            continue;
+                        } else {
+                            trace!("account write processed {:?}", account_write.pubkey);
+                        }
+
+                        chain_data.update_account(
+                            account_write.pubkey,
+                            AccountData {
+                                slot: account_write.slot,
+                                write_version: account_write.write_version,
+                                account: WritableAccount::create(
+                                    account_write.lamports,
+                                    account_write.data.clone(),
+                                    account_write.owner,
+                                    account_write.executable,
+                                    account_write.rent_epoch as Epoch,
+                                ),
+                            },
+                        );
+                    }
                 }
                 Ok(slot_update) = slot_queue_receiver.recv() => {
                     trace!("slot update processed {:?}", slot_update);

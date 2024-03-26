@@ -11,21 +11,27 @@ use yellowstone_grpc_proto::tonic::{
     Request,
 };
 
-use log::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::{collections::HashMap, env, str::FromStr, time::Duration};
+use tracing::*;
+use yellowstone_grpc_proto::geyser::{
+    subscribe_request_filter_accounts_filter, subscribe_request_filter_accounts_filter_memcmp,
+    SubscribeRequestFilterAccountsFilter, SubscribeRequestFilterAccountsFilterMemcmp,
+};
 
 use yellowstone_grpc_proto::prelude::{
     geyser_client::GeyserClient, subscribe_update, CommitmentLevel, SubscribeRequest,
     SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdate,
 };
 
-use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
+use crate::snapshot::{get_filtered_snapshot_gpa, get_snapshot_gma, get_snapshot_gpa};
+use crate::FeedWrite::Snapshot;
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
-    AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
+    AccountWrite, FeedFilterType, FeedWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig,
+    SnapshotWrite, SourceConfig, TlsConfig,
 };
 use crate::{EntityFilter, FilterConfig};
 
@@ -110,6 +116,29 @@ async fn feed_data_geyser(
                     account: account_ids.iter().map(Pubkey::to_string).collect(),
                     owner: vec![],
                     filters: vec![],
+                },
+            );
+        }
+        EntityFilter::FilterByProgramIdAndCustomCriteria(program_id, criteria) => {
+            accounts.insert(
+                "client".to_owned(),
+                SubscribeRequestFilterAccounts {
+                    account: vec![],
+                    owner: vec![program_id.to_string()],
+                    filters: criteria.iter().map(|c| {
+                        SubscribeRequestFilterAccountsFilter {
+                            filter: Some(match c {
+                                FeedFilterType::DataSize(ds) => subscribe_request_filter_accounts_filter::Filter::Datasize(*ds),
+                                FeedFilterType::Memcmp(cmp) => {
+                                    subscribe_request_filter_accounts_filter::Filter::Memcmp(SubscribeRequestFilterAccountsFilterMemcmp {
+                                        offset: cmp.offset as u64,
+                                        data: Some(subscribe_request_filter_accounts_filter_memcmp::Data::Bytes(cmp.bytes.clone()))
+                                    })
+                                },
+                                FeedFilterType::TokenAccountState => subscribe_request_filter_accounts_filter::Filter::TokenAccountState(true)
+                            })
+                        }
+                    }).collect(),
                 },
             );
         }
@@ -219,6 +248,9 @@ async fn feed_data_geyser(
                                     EntityFilter::FilterByProgramId(program_id) => {
                                         snapshot_gpa = tokio::spawn(get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.to_string())).fuse();
                                     },
+                                    EntityFilter::FilterByProgramIdAndCustomCriteria(program_id,filters) => {
+                                        snapshot_gpa = tokio::spawn(get_filtered_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.to_string(), Some(filters.clone()))).fuse();
+                                    }
                                 };
                             }
                         }
@@ -356,9 +388,9 @@ fn make_tls_config(config: &TlsConfig) -> ClientTlsConfig {
 }
 
 pub async fn process_events(
-    config: &SourceConfig,
-    filter_config: &FilterConfig,
-    account_write_queue_sender: async_channel::Sender<AccountWrite>,
+    config: SourceConfig,
+    filter_config: FilterConfig,
+    account_write_queue_sender: async_channel::Sender<FeedWrite>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
     metrics_sender: Metrics,
     exit: Arc<AtomicBool>,
@@ -487,7 +519,7 @@ pub async fn process_events(
                         // let mut uncompressed: Vec<u8> = Vec::new();
                         // zstd_decompress(&update.data, &mut uncompressed).unwrap();
                         account_write_queue_sender
-                            .send(AccountWrite {
+                            .send(FeedWrite::Account(AccountWrite {
                                 pubkey: Pubkey::try_from(update.pubkey.clone()).unwrap(),
                                 slot: info.slot,
                                 write_version: update.write_version,
@@ -498,7 +530,7 @@ pub async fn process_events(
                                 data: update.data,
                                 // TODO: what should this be? related to account deletes?
                                 is_selected: true,
-                            })
+                            }))
                             .await
                             .expect("send success");
                     }
@@ -536,6 +568,8 @@ pub async fn process_events(
             Message::Snapshot(update) => {
                 metric_snapshots.increment();
                 info!("processing snapshot...");
+
+                let mut to_send = vec![];
                 for account in update.accounts.iter() {
                     metric_snapshot_account_writes.increment();
                     metric_account_queue.set(account_write_queue_sender.len() as u64);
@@ -545,14 +579,17 @@ pub async fn process_events(
                             // TODO: Resnapshot on invalid data?
                             let pubkey = Pubkey::from_str(key).unwrap();
                             let account: Account = ui_account.decode().unwrap();
-                            account_write_queue_sender
-                                .send(AccountWrite::from(pubkey, update.slot, 0, account))
-                                .await
-                                .expect("send success");
+                            to_send.push(AccountWrite::from(pubkey, update.slot, 0, account));
                         }
                         (key, None) => warn!("account not found {}", key),
                     }
                 }
+
+                account_write_queue_sender
+                    .send(Snapshot(SnapshotWrite { accounts: to_send }))
+                    .await
+                    .expect("send success");
+
                 info!("processing snapshot done");
             }
         }

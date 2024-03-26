@@ -4,6 +4,8 @@
 .DS_Store
 .idea/
 *.pem
+.vscode
+.idea
 
 node_modules
 dist
