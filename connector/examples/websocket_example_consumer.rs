@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 
 use mango_feeds_connector::{
-    websocket_source, AccountWrite, EntityFilter, FilterConfig, SlotUpdate, SnapshotSourceConfig,
+    websocket_source, EntityFilter, FeedWrite, FilterConfig, SlotUpdate, SnapshotSourceConfig,
     SourceConfig,
 };
 
@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
     let filter_config = filter_config1;
 
     let (account_write_queue_sender, account_write_queue_receiver) =
-        async_channel::unbounded::<AccountWrite>();
+        async_channel::unbounded::<FeedWrite>();
 
     let (slot_queue_sender, slot_queue_receiver) = async_channel::unbounded::<SlotUpdate>();
 
@@ -77,8 +77,8 @@ async fn main() -> anyhow::Result<()> {
     });
 
     websocket_source::process_events(
-        &config,
-        &filter_config,
+        config,
+        filter_config,
         account_write_queue_sender,
         slot_queue_sender,
     )

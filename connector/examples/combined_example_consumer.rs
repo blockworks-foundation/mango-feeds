@@ -1,7 +1,7 @@
 #![allow(unused_variables)]
 
 use mango_feeds_connector::{
-    grpc_plugin_source, metrics, AccountWrite, EntityFilter, FilterConfig, GrpcSourceConfig,
+    grpc_plugin_source, metrics, EntityFilter, FeedWrite, FilterConfig, GrpcSourceConfig,
     MetricsConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
 };
 use std::sync::atomic::AtomicBool;
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (account_write_queue_sender, account_write_queue_receiver) =
-        async_channel::unbounded::<AccountWrite>();
+        async_channel::unbounded::<FeedWrite>();
 
     let (slot_queue_sender, slot_queue_receiver) = async_channel::unbounded::<SlotUpdate>();
 
@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(async move {
         loop {
             let next = account_write_queue_receiver.recv().await.unwrap();
-            println!("got account write: {:?}", next);
+            println!("got feed write: {:?}", next);
         }
     });
 
@@ -95,8 +95,8 @@ async fn main() -> anyhow::Result<()> {
     let filter_config = filter_config1;
 
     grpc_plugin_source::process_events(
-        &config,
-        &filter_config,
+        config,
+        filter_config,
         account_write_queue_sender,
         slot_queue_sender,
         metrics_tx.clone(),
