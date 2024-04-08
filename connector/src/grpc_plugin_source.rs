@@ -115,7 +115,12 @@ async fn feed_data_geyser(
         }
     }
 
-    slots.insert("client".to_owned(), SubscribeRequestFilterSlots {});
+    slots.insert(
+        "client".to_owned(),
+        SubscribeRequestFilterSlots {
+            filter_by_commitment: None,
+        },
+    );
 
     let request = SubscribeRequest {
         accounts,
@@ -126,6 +131,7 @@ async fn feed_data_geyser(
         slots,
         transactions,
         accounts_data_slice: vec![],
+        ping: None,
     };
     info!("Going to send request: {:?}", request);
 
@@ -267,6 +273,7 @@ async fn feed_data_geyser(
                     UpdateOneof::BlockMeta(_) => {},
                     UpdateOneof::Entry(_) => {},
                     UpdateOneof::Ping(_) => {},
+                    UpdateOneof::Pong(_) => {},
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -506,12 +513,12 @@ pub async fn process_events(
                         metric_slot_updates.increment();
                         metric_slot_queue.set(slot_queue_sender.len() as u64);
 
-                        let status = CommitmentLevel::from_i32(update.status).map(|v| match v {
+                        let status = CommitmentLevel::try_from(update.status).map(|v| match v {
                             CommitmentLevel::Processed => SlotStatus::Processed,
                             CommitmentLevel::Confirmed => SlotStatus::Confirmed,
                             CommitmentLevel::Finalized => SlotStatus::Rooted,
                         });
-                        if status.is_none() {
+                        if status.is_err() {
                             error!("unexpected slot status: {}", update.status);
                             continue;
                         }
@@ -531,6 +538,7 @@ pub async fn process_events(
                     UpdateOneof::BlockMeta(_) => {}
                     UpdateOneof::Entry(_) => {}
                     UpdateOneof::Ping(_) => {}
+                    UpdateOneof::Pong(_) => {}
                 }
             }
             Message::Snapshot(update) => {
