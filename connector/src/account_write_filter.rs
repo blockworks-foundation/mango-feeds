@@ -5,13 +5,13 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use log::*;
 use solana_sdk::{account::WritableAccount, pubkey::Pubkey, stake_history::Epoch};
 use std::{
     collections::{BTreeSet, HashMap},
     sync::Arc,
     time::{Duration, Instant},
 };
+use tracing::*;
 
 #[async_trait]
 pub trait AccountWriteSink {
@@ -83,7 +83,7 @@ pub fn init(
                             ),
                         },
                     );
-                }
+                },
                 Ok(slot_update) = slot_queue_receiver.recv() => {
                     trace!("slot update processed {:?}", slot_update);
                     chain_data.update_slot(SlotData {

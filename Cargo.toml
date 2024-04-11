@@ -23,7 +23,7 @@ jsonrpc-core-client = { version = "18.0.0", features = ["ws", "http"] }
 
 bs58 = "0.5"
 base64 = "0.21.0"
-log = "0.4"
+tracing = "0.1.40"
 rand = "0.7"
 anyhow = "1.0"
 toml = "0.5"

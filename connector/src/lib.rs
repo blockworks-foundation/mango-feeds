@@ -6,9 +6,10 @@ pub mod snapshot;
 pub mod websocket_source;
 
 use itertools::Itertools;
+use solana_client::rpc_filter::RpcFilterType;
 use std::str::FromStr;
 use {
-    serde_derive::Deserialize,
+    serde_derive::{Deserialize, Serialize},
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
 
@@ -94,10 +95,36 @@ pub struct SnapshotSourceConfig {
     pub rpc_http_url: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum FeedFilterType {
+    DataSize(u64),
+    Memcmp(Memcmp),
+    TokenAccountState,
+}
+
+impl FeedFilterType {
+    fn to_rpc_filter(&self) -> RpcFilterType {
+        match self {
+            FeedFilterType::Memcmp(m) => RpcFilterType::Memcmp(
+                solana_client::rpc_filter::Memcmp::new_raw_bytes(m.offset, m.bytes.clone()),
+            ),
+            FeedFilterType::DataSize(ds) => RpcFilterType::DataSize(*ds),
+            FeedFilterType::TokenAccountState => RpcFilterType::TokenAccountState,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct Memcmp {
+    pub offset: usize,
+    pub bytes: Vec<u8>,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub enum EntityFilter {
     FilterByAccountIds(Vec<Pubkey>),
     FilterByProgramId(Pubkey),
+    FilterByProgramIdSelective(Pubkey, Vec<FeedFilterType>),
 }
 impl EntityFilter {
     pub fn filter_by_program_id(program_id: &str) -> Self {

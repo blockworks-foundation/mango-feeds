@@ -77,8 +77,8 @@ async fn main() -> anyhow::Result<()> {
     });
 
     websocket_source::process_events(
-        &config,
-        &filter_config,
+        config,
+        filter_config,
         account_write_queue_sender,
         slot_queue_sender,
     )
