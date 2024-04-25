@@ -1,10 +1,12 @@
-use futures::stream::once;
+use futures::stream::{self, once};
+use itertools::Itertools;
 use jsonrpc_core::futures::StreamExt;
 
 use solana_account_decoder::UiAccount;
 use solana_sdk::{account::Account, pubkey::Pubkey};
 
 use futures::{future, future::FutureExt};
+use tokio_stream::StreamMap;
 use yellowstone_grpc_proto::tonic::{
     metadata::MetadataValue,
     transport::{Certificate, Channel, ClientTlsConfig, Identity},
@@ -28,6 +30,10 @@ use crate::{
     AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
 };
 use crate::{EntityFilter, FilterConfig};
+
+const MAX_GRPC_ACCOUNT_SUBSCRIPTIONS: usize = 100;
+const MAX_GMA_ACCOUNTS: usize = 100;
+const MAX_PARALLEL_GMA_REQUESTS: usize = 4;
 
 struct SnapshotData {
     slot: u64,
@@ -122,21 +128,46 @@ async fn feed_data_geyser(
         },
     );
 
-    let request = SubscribeRequest {
-        accounts,
-        blocks,
-        blocks_meta,
-        entry: Default::default(),
-        commitment: None,
-        slots,
-        transactions,
-        accounts_data_slice: vec![],
-        ping: None,
-    };
-    info!("Going to send request: {:?}", request);
+    let mut subscriptions = StreamMap::new();
 
-    let response = client.subscribe(once(async move { request })).await?;
-    let mut update_stream = response.into_inner();
+    {
+        let request = SubscribeRequest {
+            accounts: Default::default(),
+            blocks,
+            blocks_meta,
+            entry: Default::default(),
+            commitment: None,
+            slots,
+            transactions,
+            accounts_data_slice: vec![],
+            ping: None,
+        };
+        let response = client.subscribe(once(async move { request })).await?;
+        subscriptions.insert(usize::MAX, response.into_inner());
+    }
+
+    // account subscriptions may have at most 100 at a time
+    let account_chunks = accounts
+        .into_iter()
+        .chunks(MAX_GRPC_ACCOUNT_SUBSCRIPTIONS)
+        .into_iter()
+        .map(|chunk| chunk.collect::<HashMap<String, SubscribeRequestFilterAccounts>>())
+        .collect_vec();
+    for (i, accounts) in account_chunks.into_iter().enumerate() {
+        let request = SubscribeRequest {
+            accounts,
+            blocks: Default::default(),
+            blocks_meta: Default::default(),
+            entry: Default::default(),
+            commitment: None,
+            slots: Default::default(),
+            transactions: Default::default(),
+            accounts_data_slice: vec![],
+            ping: None,
+        };
+        let response = client.subscribe(once(async move { request })).await?;
+        subscriptions.insert(i, response.into_inner());
+    }
 
     // We can't get a snapshot immediately since the finalized snapshot would be for a
     // slot in the past and we'd be missing intermediate updates.
@@ -169,7 +200,7 @@ async fn feed_data_geyser(
     // which will have "finalized" commitment.
     let mut rooted_to_finalized_slots = 30;
 
-    let mut snapshot_gma = future::Fuse::terminated();
+    let (snapshot_gma_sender, mut snapshot_gma_receiver) = tokio::sync::mpsc::unbounded_channel();
     let mut snapshot_gpa = future::Fuse::terminated();
 
     // The plugin sends a ping every 5s or so
@@ -197,9 +228,13 @@ async fn feed_data_geyser(
 
     loop {
         tokio::select! {
-            update = update_stream.next() => {
+            update = subscriptions.next() => {
+                let Some(data) = update
+                else {
+                    anyhow::bail!("geyser plugin has closed the stream");
+                };
                 use subscribe_update::UpdateOneof;
-                let mut update = update.ok_or(anyhow::anyhow!("geyser plugin has closed the stream"))??;
+                let mut update = data.1?;
                 match update.update_oneof.as_mut().expect("invalid grpc") {
                     UpdateOneof::Slot(slot_update) => {
                         let status = slot_update.status;
@@ -219,8 +254,18 @@ async fn feed_data_geyser(
                                 snapshot_needed = false;
                                 match &filter_config.entity_filter {
                                     EntityFilter::FilterByAccountIds(account_ids) => {
-                                        let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect();
-                                        snapshot_gma = tokio::spawn(get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids_typed)).fuse();
+                                        let account_ids_typed = account_ids.iter().map(Pubkey::to_string).collect_vec();
+                                        let sender = snapshot_gma_sender.clone();
+                                        let snapshot_rpc_http_url = snapshot_rpc_http_url.clone();
+                                        tokio::spawn(async move {
+                                            stream::iter(account_ids_typed).chunks(MAX_GMA_ACCOUNTS).map(|keys| async {
+                                                let snapshot = get_snapshot_gma(&snapshot_rpc_http_url, keys).await;
+                                                sender.send(snapshot).unwrap();
+                                            }).buffer_unordered(MAX_PARALLEL_GMA_REQUESTS)
+                                            // just consume, we already sent the data into the channel
+                                            .for_each(|_| async {})
+                                            .await
+                                        });
                                     },
                                     EntityFilter::FilterByProgramId(program_id) => {
                                         snapshot_gpa = tokio::spawn(get_snapshot_gpa(snapshot_rpc_http_url.clone(), program_id.to_string())).fuse();
@@ -277,8 +322,12 @@ async fn feed_data_geyser(
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
-            snapshot = &mut snapshot_gma => {
-                let snapshot = snapshot??;
+            snapshot_message = snapshot_gma_receiver.recv() => {
+                let Some(snapshot_result) = snapshot_message
+                else {
+                    anyhow::bail!("snapshot channel closed");
+                };
+                let snapshot = snapshot_result?;
                 info!("snapshot is for slot {}, first full slot was {}", snapshot.slot, first_full_slot);
                 if snapshot.slot >= first_full_slot {
                     sender.send(Message::Snapshot(SnapshotData {

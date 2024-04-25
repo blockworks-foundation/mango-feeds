@@ -63,10 +63,10 @@ pub async fn get_snapshot_gpa(
 }
 
 pub async fn get_snapshot_gma(
-    rpc_http_url: String,
+    rpc_http_url: &str,
     ids: Vec<String>,
 ) -> anyhow::Result<SnapshotMultipleAccounts> {
-    let rpc_client = http::connect::<AccountsDataClient>(&rpc_http_url)
+    let rpc_client = http::connect::<AccountsDataClient>(rpc_http_url)
         .await
         .map_err_anyhow()?;
 

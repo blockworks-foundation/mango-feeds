@@ -104,8 +104,7 @@ async fn feed_data_by_accounts(
         // including the first time
         if last_snapshot + SNAPSHOT_REFRESH_INTERVAL <= Instant::now() {
             let snapshot_rpc_http_url = config.snapshot.rpc_http_url.clone();
-            let response =
-                get_snapshot_gma(snapshot_rpc_http_url.clone(), account_ids.clone()).await;
+            let response = get_snapshot_gma(&snapshot_rpc_http_url, account_ids.clone()).await;
             let snapshot = response.context("gma snapshot response").map_err_anyhow();
             match snapshot {
                 Ok(SnapshotMultipleAccounts {
