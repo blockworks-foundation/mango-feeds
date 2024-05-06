@@ -27,7 +27,8 @@ use crate::snapshot::{get_snapshot_gma, get_snapshot_gpa};
 use crate::{
     chain_data::SlotStatus,
     metrics::{MetricType, Metrics},
-    AccountWrite, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig, TlsConfig,
+    AccountWrite, FeedMetadata, GrpcSourceConfig, SlotUpdate, SnapshotSourceConfig, SourceConfig,
+    TlsConfig,
 };
 use crate::{EntityFilter, FilterConfig};
 
@@ -415,6 +416,7 @@ pub async fn process_events(
     config: &SourceConfig,
     filter_config: &FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
+    metdata_write_queue_sender: Option<async_channel::Sender<FeedMetadata>>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
     metrics_sender: Metrics,
     exit: Arc<AtomicBool>,
@@ -503,6 +505,14 @@ pub async fn process_events(
         metrics_sender.register_u64("grpc_snapshots".into(), MetricType::Counter);
     let mut metric_snapshot_account_writes =
         metrics_sender.register_u64("grpc_snapshot_account_writes".into(), MetricType::Counter);
+
+    let metadata_sender = |msg| {
+        if let Some(sender) = &metdata_write_queue_sender {
+            sender.send_blocking(msg)
+        } else {
+            Ok(())
+        }
+    };
 
     loop {
         if exit.load(Ordering::Relaxed) {
@@ -593,6 +603,10 @@ pub async fn process_events(
             Message::Snapshot(update) => {
                 metric_snapshots.increment();
                 info!("processing snapshot...");
+                if let Err(e) = metadata_sender(FeedMetadata::SnapshotStart) {
+                    warn!("failed to send feed matadata event: {}", e);
+                }
+
                 for account in update.accounts.iter() {
                     metric_snapshot_account_writes.increment();
                     metric_account_queue.set(account_write_queue_sender.len() as u64);
@@ -607,10 +621,20 @@ pub async fn process_events(
                                 .await
                                 .expect("send success");
                         }
-                        (key, None) => warn!("account not found {}", key),
+                        (key, None) => {
+                            warn!("account not found {}", key);
+                            let pubkey = Pubkey::from_str(key).unwrap();
+                            if let Err(e) = metadata_sender(FeedMetadata::InvalidAccount(pubkey)) {
+                                warn!("failed to send feed matadata event: {}", e);
+                            }
+                        }
                     }
                 }
+
                 info!("processing snapshot done");
+                if let Err(e) = metadata_sender(FeedMetadata::SnapshotEnd) {
+                    warn!("failed to send feed matadata event: {}", e);
+                }
             }
         }
     }
