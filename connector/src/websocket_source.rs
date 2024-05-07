@@ -25,8 +25,8 @@ use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
 };
 use crate::{
-    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FilterConfig, SlotUpdate,
-    SourceConfig,
+    chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedMetadata, FilterConfig,
+    SlotUpdate, SourceConfig,
 };
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
@@ -294,6 +294,7 @@ pub async fn process_events(
     config: &SourceConfig,
     filter_config: &FilterConfig,
     account_write_queue_sender: async_channel::Sender<AccountWrite>,
+    metdata_write_queue_sender: Option<async_channel::Sender<FeedMetadata>>,
     slot_queue_sender: async_channel::Sender<SlotUpdate>,
 ) {
     // Subscribe to program account updates websocket
@@ -325,6 +326,13 @@ pub async fn process_events(
     // The thread that pulls updates and forwards them to postgres
     //
 
+    let metadata_sender = |msg| {
+        if let Some(sender) = &metdata_write_queue_sender {
+            sender.send_blocking(msg)
+        } else {
+            Ok(())
+        }
+    };
     // consume websocket updates from rust channels
     loop {
         let update = update_receiver.recv().await.unwrap();
@@ -342,9 +350,13 @@ pub async fn process_events(
             }
             WebsocketMessage::SnapshotUpdate((slot, accounts)) => {
                 trace!("snapshot update {slot}");
+                if let Err(e) = metadata_sender(FeedMetadata::SnapshotStart) {
+                    warn!("failed to send feed matadata event: {}", e);
+                }
+
                 for (pubkey, account) in accounts {
+                    let pubkey = Pubkey::from_str(&pubkey).unwrap();
                     if let Some(account) = account {
-                        let pubkey = Pubkey::from_str(&pubkey).unwrap();
                         account_write_queue_sender
                             .send(AccountWrite::from(
                                 pubkey,
@@ -354,7 +366,13 @@ pub async fn process_events(
                             ))
                             .await
                             .expect("send success");
+                    } else if let Err(e) = metadata_sender(FeedMetadata::InvalidAccount(pubkey)) {
+                        warn!("failed to send feed matadata event: {}", e);
                     }
+                }
+
+                if let Err(e) = metadata_sender(FeedMetadata::SnapshotEnd) {
+                    warn!("failed to send feed matadata event: {}", e);
                 }
             }
             WebsocketMessage::SlotUpdate(update) => {

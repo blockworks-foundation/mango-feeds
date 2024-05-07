@@ -28,6 +28,12 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
     }
 }
 
+pub enum FeedMetadata {
+    InvalidAccount(Pubkey),
+    SnapshotStart,
+    SnapshotEnd,
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct AccountWrite {
     pub pubkey: Pubkey,

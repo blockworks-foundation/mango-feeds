@@ -80,6 +80,7 @@ async fn main() -> anyhow::Result<()> {
         &config,
         &filter_config,
         account_write_queue_sender,
+        None,
         slot_queue_sender,
     )
     .await;
