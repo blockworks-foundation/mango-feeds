@@ -28,6 +28,7 @@ impl<T, E: std::fmt::Debug> AnyhowWrap for Result<T, E> {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub enum FeedMetadata {
     InvalidAccount(Pubkey),
     SnapshotStart,
