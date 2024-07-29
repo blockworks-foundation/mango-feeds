@@ -14,8 +14,12 @@ default = []
 [dependencies]
 jsonrpc-core = { workspace = true }
 jsonrpc-core-client = { workspace = true }
+jsonrpc-derive = "18.0.0"
+jsonrpc-pubsub = "18.0.0"
 
-solana-rpc = { workspace = true }
+# note: avoid solana-rpc dependency
+solana-rpc-client = "1.17"
+solana-rpc-client-api = "1.17"
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-sdk = { workspace = true }
