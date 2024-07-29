@@ -1,14 +1,11 @@
 
 
 pub mod rpc_accounts_scan {
-    use std::sync::Arc;
     use jsonrpc_core::Result;
     use jsonrpc_derive::rpc;
-    use jsonrpc_pubsub::typed::Subscriber;
     use solana_account_decoder::UiAccount;
     use solana_rpc_client_api::config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-    use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, SlotUpdate, OptionalContext};
-    use jsonrpc_pubsub::SubscriptionId as PubSubSubscriptionId;
+    use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, OptionalContext};
 
     /// this definition is derived from solana-rpc/rpc.rs
     /// we want to avoid the heavy dependency to solana-rpc
@@ -46,15 +43,13 @@ pub mod rpc_pubsub {
     use jsonrpc_pubsub::typed::Subscriber;
     use solana_account_decoder::UiAccount;
     use solana_rpc_client_api::config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-    use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, SlotUpdate, OptionalContext};
+    use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, SlotUpdate};
     use jsonrpc_pubsub::SubscriptionId as PubSubSubscriptionId;
 
     #[rpc]
     pub trait RpcSolPubSub {
         type Metadata;
 
-        // Get notification every time account data is changed
-        // Accepts pubkey parameter as base-58 encoded string
         #[pubsub(
             subscription = "accountNotification",
             subscribe,
@@ -68,7 +63,6 @@ pub mod rpc_pubsub {
             config: Option<RpcAccountInfoConfig>,
         );
 
-        // Unsubscribe from account notification subscription.
         #[pubsub(
             subscription = "accountNotification",
             unsubscribe,
@@ -78,11 +72,8 @@ pub mod rpc_pubsub {
             &self,
             meta: Option<Self::Metadata>,
             id: PubSubSubscriptionId,
-        ) -> jsonrpc_core::Result<bool>;
+        ) -> Result<bool>;
 
-
-        // Get notification every time account data owned by a particular program is changed
-        // Accepts pubkey parameter as base-58 encoded string
         #[pubsub(
             subscription = "programNotification",
             subscribe,
@@ -96,7 +87,6 @@ pub mod rpc_pubsub {
             config: Option<RpcProgramAccountsConfig>,
         );
 
-        // Unsubscribe from account notification subscription.
         #[pubsub(
             subscription = "programNotification",
             unsubscribe,
@@ -106,10 +96,9 @@ pub mod rpc_pubsub {
             &self,
             meta: Option<Self::Metadata>,
             id: PubSubSubscriptionId,
-        ) -> jsonrpc_core::Result<bool>;
+        ) -> Result<bool>;
 
 
-        // Get series of updates for all slots
         #[pubsub(
             subscription = "slotsUpdatesNotification",
             subscribe,
@@ -121,7 +110,6 @@ pub mod rpc_pubsub {
             subscriber: Subscriber<Arc<SlotUpdate>>,
         );
 
-        // Unsubscribe from slots updates notification subscription.
         #[pubsub(
             subscription = "slotsUpdatesNotification",
             unsubscribe,
@@ -131,7 +119,7 @@ pub mod rpc_pubsub {
             &self,
             meta: Option<Self::Metadata>,
             id: PubSubSubscriptionId,
-        ) -> jsonrpc_core::Result<bool>;
+        ) -> Result<bool>;
 
     }
 

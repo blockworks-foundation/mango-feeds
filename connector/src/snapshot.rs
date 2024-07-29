@@ -66,15 +66,9 @@ pub async fn get_snapshot_gma(
     rpc_http_url: &str,
     ids: Vec<String>,
 ) -> anyhow::Result<SnapshotMultipleAccounts> {
-
-    info!("Call patched get_snapshot_gma");
     let rpc_client = http::connect::<RpcAccountsScanClient>(rpc_http_url)
         .await
         .map_err_anyhow()?;
-
-    // let rpc_client = http::connect::<AccountsDataClient>(rpc_http_url)
-    //     .await
-    //     .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),

@@ -18,7 +18,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use solana_rpc_client::rpc_client::RpcClient;
 use tokio::time::timeout;
 
 use crate::snapshot::{
