@@ -4,6 +4,7 @@ pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
+mod foorpc;
 
 use itertools::Itertools;
 use std::str::FromStr;
