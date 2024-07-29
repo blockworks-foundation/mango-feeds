@@ -9,6 +9,7 @@ use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
 use crate::AnyhowWrap;
+use crate::solana_rpc_minimal::{Rpc, RpcClient};
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {
@@ -66,9 +67,15 @@ pub async fn get_snapshot_gma(
     rpc_http_url: &str,
     ids: Vec<String>,
 ) -> anyhow::Result<SnapshotMultipleAccounts> {
-    let rpc_client = http::connect::<AccountsDataClient>(rpc_http_url)
+
+    info!("Call patched get_snapshot_gma");
+    let rpc_client = http::connect::<RpcClient>(rpc_http_url)
         .await
         .map_err_anyhow()?;
+
+    // let rpc_client = http::connect::<AccountsDataClient>(rpc_http_url)
+    //     .await
+    //     .map_err_anyhow()?;
 
     let account_info_config = RpcAccountInfoConfig {
         encoding: Some(UiAccountEncoding::Base64),

@@ -15,6 +15,7 @@ default = []
 jsonrpc-core = { workspace = true }
 jsonrpc-core-client = { workspace = true }
 jsonrpc-derive = "18.0.0"
+jsonrpc-pubsub = "18.0.0"
 
 solana-rpc = { workspace = true }
 solana-rpc-client = "1.17"
