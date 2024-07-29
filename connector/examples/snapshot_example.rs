@@ -3,7 +3,7 @@
 use clap::Parser;
 
 use jsonrpc_core_client::transports::http;
-use mango_feeds_connector::GetProgramAccountsClient;
+use mango_feeds_connector::solana_rpc_minimal::rpc_accounts_scan::RpcAccountsScanClient;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::OptionalContext;
@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     let rpc_http_url = cli.rpc_url;
     let program_id = cli.program_account;
 
-    let rpc_client_scan = http::connect::<GetProgramAccountsClient>(&rpc_http_url)
+    let rpc_client_scan = http::connect::<RpcAccountsScanClient>(&rpc_http_url)
         .await
         .unwrap();
 

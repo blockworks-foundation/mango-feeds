@@ -27,10 +27,10 @@ async fn main() -> anyhow::Result<()> {
         grpc_sources: vec![],
         // used for websocket+geyser
         snapshot: SnapshotSourceConfig {
-            rpc_http_url: "http://127.0.0.1:8899".to_string(),
+            rpc_http_url: "http://localhost:18899/".to_string(),
         },
         // used only for websocket
-        rpc_ws_url: "ws://localhost:8900/".to_string(),
+        rpc_ws_url: "ws://localhost:18900/".to_string(),
     };
 
     let filter_config1 = FilterConfig {

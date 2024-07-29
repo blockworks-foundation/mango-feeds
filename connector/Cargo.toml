@@ -1,7 +1,7 @@
 [package]
 name = "mango-feeds-connector"
-version = "0.3.0"
-authors = ["Christian Kamm <mail@ckamm.de>"]
+version = "0.3.2"
+authors = ["Christian Kamm <mail@ckamm.de>", "groovie@mango.markets"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Listen to Solana account updates via geyser or websockets"
@@ -14,8 +14,12 @@ default = []
 [dependencies]
 jsonrpc-core = { workspace = true }
 jsonrpc-core-client = { workspace = true }
+jsonrpc-derive = "18.0.0"
+jsonrpc-pubsub = "18.0.0"
 
-solana-rpc = { workspace = true }
+# note: avoid solana-rpc dependency
+solana-rpc-client = "1.17"
+solana-rpc-client-api = "1.17"
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-sdk = { workspace = true }

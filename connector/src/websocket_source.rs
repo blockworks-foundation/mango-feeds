@@ -6,7 +6,6 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{Response, RpcKeyedAccount},
 };
-use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
 use solana_sdk::{
     account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, slot_history::Slot,
 };
@@ -24,6 +23,7 @@ use tokio::time::timeout;
 use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
 };
+use crate::solana_rpc_minimal::rpc_pubsub::RpcSolPubSubClient;
 use crate::{
     chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FilterConfig, SlotUpdate,
     SourceConfig,
