@@ -7,8 +7,8 @@ use solana_client::{
 };
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
-use crate::AnyhowWrap;
 use crate::solana_rpc_minimal::rpc_accounts_scan::RpcAccountsScanClient;
+use crate::AnyhowWrap;
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {

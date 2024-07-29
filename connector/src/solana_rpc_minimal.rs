@@ -1,11 +1,11 @@
-
-
 pub mod rpc_accounts_scan {
     use jsonrpc_core::Result;
     use jsonrpc_derive::rpc;
     use solana_account_decoder::UiAccount;
     use solana_rpc_client_api::config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
-    use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, OptionalContext};
+    use solana_rpc_client_api::response::{
+        OptionalContext, Response as RpcResponse, RpcKeyedAccount,
+    };
 
     /// this definition is derived from solana-rpc/rpc.rs
     /// we want to avoid the heavy dependency to solana-rpc
@@ -30,21 +30,18 @@ pub mod rpc_accounts_scan {
             pubkey_strs: Vec<String>,
             config: Option<RpcAccountInfoConfig>,
         ) -> Result<RpcResponse<Vec<Option<UiAccount>>>>;
-
-
     }
-
 }
 
 pub mod rpc_pubsub {
-    use std::sync::Arc;
     use jsonrpc_core::Result;
     use jsonrpc_derive::rpc;
     use jsonrpc_pubsub::typed::Subscriber;
+    use jsonrpc_pubsub::SubscriptionId as PubSubSubscriptionId;
     use solana_account_decoder::UiAccount;
     use solana_rpc_client_api::config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
     use solana_rpc_client_api::response::{Response as RpcResponse, RpcKeyedAccount, SlotUpdate};
-    use jsonrpc_pubsub::SubscriptionId as PubSubSubscriptionId;
+    use std::sync::Arc;
 
     #[rpc]
     pub trait RpcSolPubSub {
@@ -98,7 +95,6 @@ pub mod rpc_pubsub {
             id: PubSubSubscriptionId,
         ) -> Result<bool>;
 
-
         #[pubsub(
             subscription = "slotsUpdatesNotification",
             subscribe,
@@ -120,7 +116,5 @@ pub mod rpc_pubsub {
             meta: Option<Self::Metadata>,
             id: PubSubSubscriptionId,
         ) -> Result<bool>;
-
     }
-
 }

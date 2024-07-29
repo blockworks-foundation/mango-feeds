@@ -2,8 +2,8 @@
 
 use clap::Parser;
 
-use solana_sdk::pubkey::Pubkey;
 use mango_feeds_connector::snapshot::get_snapshot_gma;
+use solana_sdk::pubkey::Pubkey;
 
 #[derive(Parser, Debug, Clone)]
 #[clap()]
@@ -27,7 +27,6 @@ async fn main() -> anyhow::Result<()> {
     let program_id = cli.program_account;
 
     get_snapshot_gma(&rpc_http_url, vec![program_id.to_string()]).await?;
-
 
     Ok(())
 }

@@ -3,12 +3,12 @@
 use clap::Parser;
 
 use jsonrpc_core_client::transports::http;
+use mango_feeds_connector::solana_rpc_minimal::rpc_accounts_scan::RpcAccountsScanClient;
 use solana_account_decoder::UiAccountEncoding;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_response::OptionalContext;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
-use mango_feeds_connector::solana_rpc_minimal::rpc_accounts_scan::RpcAccountsScanClient;
 
 #[derive(Parser, Debug, Clone)]
 #[clap()]

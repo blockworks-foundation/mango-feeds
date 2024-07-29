@@ -3,8 +3,8 @@ pub mod chain_data;
 pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
-pub mod websocket_source;
 pub mod solana_rpc_minimal;
+pub mod websocket_source;
 
 use itertools::Itertools;
 use std::str::FromStr;

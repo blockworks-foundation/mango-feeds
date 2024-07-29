@@ -23,11 +23,11 @@ use tokio::time::timeout;
 use crate::snapshot::{
     get_snapshot_gma, get_snapshot_gpa, SnapshotMultipleAccounts, SnapshotProgramAccounts,
 };
+use crate::solana_rpc_minimal::rpc_pubsub::RpcSolPubSubClient;
 use crate::{
     chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedMetadata, FilterConfig,
     SlotUpdate, SourceConfig,
 };
-use crate::solana_rpc_minimal::rpc_pubsub::RpcSolPubSubClient;
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
