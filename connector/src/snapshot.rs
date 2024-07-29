@@ -5,11 +5,10 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{OptionalContext, RpcKeyedAccount},
 };
-use solana_rpc::rpc::rpc_accounts::AccountsDataClient;
 use solana_sdk::{commitment_config::CommitmentConfig, slot_history::Slot};
 
 use crate::AnyhowWrap;
-use crate::solana_rpc_minimal::{Rpc, RpcClient};
+use crate::solana_rpc_minimal::rpc_accounts_scan::RpcAccountsScanClient;
 
 /// gPA snapshot struct
 pub struct SnapshotProgramAccounts {
@@ -28,7 +27,7 @@ pub async fn get_snapshot_gpa(
     rpc_http_url: String,
     program_id: String,
 ) -> anyhow::Result<SnapshotProgramAccounts> {
-    let rpc_client = http::connect::<crate::GetProgramAccountsClient>(&rpc_http_url)
+    let rpc_client = http::connect::<RpcAccountsScanClient>(&rpc_http_url)
         .await
         .map_err_anyhow()?;
 
@@ -69,7 +68,7 @@ pub async fn get_snapshot_gma(
 ) -> anyhow::Result<SnapshotMultipleAccounts> {
 
     info!("Call patched get_snapshot_gma");
-    let rpc_client = http::connect::<RpcClient>(rpc_http_url)
+    let rpc_client = http::connect::<RpcAccountsScanClient>(rpc_http_url)
         .await
         .map_err_anyhow()?;
 

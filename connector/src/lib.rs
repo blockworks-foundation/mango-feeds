@@ -4,7 +4,7 @@ pub mod grpc_plugin_source;
 pub mod metrics;
 pub mod snapshot;
 pub mod websocket_source;
-mod solana_rpc_minimal;
+pub mod solana_rpc_minimal;
 
 use itertools::Itertools;
 use std::str::FromStr;
@@ -12,8 +12,6 @@ use {
     serde_derive::Deserialize,
     solana_sdk::{account::Account, pubkey::Pubkey},
 };
-
-pub use solana_rpc::rpc::rpc_accounts_scan::AccountsScanClient as GetProgramAccountsClient;
 
 pub use solana_sdk;
 

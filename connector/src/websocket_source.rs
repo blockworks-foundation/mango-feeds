@@ -6,7 +6,6 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_response::{Response, RpcKeyedAccount},
 };
-use solana_rpc::rpc_pubsub::RpcSolPubSubClient;
 use solana_sdk::{
     account::Account, commitment_config::CommitmentConfig, pubkey::Pubkey, slot_history::Slot,
 };
@@ -19,6 +18,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use solana_rpc_client::rpc_client::RpcClient;
 use tokio::time::timeout;
 
 use crate::snapshot::{
@@ -28,6 +28,7 @@ use crate::{
     chain_data::SlotStatus, AccountWrite, AnyhowWrap, EntityFilter, FeedMetadata, FilterConfig,
     SlotUpdate, SourceConfig,
 };
+use crate::solana_rpc_minimal::rpc_pubsub::RpcSolPubSubClient;
 
 const SNAPSHOT_REFRESH_INTERVAL: Duration = Duration::from_secs(300);
 const WS_CONNECT_TIMEOUT: Duration = Duration::from_millis(5000);
