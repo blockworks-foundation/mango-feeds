@@ -11,6 +11,7 @@ use solana_sdk::{
 };
 
 use anyhow::Context;
+use async_channel::SendError;
 use log::*;
 use std::ops::Sub;
 use std::{
@@ -18,7 +19,6 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use async_channel::SendError;
 use tokio::time::timeout;
 
 use crate::snapshot::{
