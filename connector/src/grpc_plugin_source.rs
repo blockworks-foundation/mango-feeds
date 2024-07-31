@@ -93,9 +93,6 @@ async fn feed_data_geyser(
 
     let mut accounts = HashMap::new();
     let mut slots = HashMap::new();
-    let blocks = HashMap::new();
-    let transactions = HashMap::new();
-    let blocks_meta = HashMap::new();
 
     match &filter_config.entity_filter {
         EntityFilter::FilterByProgramId(program_id) => {
@@ -133,15 +130,10 @@ async fn feed_data_geyser(
 
     {
         let request = SubscribeRequest {
-            accounts: Default::default(),
-            blocks,
-            blocks_meta,
-            entry: Default::default(),
             commitment: None,
-            slots,
-            transactions,
             accounts_data_slice: vec![],
             ping: None,
+            ..Default::default()
         };
         let response = client.subscribe(once(async move { request })).await?;
         subscriptions.insert(usize::MAX, response.into_inner());
@@ -157,14 +149,9 @@ async fn feed_data_geyser(
     for (i, accounts) in account_chunks.into_iter().enumerate() {
         let request = SubscribeRequest {
             accounts,
-            blocks: Default::default(),
-            blocks_meta: Default::default(),
-            entry: Default::default(),
             commitment: None,
-            slots: Default::default(),
-            transactions: Default::default(),
             accounts_data_slice: vec![],
-            ping: None,
+            ..Default::default()
         };
         let response = client.subscribe(once(async move { request })).await?;
         subscriptions.insert(i, response.into_inner());
@@ -313,13 +300,8 @@ async fn feed_data_geyser(
                         // Rewrite the update to use the local write version and bump it
                         write.write_version = write_version_mapping.slot as u64;
                         write_version_mapping.slot += 1;
-                    },
-                    UpdateOneof::Block(_) => {},
-                    UpdateOneof::Transaction(_) => {},
-                    UpdateOneof::BlockMeta(_) => {},
-                    UpdateOneof::Entry(_) => {},
-                    UpdateOneof::Ping(_) => {},
-                    UpdateOneof::Pong(_) => {},
+                    }
+                    _ => {}
                 }
                 sender.send(Message::GrpcUpdate(update)).await.expect("send success");
             },
@@ -592,12 +574,7 @@ pub async fn process_events(
                             .await
                             .expect("send success");
                     }
-                    UpdateOneof::Block(_) => {}
-                    UpdateOneof::Transaction(_) => {}
-                    UpdateOneof::BlockMeta(_) => {}
-                    UpdateOneof::Entry(_) => {}
-                    UpdateOneof::Ping(_) => {}
-                    UpdateOneof::Pong(_) => {}
+                    _ => {}
                 }
             }
             Message::Snapshot(update) => {
