@@ -1,14 +1,13 @@
+use log::{info, warn};
+use mango_feeds_connector::chain_data::ChainData;
+use mango_feeds_connector::{AccountWrite, SlotUpdate};
+use solana_sdk::pubkey::Pubkey;
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::time::{Duration, Instant};
-use log::{info, warn};
-use solana_sdk::pubkey::Pubkey;
-use mango_feeds_connector::{AccountWrite, SlotUpdate};
-use mango_feeds_connector::chain_data::{ChainData};
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
-
 
 // from router project
 pub fn start_chaindata_updating(
@@ -99,4 +98,3 @@ fn handle_updated_account(
     // ignore failing sends when there are no receivers
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
 }
-

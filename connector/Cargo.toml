@@ -12,6 +12,9 @@ description = "Listen to Solana account updates via geyser or websockets"
 default = []
 
 [dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
 jsonrpc-core = { workspace = true }
 jsonrpc-core-client = { workspace = true }
 jsonrpc-derive = "18.0.0"
