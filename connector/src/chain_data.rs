@@ -513,35 +513,82 @@ pub fn test_overwrite_with_older_by_write_version() {
     );
 }
 
+#[derive(Debug, PartialEq)]
 enum WhatToDo {
     Overwrite(usize),
-    Insert,
+    Insert(usize), // insert at position; move all elements to the right
     DoNothing,
 }
 
 
 #[test]
-fn asdf() {
-    let mut v = vec![
+fn magic_overwrite_newer_write_version() {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    let mut v = given_v1235(fake_account_data);
+
+    assert_eq!(the_logic(&mut v, 2, 1001), Overwrite(1));
+}
+
+#[test]
+fn magic_overwrite_older_write_version() {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    let mut v = given_v1235(fake_account_data);
+
+    assert_eq!(the_logic(&mut v, 2, 999), DoNothing);
+}
+
+
+#[test]
+fn magic_insert_hole() {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    let mut v = given_v1235(fake_account_data);
+
+    assert_eq!(the_logic(&mut v, 4, 1000), Insert(3));
+
+}
+
+
+#[test]
+fn magic_append() {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    let mut v = given_v1235(fake_account_data);
+
+    assert_eq!(the_logic(&mut v, 7, 1000), Insert(4));
+
+}
+
+fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
+    vec![
         AccountData {
             slot: 1,
-            write_version: 1,
-            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+            write_version: 1000,
+            account: fake_account_data.clone(),
         },
         AccountData {
             slot: 2,
-            write_version: 1,
-            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+            write_version: 1000,
+            account: fake_account_data.clone(),
         },
         AccountData {
             slot: 3,
-            write_version: 1,
-            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+            write_version: 1000,
+            account: fake_account_data.clone(),
         },
-    ];
-
-    the_logic(&mut v, 2, 1);
-
+        // no 4
+        AccountData {
+            slot: 5,
+            write_version: 1000,
+            account: fake_account_data.clone(),
+        },
+    ]
 }
 
 fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
@@ -562,7 +609,7 @@ fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: 
         }
     } else {
         println!("insert it");
-        // self.accoxpos, account);
-        return Insert;
+        // v.insert(pos, account);
+        return Insert(pos);
     }
 }
