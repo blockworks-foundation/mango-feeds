@@ -1,10 +1,12 @@
 use solana_sdk::clock::Slot;
 use std::str::FromStr;
+use log::info;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };
+use crate::chain_data::WhatToDo::*;
 
 use crate::metrics::*;
 
@@ -164,12 +166,19 @@ impl ChainData {
         use std::collections::hash_map::Entry;
         match self.accounts.entry(pubkey) {
             Entry::Vacant(v) => {
+                println!("update_account_vacant: slot={}, write_version={}", account.slot, account.write_version);
                 self.account_versions_stored += 1;
                 self.account_bytes_stored += account.account.data().len();
                 v.insert(vec![account]);
             }
             Entry::Occupied(o) => {
+                println!("update_account_occupied: slot={}, write_version={}", account.slot, account.write_version);
                 let v = o.into_mut();
+
+                for el in v.iter() {
+                    println!("> el.slot={}, el.write_version={}", el.slot, el.write_version);
+                }
+
                 // v is ordered by slot ascending. find the right position
                 // overwrite if an entry for the slot already exists, otherwise insert
                 let rev_pos = v
@@ -177,12 +186,15 @@ impl ChainData {
                     .rev()
                     .position(|d| d.slot <= account.slot)
                     .unwrap_or(v.len());
+                println!("rev_pos={}", rev_pos);
                 let pos = v.len() - rev_pos;
                 if pos < v.len() && v[pos].slot == account.slot {
+                    println!("now check write version {} <= {}", v[pos].write_version, account.write_version);
                     if v[pos].write_version <= account.write_version {
                         v[pos] = account;
                     }
                 } else {
+                    println!("insert it");
                     self.account_versions_stored += 1;
                     self.account_bytes_stored += account.account.data().len();
                     v.insert(pos, account);
@@ -456,7 +468,6 @@ pub fn test_must_not_overwrite_with_older_by_slot() {
 }
 
 #[test]
-#[ignore]
 pub fn test_overwrite_with_older_by_write_version() {
     const SLOT: Slot = 42_000_000;
 
@@ -500,4 +511,58 @@ pub fn test_overwrite_with_older_by_write_version() {
         300,
         "should not overwrite if write_version is older"
     );
+}
+
+enum WhatToDo {
+    Overwrite(usize),
+    Insert,
+    DoNothing,
+}
+
+
+#[test]
+fn asdf() {
+    let mut v = vec![
+        AccountData {
+            slot: 1,
+            write_version: 1,
+            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+        },
+        AccountData {
+            slot: 2,
+            write_version: 1,
+            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+        },
+        AccountData {
+            slot: 3,
+            write_version: 1,
+            account: AccountSharedData::new(1, 1, &Pubkey::new_unique()),
+        },
+    ];
+
+    the_logic(&mut v, 2, 1);
+
+}
+
+fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
+    let rev_pos = v
+        .iter()
+        .rev()
+        .position(|d| d.slot <= update_slot)
+        .unwrap_or(v.len());
+    println!("rev_pos={}", rev_pos);
+    let pos = v.len() - rev_pos;
+    if pos < v.len() && v[pos].slot == update_slot {
+        println!("now check write version {} <= {}", v[pos].write_version, update_write_version);
+        if v[pos].write_version <= update_write_version {
+            // v[pos] = account;
+            return Overwrite(pos);
+        } else {
+            return DoNothing;
+        }
+    } else {
+        println!("insert it");
+        // self.accoxpos, account);
+        return Insert;
+    }
 }
