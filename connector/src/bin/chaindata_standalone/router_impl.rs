@@ -2,8 +2,8 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::time::{Duration, Instant};
 use log::{info, warn};
 use solana_sdk::pubkey::Pubkey;
-use mango_feeds_connector::{AccountWrite, chain_data, SlotUpdate};
-use mango_feeds_connector::chain_data::{ChainData, SlotData};
+use mango_feeds_connector::{AccountWrite, SlotUpdate};
+use mango_feeds_connector::chain_data::{ChainData};
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 
@@ -11,7 +11,7 @@ pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
 
 // from router project
-fn start_chaindata_updating(
+pub fn start_chaindata_updating(
     chain_data: ChainDataArcRw,
     account_writes: async_channel::Receiver<AccountWrite>,
     slot_updates: async_channel::Receiver<SlotUpdate>,
