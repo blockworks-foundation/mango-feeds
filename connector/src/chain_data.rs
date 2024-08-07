@@ -410,3 +410,90 @@ pub fn test_move_slot_to_finalized() {
     assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
 
 }
+
+
+#[test]
+pub fn test_must_not_overwrite_with_older_by_slot() {
+    const SLOT: Slot = 42_000_000;
+    const SOME_LAMPORTS: u64 = 300;
+
+    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+    let my_account = Pubkey::new_unique();
+    let mut chain_data = ChainData::new();
+
+    chain_data.update_slot(SlotData {
+        slot: SLOT - 2,
+        parent: None,
+        status: SlotStatus::Rooted, // =finalized
+        chain: 0,
+    });
+
+    chain_data.update_account(
+        my_account,
+        AccountData {
+            slot: SLOT - 2,
+            write_version: 2000,
+            account: AccountSharedData::new(300, 100/*space*/, &owner),
+        }
+    );
+
+    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
+    assert_eq!(chain_data.account(&my_account).unwrap().account.lamports(), 300);
+
+    // WHEN: update with older data according to slot
+    chain_data.update_account(
+        my_account,
+        AccountData {
+            slot: SLOT - 20,
+            write_version: 2000,
+            account: AccountSharedData::new(350, 100/*space*/, &owner),
+        }
+    );
+    // THEN: should not overwrite
+    assert_eq!(chain_data.account(&my_account).unwrap().account.lamports(), 300,
+               "should not overwrite if slot is older");
+
+}
+
+
+#[test]
+pub fn test_overwrite_with_older_by_write_version() {
+    const SLOT: Slot = 42_000_000;
+    const SOME_LAMPORTS: u64 = 300;
+
+    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+    let my_account = Pubkey::new_unique();
+    let mut chain_data = ChainData::new();
+
+    chain_data.update_slot(SlotData {
+        slot: SLOT - 2,
+        parent: None,
+        status: SlotStatus::Rooted, // =finalized
+        chain: 0,
+    });
+
+    chain_data.update_account(
+        my_account,
+        AccountData {
+            slot: SLOT - 2,
+            write_version: 2000,
+            account: AccountSharedData::new(300, 100/*space*/, &owner),
+        }
+    );
+
+    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
+    assert_eq!(chain_data.account(&my_account).unwrap().account.lamports(), 300);
+
+    // WHEN: update with older data according to write_version
+    chain_data.update_account(
+        my_account,
+        AccountData {
+            slot: SLOT - 2,
+            write_version: 1980,
+            account: AccountSharedData::new(400, 100/*space*/, &owner),
+        }
+    );
+    assert_eq!(chain_data.account(&my_account).unwrap().account.lamports(), 300,
+               "should not overwrite if write_version is older");
+
+}
