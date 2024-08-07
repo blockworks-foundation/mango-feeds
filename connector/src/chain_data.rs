@@ -555,6 +555,19 @@ fn magic_insert_hole() {
 
 
 #[test]
+fn magic_min_max() {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    let mut v = given_v1235(fake_account_data);
+
+    assert_eq!(the_logic(&mut v, 0, 1000), Insert(0)); // OK
+    assert_eq!(the_logic(&mut v, 99, 1000), Insert(4));
+
+}
+
+
+#[test]
 fn magic_append() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
@@ -592,6 +605,8 @@ fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
 }
 
 fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
     let rev_pos = v
         .iter()
         .rev()
