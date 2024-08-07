@@ -516,7 +516,8 @@ pub fn test_overwrite_with_older_by_write_version() {
 #[derive(Debug, PartialEq)]
 enum WhatToDo {
     Overwrite(usize),
-    Insert(usize), // insert at position; move all elements to the right
+    Prepend,
+    InsertAfter(usize),
     DoNothing,
 }
 
@@ -552,7 +553,7 @@ fn magic_insert_hole() {
     // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 40, 10040), Insert(3));
+    assert_eq!(the_logic(&mut v, 40, 10040), InsertAfter(2));
 
 }
 
@@ -566,7 +567,7 @@ fn magic_insert_left() {
     let mut v = given_v1235(fake_account_data);
 
     // insert before first slot (10)
-    assert_eq!(the_logic(&mut v, 5, 500), Insert(0)); // OK
+    assert_eq!(the_logic(&mut v, 5, 500), Prepend); // OK
 
 }
 
@@ -579,7 +580,7 @@ fn magic_append() {
     // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 90, 50000), Insert(4));
+    assert_eq!(the_logic(&mut v, 90, 50000), InsertAfter(3));
 
 }
 
@@ -613,27 +614,27 @@ fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
 fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
-    let rev_pos = v
+    let pos = v
         .iter()
         .rev()
-        .position(|d| d.slot <= update_slot);
+        .position(|d| d.slot <= update_slot)
+        .map(|rev_pos| v.len() - 1 - rev_pos);
 
-    match rev_pos {
-        Some(rev_pos) => {
-            let pos = v.len() - rev_pos - 1;
+    match pos {
+        Some(pos) => {
             if v[pos].slot == update_slot {
                 if v[pos].write_version <= update_write_version {
-                    return Overwrite(pos);
+                    Overwrite(pos)
                 } else {
-                    return DoNothing;
+                    DoNothing
                 }
             } else {
                 assert!(v[pos].slot < update_slot);
-                return Insert(pos + 1);
+                InsertAfter(pos)
             }
         }
         None => {
-            return Insert(0);
+            Prepend
         }
     }
 }
@@ -660,6 +661,6 @@ fn the_logic_original(v: &mut Vec<AccountData>, update_slot: Slot, update_write_
     } else {
         println!("insert it");
         // v.insert(pos, account);
-        return Insert(pos);
+        return InsertAfter(pos);
     }
 }
