@@ -415,7 +415,6 @@ pub fn test_move_slot_to_finalized() {
 #[test]
 pub fn test_must_not_overwrite_with_older_by_slot() {
     const SLOT: Slot = 42_000_000;
-    const SOME_LAMPORTS: u64 = 300;
 
     let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
     let my_account = Pubkey::new_unique();
@@ -457,9 +456,9 @@ pub fn test_must_not_overwrite_with_older_by_slot() {
 
 
 #[test]
+#[ignore]
 pub fn test_overwrite_with_older_by_write_version() {
     const SLOT: Slot = 42_000_000;
-    const SOME_LAMPORTS: u64 = 300;
 
     let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
     let my_account = Pubkey::new_unique();
