@@ -356,7 +356,7 @@ impl ChainDataMetrics {
 
 
 #[test]
-pub fn test_overwrite() {
+pub fn test_move_slot_to_finalized() {
     const SLOT: Slot = 42_000_000;
     const SOME_LAMPORTS: u64 = 99000;
 
