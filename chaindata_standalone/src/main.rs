@@ -3,7 +3,6 @@ use std::thread::sleep;
 use log::info;
 
 use tokio::sync::broadcast;
-use warp::header::value;
 
 use mango_feeds_connector::chain_data::ChainData;
 use mango_feeds_connector::{AccountWrite, SlotUpdate};

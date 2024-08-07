@@ -1,0 +1,25 @@
+[package]
+name = "chaindata_standalone"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+
+
+log = { workspace = true }
+anyhow = { workspace = true }
+
+itertools = { workspace = true }
+futures = { workspace = true }
+
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+
+mango-feeds-connector = { path = "../connector" }
+
+solana-sdk = { workspace = true }

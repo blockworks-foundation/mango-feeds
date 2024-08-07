@@ -1,6 +1,7 @@
 [workspace]
 members = [
         "connector",
+        "chaindata_standalone"
 ]
 resolver = "2"
 
