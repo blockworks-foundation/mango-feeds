@@ -616,6 +616,35 @@ fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: 
     let rev_pos = v
         .iter()
         .rev()
+        .position(|d| d.slot <= update_slot);
+
+    match rev_pos {
+        Some(rev_pos) => {
+            let pos = v.len() - rev_pos - 1;
+            if v[pos].slot == update_slot {
+                if v[pos].write_version <= update_write_version {
+                    return Overwrite(pos);
+                } else {
+                    return DoNothing;
+                }
+            } else {
+                assert!(v[pos].slot < update_slot);
+                return Insert(pos + 1);
+            }
+        }
+        None => {
+            return Insert(0);
+        }
+    }
+}
+
+
+fn the_logic_original(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let rev_pos = v
+        .iter()
+        .rev()
         .position(|d| d.slot <= update_slot)
         .unwrap_or(v.len());
     println!("rev_pos={}", rev_pos);
