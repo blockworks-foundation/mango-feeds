@@ -1,3 +1,6 @@
+use std::str::FromStr;
+use itertools::chain;
+use solana_sdk::clock::Slot;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -18,7 +21,9 @@ pub struct SlotData {
     pub slot: u64,
     pub parent: Option<u64>,
     pub status: SlotStatus,
-    pub chain: u64, // the top slot that this is in a chain with. uncles will have values < tip
+    // the top slot that this is in a chain with. uncles will have values < tip
+    // this field gets progressively rewritten as new successor slots are added
+    pub chain: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -347,4 +352,61 @@ impl ChainDataMetrics {
             }
         });
     }
+}
+
+
+#[test]
+pub fn test_overwrite() {
+    const SLOT: Slot = 42_000_000;
+    const SOME_LAMPORTS: u64 = 99000;
+
+    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+    let my_account = Pubkey::new_unique();
+    let mut chain_data = ChainData::new();
+
+    chain_data.update_account(
+        my_account,
+        AccountData {
+            slot: SLOT,
+            write_version: 2000,
+            account: AccountSharedData::new(SOME_LAMPORTS, 100/*space*/, &owner),
+        }
+    );
+
+    // note: this is initial state
+    assert_eq!(chain_data.newest_rooted_slot(), 0);
+
+    // assume no rooted slot yet
+    assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
+
+    chain_data.update_slot(SlotData {
+        slot: SLOT,
+        parent: None,
+        status: SlotStatus::Processed,
+        chain: 0,
+    });
+
+    assert_eq!(chain_data.newest_rooted_slot(), 0);
+
+    chain_data.update_slot(SlotData {
+        slot: SLOT - 2,
+        parent: None,
+        status: SlotStatus::Rooted, // =finalized
+        chain: 0,
+    });
+
+    assert_eq!(chain_data.newest_rooted_slot(), SLOT - 2);
+
+    assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
+
+    // GIVEN: finalized slot SLOT
+    chain_data.update_slot(SlotData {
+        slot: SLOT,
+        parent: None,
+        status: SlotStatus::Rooted, // =finalized
+        chain: 0,
+    });
+
+    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
+
 }
