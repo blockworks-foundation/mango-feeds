@@ -528,7 +528,7 @@ fn magic_overwrite_newer_write_version() {
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 2, 1001), Overwrite(1));
+    assert_eq!(the_logic(&mut v, 20, 1001), Overwrite(1));
 }
 
 #[test]
@@ -538,7 +538,7 @@ fn magic_overwrite_older_write_version() {
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 2, 999), DoNothing);
+    assert_eq!(the_logic(&mut v, 20, 999), DoNothing);
 }
 
 
@@ -549,20 +549,20 @@ fn magic_insert_hole() {
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 4, 1000), Insert(3));
+    assert_eq!(the_logic(&mut v, 40, 1000), Insert(3));
 
 }
 
 
 #[test]
-fn magic_min_max() {
+fn magic_insert_left() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 0, 1000), Insert(0)); // OK
-    assert_eq!(the_logic(&mut v, 99, 1000), Insert(4));
+    // insert before first slot (10)
+    assert_eq!(the_logic(&mut v, 5, 1000), Insert(0)); // OK
 
 }
 
@@ -574,30 +574,30 @@ fn magic_append() {
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 7, 1000), Insert(4));
+    assert_eq!(the_logic(&mut v, 90, 1000), Insert(4));
 
 }
 
 fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
     vec![
         AccountData {
-            slot: 1,
+            slot: 10,
             write_version: 1000,
             account: fake_account_data.clone(),
         },
         AccountData {
-            slot: 2,
+            slot: 20,
             write_version: 1000,
             account: fake_account_data.clone(),
         },
         AccountData {
-            slot: 3,
+            slot: 30,
             write_version: 1000,
             account: fake_account_data.clone(),
         },
-        // no 4
+        // no 40
         AccountData {
-            slot: 5,
+            slot: 50,
             write_version: 1000,
             account: fake_account_data.clone(),
         },
