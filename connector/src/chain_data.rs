@@ -526,9 +526,10 @@ fn magic_overwrite_newer_write_version() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 20, 1001), Overwrite(1));
+    assert_eq!(the_logic(&mut v, 20, 20000), Overwrite(1));
 }
 
 #[test]
@@ -536,6 +537,7 @@ fn magic_overwrite_older_write_version() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
     assert_eq!(the_logic(&mut v, 20, 999), DoNothing);
@@ -547,9 +549,10 @@ fn magic_insert_hole() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 40, 1000), Insert(3));
+    assert_eq!(the_logic(&mut v, 40, 10040), Insert(3));
 
 }
 
@@ -559,10 +562,11 @@ fn magic_insert_left() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
     // insert before first slot (10)
-    assert_eq!(the_logic(&mut v, 5, 1000), Insert(0)); // OK
+    assert_eq!(the_logic(&mut v, 5, 500), Insert(0)); // OK
 
 }
 
@@ -572,33 +576,35 @@ fn magic_append() {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+    // 10 - 20 - 30 - 50
     let mut v = given_v1235(fake_account_data);
 
-    assert_eq!(the_logic(&mut v, 90, 1000), Insert(4));
+    assert_eq!(the_logic(&mut v, 90, 50000), Insert(4));
 
 }
 
+// 10 - 20 - 30 - 50
 fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
     vec![
         AccountData {
             slot: 10,
-            write_version: 1000,
+            write_version: 10010,
             account: fake_account_data.clone(),
         },
         AccountData {
             slot: 20,
-            write_version: 1000,
+            write_version: 10020,
             account: fake_account_data.clone(),
         },
         AccountData {
             slot: 30,
-            write_version: 1000,
+            write_version: 10030,
             account: fake_account_data.clone(),
         },
         // no 40
         AccountData {
             slot: 50,
-            write_version: 1000,
+            write_version: 10050,
             account: fake_account_data.clone(),
         },
     ]
