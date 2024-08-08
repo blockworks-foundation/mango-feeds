@@ -177,39 +177,32 @@ impl ChainData {
         use std::collections::hash_map::Entry;
         match self.accounts.entry(pubkey) {
             Entry::Vacant(v) => {
-                // println!("update_account_vacant: slot={}, write_version={}", account.slot, account.write_version);
                 self.account_versions_stored += 1;
                 self.account_bytes_stored += account.account.data().len();
-                v.insert(vec![account]);
+                v.insert(vec![account]); // capacity = 1
             }
             Entry::Occupied(o) => {
-                // println!("update_account_occupied: slot={}, write_version={}", account.slot, account.write_version);
+                let v_effect = update_slot_vector_logic(o.get(), account.slot, account.write_version);
+
                 let v = o.into_mut();
 
-                // for el in v.iter() {
-                //     println!("> el.slot={}, el.write_version={}", el.slot, el.write_version);
-                // }
-
-                // v is ordered by slot ascending. find the right position
-                // overwrite if an entry for the slot already exists, otherwise insert
-                let rev_pos = v
-                    .iter()
-                    .rev()
-                    .position(|d| d.slot <= account.slot)
-                    .unwrap_or(v.len());
-                // println!("rev_pos={}", rev_pos);
-                let pos = v.len() - rev_pos;
-                if pos < v.len() && v[pos].slot == account.slot {
-                    // println!("now check write version {} <= {}", v[pos].write_version, account.write_version);
-                    if v[pos].write_version <= account.write_version {
+                match v_effect {
+                    Overwrite(pos) => {
                         v[pos] = account;
                     }
-                } else {
-                    // println!("insert it");
-                    self.account_versions_stored += 1;
-                    self.account_bytes_stored += account.account.data().len();
-                    v.insert(pos, account);
+                    Prepend => {
+                        self.account_versions_stored += 1;
+                        self.account_bytes_stored += account.account.data().len();
+                        v.insert(0, account);
+                    }
+                    InsertAfter(pos) => {
+                        self.account_versions_stored += 1;
+                        self.account_bytes_stored += account.account.data().len();
+                        v.insert(pos, account);
+                    }
+                    DoNothing => {}
                 }
+
             }
         };
     }
@@ -328,6 +321,45 @@ impl ChainData {
     }
 }
 
+
+#[derive(Debug, PartialEq)]
+pub enum WhatToDo {
+    Overwrite(usize),
+    Prepend,
+    InsertAfter(usize),
+    DoNothing,
+}
+
+
+pub fn update_slot_vector_logic(v: &Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
+    // v is ordered by slot ascending. find the right position
+    // overwrite if an entry for the slot already exists, otherwise insert
+    let pos = v
+        .iter()
+        .rev()
+        .position(|d| d.slot <= update_slot)
+        .map(|rev_pos| v.len() - 1 - rev_pos);
+
+    match pos {
+        Some(pos) => {
+            if v[pos].slot == update_slot {
+                if v[pos].write_version <= update_write_version {
+                    // note: applies last-wins-strategy if write_version is equal
+                    Overwrite(pos)
+                } else {
+                    DoNothing
+                }
+            } else {
+                assert!(v[pos].slot < update_slot);
+                InsertAfter(pos)
+            }
+        }
+        None => {
+            Prepend
+        }
+    }
+}
+
 pub struct ChainDataMetrics {
     slots_stored: MetricU64,
     accounts_stored: MetricU64,
@@ -376,303 +408,247 @@ impl ChainDataMetrics {
     }
 }
 
-#[test]
-pub fn test_move_slot_to_finalized() {
-    const SLOT: Slot = 42_000_000;
-    const SOME_LAMPORTS: u64 = 99000;
 
-    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
-    let my_account = Pubkey::new_unique();
-    let mut chain_data = ChainData::new();
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+    use solana_sdk::account::{AccountSharedData, ReadableAccount};
+    use solana_sdk::clock::Slot;
+    use solana_sdk::pubkey::Pubkey;
+    use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus, update_slot_vector_logic};
+    use crate::chain_data::WhatToDo::*;
 
-    chain_data.update_account(
-        my_account,
-        AccountData {
+    #[test]
+    pub fn test_move_slot_to_finalized() {
+        const SLOT: Slot = 42_000_000;
+        const SOME_LAMPORTS: u64 = 99000;
+
+        let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+        let my_account = Pubkey::new_unique();
+        let mut chain_data = ChainData::new();
+
+        chain_data.update_account(
+            my_account,
+            AccountData {
+                slot: SLOT,
+                write_version: 2000,
+                account: AccountSharedData::new(SOME_LAMPORTS, 100 /*space*/, &owner),
+            },
+        );
+
+        // note: this is initial state
+        assert_eq!(chain_data.newest_rooted_slot(), 0);
+
+        // assume no rooted slot yet
+        assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
+
+        chain_data.update_slot(SlotData {
             slot: SLOT,
-            write_version: 2000,
-            account: AccountSharedData::new(SOME_LAMPORTS, 100 /*space*/, &owner),
-        },
-    );
+            parent: None,
+            status: SlotStatus::Processed,
+            chain: 0,
+        });
 
-    // note: this is initial state
-    assert_eq!(chain_data.newest_rooted_slot(), 0);
+        assert_eq!(chain_data.newest_rooted_slot(), 0);
 
-    // assume no rooted slot yet
-    assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
-
-    chain_data.update_slot(SlotData {
-        slot: SLOT,
-        parent: None,
-        status: SlotStatus::Processed,
-        chain: 0,
-    });
-
-    assert_eq!(chain_data.newest_rooted_slot(), 0);
-
-    chain_data.update_slot(SlotData {
-        slot: SLOT - 2,
-        parent: None,
-        status: SlotStatus::Rooted, // =finalized
-        chain: 0,
-    });
-
-    assert_eq!(chain_data.newest_rooted_slot(), SLOT - 2);
-
-    assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
-
-    // GIVEN: finalized slot SLOT
-    chain_data.update_slot(SlotData {
-        slot: SLOT,
-        parent: None,
-        status: SlotStatus::Rooted, // =finalized
-        chain: 0,
-    });
-
-    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
-}
-
-#[test]
-pub fn test_must_not_overwrite_with_older_by_slot() {
-    const SLOT: Slot = 42_000_000;
-
-    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
-    let my_account = Pubkey::new_unique();
-    let mut chain_data = ChainData::new();
-
-    chain_data.update_slot(SlotData {
-        slot: SLOT - 2,
-        parent: None,
-        status: SlotStatus::Rooted, // =finalized
-        chain: 0,
-    });
-
-    chain_data.update_account(
-        my_account,
-        AccountData {
+        chain_data.update_slot(SlotData {
             slot: SLOT - 2,
-            write_version: 2000,
-            account: AccountSharedData::new(300, 100 /*space*/, &owner),
-        },
-    );
+            parent: None,
+            status: SlotStatus::Rooted, // =finalized
+            chain: 0,
+        });
 
-    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
-    assert_eq!(
-        chain_data.account(&my_account).unwrap().account.lamports(),
-        300
-    );
+        assert_eq!(chain_data.newest_rooted_slot(), SLOT - 2);
 
-    // WHEN: update with older data according to slot
-    chain_data.update_account(
-        my_account,
-        AccountData {
-            slot: SLOT - 20,
-            write_version: 2000,
-            account: AccountSharedData::new(350, 100 /*space*/, &owner),
-        },
-    );
-    // THEN: should not overwrite
-    assert_eq!(
-        chain_data.account(&my_account).unwrap().account.lamports(),
-        300,
-        "should not overwrite if slot is older"
-    );
-}
+        assert_eq!(chain_data.iter_accounts_rooted().count(), 0);
 
-#[test]
-pub fn test_overwrite_with_older_by_write_version() {
-    const SLOT: Slot = 42_000_000;
+        // GIVEN: finalized slot SLOT
+        chain_data.update_slot(SlotData {
+            slot: SLOT,
+            parent: None,
+            status: SlotStatus::Rooted, // =finalized
+            chain: 0,
+        });
 
-    let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
-    let my_account = Pubkey::new_unique();
-    let mut chain_data = ChainData::new();
-
-    chain_data.update_slot(SlotData {
-        slot: SLOT - 2,
-        parent: None,
-        status: SlotStatus::Rooted, // =finalized
-        chain: 0,
-    });
-
-    chain_data.update_account(
-        my_account,
-        AccountData {
-            slot: SLOT - 2,
-            write_version: 2000,
-            account: AccountSharedData::new(300, 100 /*space*/, &owner),
-        },
-    );
-
-    assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
-    assert_eq!(
-        chain_data.account(&my_account).unwrap().account.lamports(),
-        300
-    );
-
-    // WHEN: update with older data according to write_version
-    chain_data.update_account(
-        my_account,
-        AccountData {
-            slot: SLOT - 2,
-            write_version: 1980,
-            account: AccountSharedData::new(400, 100 /*space*/, &owner),
-        },
-    );
-    assert_eq!(
-        chain_data.account(&my_account).unwrap().account.lamports(),
-        300,
-        "should not overwrite if write_version is older"
-    );
-}
-
-#[derive(Debug, PartialEq)]
-enum WhatToDo {
-    Overwrite(usize),
-    Prepend,
-    InsertAfter(usize),
-    DoNothing,
-}
-
-
-#[test]
-fn magic_overwrite_newer_write_version() {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
-    // 10 - 20 - 30 - 50
-    let mut v = given_v1235(fake_account_data);
-
-    assert_eq!(the_logic(&mut v, 20, 20000), Overwrite(1));
-}
-
-#[test]
-fn magic_overwrite_older_write_version() {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
-    // 10 - 20 - 30 - 50
-    let mut v = given_v1235(fake_account_data);
-
-    assert_eq!(the_logic(&mut v, 20, 999), DoNothing);
-}
-
-
-#[test]
-fn magic_insert_hole() {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
-    // 10 - 20 - 30 - 50
-    let mut v = given_v1235(fake_account_data);
-
-    assert_eq!(the_logic(&mut v, 40, 10040), InsertAfter(2));
-
-}
-
-
-#[test]
-fn magic_insert_left() {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
-    // 10 - 20 - 30 - 50
-    let mut v = given_v1235(fake_account_data);
-
-    // insert before first slot (10)
-    assert_eq!(the_logic(&mut v, 5, 500), Prepend); // OK
-
-}
-
-
-#[test]
-fn magic_append() {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
-    // 10 - 20 - 30 - 50
-    let mut v = given_v1235(fake_account_data);
-
-    assert_eq!(the_logic(&mut v, 90, 50000), InsertAfter(3));
-
-}
-
-// 10 - 20 - 30 - 50
-fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
-    vec![
-        AccountData {
-            slot: 10,
-            write_version: 10010,
-            account: fake_account_data.clone(),
-        },
-        AccountData {
-            slot: 20,
-            write_version: 10020,
-            account: fake_account_data.clone(),
-        },
-        AccountData {
-            slot: 30,
-            write_version: 10030,
-            account: fake_account_data.clone(),
-        },
-        // no 40
-        AccountData {
-            slot: 50,
-            write_version: 10050,
-            account: fake_account_data.clone(),
-        },
-    ]
-}
-
-fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let pos = v
-        .iter()
-        .rev()
-        .position(|d| d.slot <= update_slot)
-        .map(|rev_pos| v.len() - 1 - rev_pos);
-
-    match pos {
-        Some(pos) => {
-            if v[pos].slot == update_slot {
-                if v[pos].write_version <= update_write_version {
-                    // note: applies last-wins-strategy if write_version is equal
-                    Overwrite(pos)
-                } else {
-                    DoNothing
-                }
-            } else {
-                assert!(v[pos].slot < update_slot);
-                InsertAfter(pos)
-            }
-        }
-        None => {
-            Prepend
-        }
+        assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
     }
-}
+
+    #[test]
+    pub fn test_must_not_overwrite_with_older_by_slot() {
+        const SLOT: Slot = 42_000_000;
+
+        let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+        let my_account = Pubkey::new_unique();
+        let mut chain_data = ChainData::new();
+
+        chain_data.update_slot(SlotData {
+            slot: SLOT - 2,
+            parent: None,
+            status: SlotStatus::Rooted, // =finalized
+            chain: 0,
+        });
+
+        chain_data.update_account(
+            my_account,
+            AccountData {
+                slot: SLOT - 2,
+                write_version: 2000,
+                account: AccountSharedData::new(300, 100 /*space*/, &owner),
+            },
+        );
+
+        assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
+        assert_eq!(
+            chain_data.account(&my_account).unwrap().account.lamports(),
+            300
+        );
+
+        // WHEN: update with older data according to slot
+        chain_data.update_account(
+            my_account,
+            AccountData {
+                slot: SLOT - 20,
+                write_version: 2000,
+                account: AccountSharedData::new(350, 100 /*space*/, &owner),
+            },
+        );
+        // THEN: should not overwrite
+        assert_eq!(
+            chain_data.account(&my_account).unwrap().account.lamports(),
+            300,
+            "should not overwrite if slot is older"
+        );
+    }
+
+    #[test]
+    pub fn test_overwrite_with_older_by_write_version() {
+        const SLOT: Slot = 42_000_000;
+
+        let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
+        let my_account = Pubkey::new_unique();
+        let mut chain_data = ChainData::new();
+
+        chain_data.update_slot(SlotData {
+            slot: SLOT - 2,
+            parent: None,
+            status: SlotStatus::Rooted, // =finalized
+            chain: 0,
+        });
+
+        chain_data.update_account(
+            my_account,
+            AccountData {
+                slot: SLOT - 2,
+                write_version: 2000,
+                account: AccountSharedData::new(300, 100 /*space*/, &owner),
+            },
+        );
+
+        assert_eq!(chain_data.iter_accounts_rooted().count(), 1);
+        assert_eq!(
+            chain_data.account(&my_account).unwrap().account.lamports(),
+            300
+        );
+
+        // WHEN: update with older data according to write_version
+        chain_data.update_account(
+            my_account,
+            AccountData {
+                slot: SLOT - 2,
+                write_version: 1980,
+                account: AccountSharedData::new(400, 100 /*space*/, &owner),
+            },
+        );
+        assert_eq!(
+            chain_data.account(&my_account).unwrap().account.lamports(),
+            300,
+            "should not overwrite if write_version is older"
+        );
+    }
+
+    #[test]
+    fn magic_overwrite_newer_write_version() {
+        // v is ordered by slot ascending. find the right position
+        // overwrite if an entry for the slot already exists, otherwise insert
+        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        // 10 - 20 - 30 - 50
+        let mut v = given_v1235(fake_account_data);
+
+        assert_eq!(update_slot_vector_logic(&mut v, 20, 20000), Overwrite(1));
+    }
+
+    #[test]
+    fn magic_overwrite_older_write_version() {
+        // v is ordered by slot ascending. find the right position
+        // overwrite if an entry for the slot already exists, otherwise insert
+        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        // 10 - 20 - 30 - 50
+        let mut v = given_v1235(fake_account_data);
+
+        assert_eq!(update_slot_vector_logic(&mut v, 20, 999), DoNothing);
+    }
 
 
-fn the_logic_original(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
-    // v is ordered by slot ascending. find the right position
-    // overwrite if an entry for the slot already exists, otherwise insert
-    let rev_pos = v
-        .iter()
-        .rev()
-        .position(|d| d.slot <= update_slot)
-        .unwrap_or(v.len());
-    println!("rev_pos={}", rev_pos);
-    let pos = v.len() - rev_pos;
-    if pos < v.len() && v[pos].slot == update_slot {
-        println!("now check write version {} <= {}", v[pos].write_version, update_write_version);
-        if v[pos].write_version <= update_write_version {
-            // v[pos] = account;
-            return Overwrite(pos);
-        } else {
-            return DoNothing;
-        }
-    } else {
-        println!("insert it");
-        // v.insert(pos, account);
-        return InsertAfter(pos);
+    #[test]
+    fn magic_insert_hole() {
+        // v is ordered by slot ascending. find the right position
+        // overwrite if an entry for the slot already exists, otherwise insert
+        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        // 10 - 20 - 30 - 50
+        let mut v = given_v1235(fake_account_data);
+
+        assert_eq!(update_slot_vector_logic(&mut v, 40, 10040), InsertAfter(2));
+    }
+
+
+    #[test]
+    fn magic_insert_left() {
+        // v is ordered by slot ascending. find the right position
+        // overwrite if an entry for the slot already exists, otherwise insert
+        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        // 10 - 20 - 30 - 50
+        let mut v = given_v1235(fake_account_data);
+
+        // insert before first slot (10)
+        assert_eq!(update_slot_vector_logic(&mut v, 5, 500), Prepend); // OK
+    }
+
+
+    #[test]
+    fn magic_append() {
+        // v is ordered by slot ascending. find the right position
+        // overwrite if an entry for the slot already exists, otherwise insert
+        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        // 10 - 20 - 30 - 50
+        let mut v = given_v1235(fake_account_data);
+
+        assert_eq!(update_slot_vector_logic(&mut v, 90, 50000), InsertAfter(3));
+    }
+
+    // 10 - 20 - 30 - 50
+    fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
+        vec![
+            AccountData {
+                slot: 10,
+                write_version: 10010,
+                account: fake_account_data.clone(),
+            },
+            AccountData {
+                slot: 20,
+                write_version: 10020,
+                account: fake_account_data.clone(),
+            },
+            AccountData {
+                slot: 30,
+                write_version: 10030,
+                account: fake_account_data.clone(),
+            },
+            // no 40
+            AccountData {
+                slot: 50,
+                write_version: 10050,
+                account: fake_account_data.clone(),
+            },
+        ]
     }
 }
