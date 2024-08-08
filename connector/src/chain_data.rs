@@ -1,6 +1,6 @@
 use solana_sdk::clock::Slot;
 use std::str::FromStr;
-use log::info;
+use log::{info, warn};
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -167,6 +167,13 @@ impl ChainData {
     }
 
     pub fn update_account(&mut self, pubkey: Pubkey, account: AccountData) {
+        if account.write_version == 0 {
+            // some upstream components provide write_version=0 for snapshot accounts from gMA/gPA
+            // this defies the intended effect that the snapshot account data should overwrite data from grpc, etc.
+            // would recommend to provide a very high write_version instead
+            warn!("account {} has write_version 0 - not recommended", pubkey);
+        }
+
         use std::collections::hash_map::Entry;
         match self.accounts.entry(pubkey) {
             Entry::Vacant(v) => {
