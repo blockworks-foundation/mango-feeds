@@ -1,7 +1,6 @@
 use crate::chain_data::SlotVectorEffect::*;
-use log::{info, warn};
+use log::warn;
 use solana_sdk::clock::Slot;
-use std::str::FromStr;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -183,7 +182,7 @@ impl ChainData {
             }
             Entry::Occupied(o) => {
                 let v_effect =
-                    update_slot_vector_logic(o.get(), account.slot, account.write_version);
+                    update_slotvec_logic(o.get(), account.slot, account.write_version);
 
                 let v = o.into_mut();
 
@@ -329,7 +328,7 @@ pub enum SlotVectorEffect {
     DoNothing,
 }
 
-pub fn update_slot_vector_logic(
+pub fn update_slotvec_logic(
     v: &Vec<AccountData>,
     update_slot: Slot,
     update_write_version: u64,
@@ -410,7 +409,7 @@ impl ChainDataMetrics {
 
 #[cfg(test)]
 mod tests {
-    use crate::chain_data::{update_slot_vector_logic, SlotVectorEffect::*};
+    use crate::chain_data::{update_slotvec_logic, SlotVectorEffect::*};
     use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
@@ -566,84 +565,85 @@ mod tests {
     }
 
     #[test]
-    fn magic_overwrite_newer_write_version() {
+    fn slotvec_overwrite_newer_write_version() {
         // v is ordered by slot ascending. find the right position
         // overwrite if an entry for the slot already exists, otherwise insert
-        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(fake_account_data);
+        let mut v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slot_vector_logic(&mut v, 20, 20000), Overwrite(1));
+        assert_eq!(update_slotvec_logic(&mut v, 20, 20000), Overwrite(1));
     }
 
     #[test]
-    fn magic_overwrite_older_write_version() {
+    fn slotvec_overwrite_older_write_version() {
         // v is ordered by slot ascending. find the right position
         // overwrite if an entry for the slot already exists, otherwise insert
-        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(fake_account_data);
+        let mut v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slot_vector_logic(&mut v, 20, 999), DoNothing);
+        assert_eq!(update_slotvec_logic(&mut v, 20, 999), DoNothing);
     }
 
     #[test]
-    fn magic_insert_hole() {
+    fn slotvec_insert_hole() {
         // v is ordered by slot ascending. find the right position
         // overwrite if an entry for the slot already exists, otherwise insert
-        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(fake_account_data);
+        let mut v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slot_vector_logic(&mut v, 40, 10040), InsertAfter(2));
+        assert_eq!(update_slotvec_logic(&mut v, 40, 10040), InsertAfter(2));
     }
 
     #[test]
-    fn magic_insert_left() {
+    fn slotvec_insert_left() {
         // v is ordered by slot ascending. find the right position
         // overwrite if an entry for the slot already exists, otherwise insert
-        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(fake_account_data);
+        let mut v = given_v1235(dummy_account_data);
 
         // insert before first slot (10)
-        assert_eq!(update_slot_vector_logic(&mut v, 5, 500), Prepend); // OK
+        assert_eq!(update_slotvec_logic(&mut v, 5, 500), Prepend); // OK
     }
 
+    // this should be the most common case
     #[test]
-    fn magic_append() {
+    fn slotvec_append() {
         // v is ordered by slot ascending. find the right position
         // overwrite if an entry for the slot already exists, otherwise insert
-        let fake_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
+        let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(fake_account_data);
+        let mut v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slot_vector_logic(&mut v, 90, 50000), InsertAfter(3));
+        assert_eq!(update_slotvec_logic(&mut v, 90, 50000), InsertAfter(3));
     }
 
     // 10 - 20 - 30 - 50
-    fn given_v1235(fake_account_data: AccountSharedData) -> Vec<AccountData> {
+    fn given_v1235(dummy_account_data: AccountSharedData) -> Vec<AccountData> {
         vec![
             AccountData {
                 slot: 10,
                 write_version: 10010,
-                account: fake_account_data.clone(),
+                account: dummy_account_data.clone(),
             },
             AccountData {
                 slot: 20,
                 write_version: 10020,
-                account: fake_account_data.clone(),
+                account: dummy_account_data.clone(),
             },
             AccountData {
                 slot: 30,
                 write_version: 10030,
-                account: fake_account_data.clone(),
+                account: dummy_account_data.clone(),
             },
             // no 40
             AccountData {
                 slot: 50,
                 write_version: 10050,
-                account: fake_account_data.clone(),
+                account: dummy_account_data.clone(),
             },
         ]
     }
