@@ -1,6 +1,6 @@
 use crate::chain_data::SlotVectorEffect::*;
-use log::trace;
-use smallvec::{SmallVec, smallvec};
+use log::{info, trace};
+use smallvec::{smallvec, SmallVec};
 use solana_sdk::clock::Slot;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
@@ -184,7 +184,8 @@ impl ChainData {
                 v.insert(smallvec![account]);
             }
             Entry::Occupied(o) => {
-                let v_effect = update_slotvec_logic(o.get().as_slice(), account.slot, account.write_version);
+                let v_effect =
+                    update_slotvec_logic(o.get().as_slice(), account.slot, account.write_version);
 
                 let v = o.into_mut();
 
