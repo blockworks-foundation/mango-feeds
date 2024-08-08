@@ -30,10 +30,14 @@ pub struct SlotData {
 #[derive(Clone, Debug)]
 pub struct AccountData {
     pub slot: u64,
+    /// - caution: write_versions sourced from different Validator Node must not be compared
+    /// - account data from gMA/gPA RPC "snapshot" do not contain write_version
+    /// - from docs: "A single global atomic `AccountsDb::write_version` - tracks the number of commits to the entire data store."
     pub write_version: u64,
     pub account: AccountSharedData,
 }
 
+// caution: this is brittle if data comes from multiple sources
 impl AccountData {
     pub fn is_newer_than(&self, slot: u64, write_version: u64) -> bool {
         (self.slot > slot) || (self.slot == slot && self.write_version > write_version)
@@ -624,6 +628,7 @@ fn the_logic(v: &mut Vec<AccountData>, update_slot: Slot, update_write_version: 
         Some(pos) => {
             if v[pos].slot == update_slot {
                 if v[pos].write_version <= update_write_version {
+                    // note: applies last-wins-strategy if write_version is equal
                     Overwrite(pos)
                 } else {
                     DoNothing
