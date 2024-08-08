@@ -1,5 +1,5 @@
 use crate::chain_data::SlotVectorEffect::*;
-use log::warn;
+use log::trace;
 use solana_sdk::clock::Slot;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
@@ -168,9 +168,10 @@ impl ChainData {
     pub fn update_account(&mut self, pubkey: Pubkey, account: AccountData) {
         if account.write_version == 0 {
             // some upstream components provide write_version=0 for snapshot accounts from gMA/gPA
-            // this defies the intended effect that the snapshot account data should overwrite data from grpc, etc.
+            // this maybe defies the intended effect that the snapshot account data should overwrite data from grpc, etc.
             // would recommend to provide a very high write_version instead
-            warn!("account {} has write_version 0 - not recommended", pubkey);
+            // disclaimer(groovie, 2024/08): this logic is controversial, and I'm flexible to remove this completely
+            trace!("account {} has write_version 0 - not recommended", pubkey);
         }
 
         use std::collections::hash_map::Entry;
@@ -181,8 +182,7 @@ impl ChainData {
                 v.insert(vec![account]); // capacity = 1
             }
             Entry::Occupied(o) => {
-                let v_effect =
-                    update_slotvec_logic(o.get(), account.slot, account.write_version);
+                let v_effect = update_slotvec_logic(o.get(), account.slot, account.write_version);
 
                 let v = o.into_mut();
 
@@ -571,9 +571,9 @@ mod tests {
         // overwrite if an entry for the slot already exists, otherwise insert
         let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(dummy_account_data);
+        let v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slotvec_logic(&mut v, 20, 20000), Overwrite(1));
+        assert_eq!(update_slotvec_logic(&v, 20, 20000), Overwrite(1));
     }
 
     #[test]
@@ -582,9 +582,9 @@ mod tests {
         // overwrite if an entry for the slot already exists, otherwise insert
         let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(dummy_account_data);
+        let v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slotvec_logic(&mut v, 20, 999), DoNothing);
+        assert_eq!(update_slotvec_logic(&v, 20, 999), DoNothing);
     }
 
     #[test]
@@ -593,9 +593,9 @@ mod tests {
         // overwrite if an entry for the slot already exists, otherwise insert
         let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(dummy_account_data);
+        let v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slotvec_logic(&mut v, 40, 10040), InsertAfter(2));
+        assert_eq!(update_slotvec_logic(&v, 40, 10040), InsertAfter(2));
     }
 
     #[test]
@@ -604,10 +604,10 @@ mod tests {
         // overwrite if an entry for the slot already exists, otherwise insert
         let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(dummy_account_data);
+        let v = given_v1235(dummy_account_data);
 
         // insert before first slot (10)
-        assert_eq!(update_slotvec_logic(&mut v, 5, 500), Prepend); // OK
+        assert_eq!(update_slotvec_logic(&v, 5, 500), Prepend); // OK
     }
 
     // this should be the most common case
@@ -617,9 +617,9 @@ mod tests {
         // overwrite if an entry for the slot already exists, otherwise insert
         let dummy_account_data = AccountSharedData::new(99999999, 999999, &Pubkey::new_unique());
         // 10 - 20 - 30 - 50
-        let mut v = given_v1235(dummy_account_data);
+        let v = given_v1235(dummy_account_data);
 
-        assert_eq!(update_slotvec_logic(&mut v, 90, 50000), InsertAfter(3));
+        assert_eq!(update_slotvec_logic(&v, 90, 50000), InsertAfter(3));
     }
 
     // 10 - 20 - 30 - 50
