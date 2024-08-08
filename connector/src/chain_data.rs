@@ -330,7 +330,7 @@ pub enum SlotVectorEffect {
 
 #[inline]
 pub fn update_slotvec_logic(
-    v: &Vec<AccountData>,
+    v: &[AccountData],
     update_slot: Slot,
     update_write_version: u64,
 ) -> SlotVectorEffect {
