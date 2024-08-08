@@ -6,7 +6,7 @@ use {
     solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };
-use crate::chain_data::WhatToDo::*;
+use crate::chain_data::SlotVectorEffect::*;
 
 use crate::metrics::*;
 
@@ -323,7 +323,7 @@ impl ChainData {
 
 
 #[derive(Debug, PartialEq)]
-pub enum WhatToDo {
+pub enum SlotVectorEffect {
     Overwrite(usize),
     Prepend,
     InsertAfter(usize),
@@ -331,7 +331,7 @@ pub enum WhatToDo {
 }
 
 
-pub fn update_slot_vector_logic(v: &Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> WhatToDo {
+pub fn update_slot_vector_logic(v: &Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> SlotVectorEffect {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let pos = v
@@ -415,8 +415,8 @@ mod tests {
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
     use solana_sdk::pubkey::Pubkey;
-    use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus, update_slot_vector_logic};
-    use crate::chain_data::WhatToDo::*;
+    use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
+    use crate::chain_data::{update_slot_vector_logic, SlotVectorEffect::*};
 
     #[test]
     pub fn test_move_slot_to_finalized() {
