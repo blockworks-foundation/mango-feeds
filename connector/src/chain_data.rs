@@ -1,12 +1,12 @@
+use crate::chain_data::SlotVectorEffect::*;
+use log::{info, warn};
 use solana_sdk::clock::Slot;
 use std::str::FromStr;
-use log::{info, warn};
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
     std::collections::HashMap,
 };
-use crate::chain_data::SlotVectorEffect::*;
 
 use crate::metrics::*;
 
@@ -182,7 +182,8 @@ impl ChainData {
                 v.insert(vec![account]); // capacity = 1
             }
             Entry::Occupied(o) => {
-                let v_effect = update_slot_vector_logic(o.get(), account.slot, account.write_version);
+                let v_effect =
+                    update_slot_vector_logic(o.get(), account.slot, account.write_version);
 
                 let v = o.into_mut();
 
@@ -202,7 +203,6 @@ impl ChainData {
                     }
                     DoNothing => {}
                 }
-
             }
         };
     }
@@ -321,7 +321,6 @@ impl ChainData {
     }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum SlotVectorEffect {
     Overwrite(usize),
@@ -330,8 +329,11 @@ pub enum SlotVectorEffect {
     DoNothing,
 }
 
-
-pub fn update_slot_vector_logic(v: &Vec<AccountData>, update_slot: Slot, update_write_version: u64) -> SlotVectorEffect {
+pub fn update_slot_vector_logic(
+    v: &Vec<AccountData>,
+    update_slot: Slot,
+    update_write_version: u64,
+) -> SlotVectorEffect {
     // v is ordered by slot ascending. find the right position
     // overwrite if an entry for the slot already exists, otherwise insert
     let pos = v
@@ -354,9 +356,7 @@ pub fn update_slot_vector_logic(v: &Vec<AccountData>, update_slot: Slot, update_
                 InsertAfter(pos)
             }
         }
-        None => {
-            Prepend
-        }
+        None => Prepend,
     }
 }
 
@@ -408,15 +408,14 @@ impl ChainDataMetrics {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use crate::chain_data::{update_slot_vector_logic, SlotVectorEffect::*};
+    use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
     use solana_sdk::pubkey::Pubkey;
-    use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
-    use crate::chain_data::{update_slot_vector_logic, SlotVectorEffect::*};
+    use std::str::FromStr;
 
     #[test]
     pub fn test_move_slot_to_finalized() {
@@ -588,7 +587,6 @@ mod tests {
         assert_eq!(update_slot_vector_logic(&mut v, 20, 999), DoNothing);
     }
 
-
     #[test]
     fn magic_insert_hole() {
         // v is ordered by slot ascending. find the right position
@@ -599,7 +597,6 @@ mod tests {
 
         assert_eq!(update_slot_vector_logic(&mut v, 40, 10040), InsertAfter(2));
     }
-
 
     #[test]
     fn magic_insert_left() {
@@ -612,7 +609,6 @@ mod tests {
         // insert before first slot (10)
         assert_eq!(update_slot_vector_logic(&mut v, 5, 500), Prepend); // OK
     }
-
 
     #[test]
     fn magic_append() {
