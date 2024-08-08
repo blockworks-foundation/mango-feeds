@@ -1,5 +1,6 @@
 use crate::chain_data::SlotVectorEffect::*;
 use log::trace;
+use smallvec::{SmallVec, smallvec};
 use solana_sdk::clock::Slot;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
@@ -51,7 +52,8 @@ pub struct ChainData {
     /// only slots >= newest_rooted_slot are retained
     slots: HashMap<u64, SlotData>,
     /// writes to accounts, only the latest rooted write an newer are retained
-    accounts: HashMap<Pubkey, Vec<AccountData>>,
+    /// size distribution on startup: total:1105, size1:315, size2:146
+    accounts: HashMap<Pubkey, SmallVec<[AccountData; 4]>>,
     newest_rooted_slot: u64,
     newest_processed_slot: u64,
     best_chain_slot: u64,
@@ -179,10 +181,10 @@ impl ChainData {
             Entry::Vacant(v) => {
                 self.account_versions_stored += 1;
                 self.account_bytes_stored += account.account.data().len();
-                v.insert(vec![account]); // capacity = 1
+                v.insert(smallvec![account]);
             }
             Entry::Occupied(o) => {
-                let v_effect = update_slotvec_logic(o.get(), account.slot, account.write_version);
+                let v_effect = update_slotvec_logic(o.get().as_slice(), account.slot, account.write_version);
 
                 let v = o.into_mut();
 
@@ -309,10 +311,6 @@ impl ChainData {
 
     pub fn newest_processed_slot(&self) -> u64 {
         self.newest_processed_slot
-    }
-
-    pub fn raw_account_data(&self) -> &HashMap<Pubkey, Vec<AccountData>> {
-        &self.accounts
     }
 
     pub fn raw_slot_data(&self) -> &HashMap<u64, SlotData> {

@@ -2323,6 +2323,7 @@ dependencies = [
  "rustls 0.20.9",
  "serde",
  "serde_derive",
+ "smallvec 1.13.2",
  "solana-account-decoder",
  "solana-client",
  "solana-logger",
