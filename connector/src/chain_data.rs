@@ -202,6 +202,12 @@ impl ChainData {
                     }
                     DoNothing => {}
                 }
+
+                trace!("account {} updated slotvec.len={} and case {:?}",
+                    pubkey,
+                    v.len(),
+                    v_effect,
+                );
             }
         };
     }
