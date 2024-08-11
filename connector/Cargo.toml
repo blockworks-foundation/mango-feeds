@@ -8,6 +8,10 @@ description = "Listen to Solana account updates via geyser or websockets"
 
 [lib]
 
+[[bench]]
+name = "chaindata_bench"
+harness = false
+
 [features]
 default = []
 
@@ -37,6 +41,7 @@ serde_derive = { workspace = true }
 
 log = { workspace = true }
 anyhow = { workspace = true }
+smallvec = "1.13.2"
 
 itertools = { workspace = true }
 
@@ -53,3 +58,5 @@ yellowstone-grpc-proto = { workspace = true }
 
 [dev-dependencies]
 clap = { workspace = true }
+# cannot upgrade due to clap_lex requirement MSRV 1.74
+criterion = "0.4.0"

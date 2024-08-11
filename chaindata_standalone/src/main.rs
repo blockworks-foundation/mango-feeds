@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::thread::sleep;
 use std::time::Duration;
 use async_channel::Sender;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
-use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task, create_geyser_autoconnection_task_with_mpsc};
+use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task};
 use log::{debug, info, trace, warn};
 use solana_sdk::pubkey::Pubkey;
 
@@ -14,7 +13,7 @@ use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
 use tracing_subscriber::EnvFilter;
-use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestPing, SubscribeUpdatePing, SubscribeUpdatePong};
+use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeUpdatePing};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
 use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
