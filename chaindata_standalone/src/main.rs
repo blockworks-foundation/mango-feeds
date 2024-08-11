@@ -89,6 +89,10 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
     tokio::spawn(async move {
         info!("starting debug task");
         loop {
+            if exit.try_recv().is_ok() {
+                info!("exit signal received - stopping task");
+                return;
+            }
             let chain_data = chain_data.read().unwrap();
             info!("chaindata?");
             for account in chain_data.iter_accounts_rooted() {

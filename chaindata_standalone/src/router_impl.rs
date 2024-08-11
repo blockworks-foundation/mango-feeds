@@ -100,7 +100,6 @@ fn handle_updated_account(
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
 }
 
-
 pub fn spawn_updater_job(
     chain_data: ChainDataArcRw,
     mut account_updates: broadcast::Receiver<(Pubkey, u64)>,
@@ -165,7 +164,7 @@ pub fn spawn_updater_job(
             }
         }
 
-        error!("Edge updater job exited..");
+        info!("Edge updater job exited..");
         // // send this to unblock the code in front of the exit handler
         // let _ = updater.ready_sender.try_send(());
     });
