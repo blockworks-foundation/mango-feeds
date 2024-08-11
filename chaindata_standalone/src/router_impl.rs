@@ -6,6 +6,7 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
+use tracing::{debug, error};
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
@@ -97,4 +98,77 @@ fn handle_updated_account(
 
     // ignore failing sends when there are no receivers
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
+}
+
+
+pub fn spawn_updater_job(
+    chain_data: ChainDataArcRw,
+    mut account_updates: broadcast::Receiver<(Pubkey, u64)>,
+    mut exit: broadcast::Receiver<()>,
+) -> Option<JoinHandle<()>> {
+
+    let listener_job = tokio::spawn(async move {
+
+        let mut refresh_all_interval = tokio::time::interval(Duration::from_secs(1));
+        let mut refresh_one_interval = tokio::time::interval(Duration::from_millis(10));
+        refresh_all_interval.tick().await;
+        refresh_one_interval.tick().await;
+
+        'drain_loop: loop {
+            tokio::select! {
+                _ = exit.recv() => {
+                    info!("shutting down update task");
+                    break;
+                }
+                // slot = slot_updates.recv() => {
+                //     updater.detect_and_handle_slot_lag(slot);
+                // }
+                // res = metadata_updates.recv() => {
+                //     updater.on_metadata_update(res);
+                // }
+                res = account_updates.recv() => {
+                    info!("-> updater.invalidate_one");
+                    // if !updater.invalidate_one(res) {
+                    //     break 'drain_loop;
+                    // }
+                    //
+                    // let mut batchsize: u32 = 0;
+                    // let started_at = Instant::now();
+                    // 'batch_loop: while let Ok(res) = account_updates.try_recv() {
+                    //     batchsize += 1;
+                    //     if !updater.invalidate_one(Ok(res)) {
+                    //         break 'drain_loop;
+                    //     }
+                    //
+                    //     // budget for microbatch
+                    //     if batchsize > 10 || started_at.elapsed() > Duration::from_micros(500) {
+                    //         break 'batch_loop;
+                    //     }
+                    // }
+
+                },
+                // Ok(_) = price_updates.recv() => {
+                //     updater.state.dirty_prices = true;
+                // },
+                // _ = refresh_all_interval.tick() => {
+                //     updater.refresh_all(&edges);
+                //
+                //     if !updater.state.is_ready && snapshot_timeout < Instant::now() {
+                //         error!("Failed to init '{}' before timeout", updater.dex.name);
+                //         break;
+                //     }
+                // }
+                _ = refresh_one_interval.tick() => {
+                    // updater.refresh_some();
+                    info!("-> updater.refresh_some");
+                }
+            }
+        }
+
+        error!("Edge updater job exited..");
+        // // send this to unblock the code in front of the exit handler
+        // let _ = updater.ready_sender.try_send(());
+    });
+
+    Some(listener_job)
 }

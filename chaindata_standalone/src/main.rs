@@ -18,6 +18,7 @@ use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
 use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
 use mango_feeds_connector::{AccountWrite, SlotUpdate};
+use crate::router_impl::spawn_updater_job;
 
 mod router_impl;
 
@@ -62,14 +63,20 @@ pub async fn main() {
         exit_sender.subscribe(),
     );
 
+
+    spawn_updater_job(
+        chain_data.clone(),
+        account_update_sender.subscribe(),
+        exit_sender.subscribe(),
+    );
+
     info!("chaindata standalone started - now wait some time to let it operate ..");
 
-    let jh_debug = debug_chaindata(chain_data.clone());
+    debug_chaindata(chain_data.clone(), exit_sender.subscribe(),);
 
     sleep(std::time::Duration::from_secs(7));
     info!("done.");
 
-    jh_debug.abort();
     info!("send exit signal..");
     exit_sender.send(()).unwrap();
     sleep(std::time::Duration::from_secs(1));
@@ -77,9 +84,9 @@ pub async fn main() {
 }
 
 // TODO add exit
-fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>) -> JoinHandle<()> {
+fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Receiver<()>,) {
 
-    let jh_debug = tokio::spawn(async move {
+    tokio::spawn(async move {
         info!("starting debug task");
         loop {
             let chain_data = chain_data.read().unwrap();
@@ -91,7 +98,6 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>) -> JoinHandle<()> {
         }
     });
 
-    jh_debug
 }
 
 fn start_plumbing_task(
