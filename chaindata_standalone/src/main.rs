@@ -12,6 +12,7 @@ use solana_sdk::pubkey::Pubkey;
 
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
+use tokio::task::JoinHandle;
 use tracing_subscriber::EnvFilter;
 use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestPing, SubscribeUpdatePing, SubscribeUpdatePong};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -64,9 +65,12 @@ pub async fn main() {
 
     info!("chaindata standalone started - now wait some time to let it operate ..");
 
-    debug_chaindata(chain_data.clone());
+    let jh_debug = debug_chaindata(chain_data.clone());
 
     sleep(std::time::Duration::from_secs(7));
+    info!("done.");
+
+    jh_debug.abort();
     info!("send exit signal..");
     exit_sender.send(()).unwrap();
     sleep(std::time::Duration::from_secs(1));
@@ -74,9 +78,9 @@ pub async fn main() {
 }
 
 // TODO add exit
-fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>) {
+fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>) -> JoinHandle<()> {
 
-    tokio::spawn(async move {
+    let jh_debug = tokio::spawn(async move {
         info!("starting debug task");
         loop {
             let chain_data = chain_data.read().unwrap();
@@ -87,6 +91,8 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>) {
             sleep(std::time::Duration::from_secs(1));
         }
     });
+
+    jh_debug
 }
 
 fn start_plumbing_task(
