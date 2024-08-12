@@ -13,6 +13,7 @@ use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::format::FmtSpan;
 use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeUpdatePing};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
@@ -28,6 +29,7 @@ pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 pub async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
+        .with_span_events(FmtSpan::CLOSE)
         .init();
 
     let (exit_sender, _) = broadcast::channel(1);
@@ -98,7 +100,7 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
                     info!("- chaindata.account {:?}", account);
                 }
             }
-            
+
             sleep(std::time::Duration::from_secs(1)).await;
         }
     })

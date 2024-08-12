@@ -72,6 +72,7 @@ pub fn start_chaindata_updating(
 }
 
 // from router project
+#[tracing::instrument(skip_all, level = "trace")]
 fn handle_updated_account(
     chain_data: &mut RwLockWriteGuard<ChainData>,
     account_write: AccountWrite,
