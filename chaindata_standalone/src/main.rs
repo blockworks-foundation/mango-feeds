@@ -61,7 +61,7 @@ pub async fn main() {
 
 
     let (account_write_sender, account_write_receiver) = mpsc::channel::<AccountOrSnapshotUpdate>(100_000);
-    let (slot_sender, slot_receiver) = async_channel::unbounded::<SlotUpdate>();
+    let (slot_sender, slot_receiver) = mpsc::channel::<SlotUpdate>(10_000);
     let (account_update_sender, _) = broadcast::channel(524288); // 524288
 
     start_plumbing_task(grpc_accounts_rx, account_write_sender.clone(), slot_sender.clone());
@@ -178,7 +178,7 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
 fn start_plumbing_task(
     mut grpc_source_rx: mpsc::Receiver<Message>,
     account_write_sender: mpsc::Sender<AccountOrSnapshotUpdate>,
-    slot_sender: async_channel::Sender<SlotUpdate>) {
+    slot_sender: mpsc::Sender<SlotUpdate>) {
     tokio::spawn(async move {
         info!("starting plumbing task");
         loop {

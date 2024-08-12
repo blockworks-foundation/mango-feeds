@@ -26,7 +26,7 @@ pub fn start_chaindata_updating(
     chain_data: ChainDataArcRw,
     // = account_write_receiver
     mut account_writes: mpsc::Receiver<AccountOrSnapshotUpdate>,
-    slot_updates: async_channel::Receiver<SlotUpdate>,
+    mut slot_updates: mpsc::Receiver<SlotUpdate>,
     account_update_sender: broadcast::Sender<(Pubkey, u64)>,
     mut exit: broadcast::Receiver<()>,
 ) -> JoinHandle<()> {
@@ -74,7 +74,7 @@ pub fn start_chaindata_updating(
                     }
                 }
                 res = slot_updates.recv() => {
-                    let Ok(slot_update) = res
+                    let Some(slot_update) = res
                     else {
                         warn!("slot channel err {res:?}");
                         continue;
