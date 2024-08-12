@@ -4,6 +4,7 @@ use mango_feeds_connector::{AccountWrite, SlotUpdate};
 use solana_sdk::pubkey::Pubkey;
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::time::{Duration, Instant};
+use solana_sdk::account::ReadableAccount;
 use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
@@ -97,6 +98,7 @@ pub fn start_chaindata_updating(
 //     update.pubkey, update.slot, update.write_version);
 
 
+#[tracing::instrument(skip_all, level = "trace")]
 fn handle_updated_account(
     chain_data: &mut RwLockWriteGuard<ChainData>,
     update: AccountOrSnapshotUpdate,
@@ -133,18 +135,46 @@ fn handle_updated_account(
         let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
     }
 
+    fn is_same(account_data: &AccountData, account_write: &AccountWrite) -> bool {
+        account_data.slot == account_write.slot
+            && account_data.account.lamports() == account_write.lamports
+            && account_data.account.owner() == &account_write.owner
+            && account_data.account.data() == account_write.data
+    }
+
+
     match update {
         AccountOrSnapshotUpdate::AccountUpdate(account_write) => {
-            one_update(chain_data, account_update_sender, account_write)
+            trace!("[one_update] Update from single account grpc: {}@_slot_{} write_version={}",
+                account_write.pubkey, account_write.slot, account_write.write_version);
+            one_update(chain_data, account_update_sender, account_write);
         }
         AccountOrSnapshotUpdate::SnapshotUpdate(snapshot) => {
             debug!("Update from snapshot data: {}", snapshot.len());
-            for account_write in snapshot {
-                one_update(chain_data, account_update_sender, account_write)
+            let mut fixed_cnt: usize = 0;
+            for snap_account_write in snapshot {
+                let pubkey = snap_account_write.pubkey;
+                let current_account_data = chain_data.account(&pubkey);
+                if let Ok(current_account_data) = current_account_data {
+                    if snap_account_write.slot >= current_account_data.slot {
+                        if !is_same(current_account_data, &snap_account_write) {
+                            trace!("Fixed chain_data from snapshot data, account {}, slot {}->{}",
+                                pubkey, current_account_data.slot, snap_account_write.slot);
+                            fixed_cnt += 1;
+                        }
+                    }
+                }
+
+                trace!("[one_update] Update from snap account data: {}@_slot_{} write_version={}",
+                    snap_account_write.pubkey, snap_account_write.slot, snap_account_write.write_version);
+                one_update(chain_data, account_update_sender, snap_account_write);
             }
+
+            info!("Fixed {} accounts from snapshot data", fixed_cnt);
         }
     }
 }
+
 
 
 pub fn spawn_updater_job(
