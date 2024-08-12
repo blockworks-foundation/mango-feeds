@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use async_channel::Sender;
@@ -19,9 +20,13 @@ use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
 use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
 use mango_feeds_connector::{AccountWrite, SlotUpdate};
-use crate::router_impl::spawn_updater_job;
+use mango_feeds_connector::snapshot::{get_snapshot_gma, get_snapshot_gpa};
+use crate::router_impl::{AccountOrSnapshotUpdate, spawn_updater_job};
 
 mod router_impl;
+mod get_program_account;
+mod solana_rpc_minimal;
+mod account_write;
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
@@ -49,7 +54,7 @@ pub async fn main() {
     let (_jh_grpc_source, grpc_accounts_rx) = create_geyser_autoconnection_task(grpc_source_config.clone(), raydium_accounts(), exit_sender.subscribe());
 
 
-    let (account_write_sender, account_write_receiver) = async_channel::unbounded::<AccountWrite>();
+    let (account_write_sender, account_write_receiver) = async_channel::unbounded::<AccountOrSnapshotUpdate>();
     let (slot_sender, slot_receiver) = async_channel::unbounded::<SlotUpdate>();
     let (account_update_sender, _) = broadcast::channel(524288); // 524288
 
@@ -64,6 +69,9 @@ pub async fn main() {
         account_update_sender.clone(),
         exit_sender.subscribe(),
     );
+
+    let rpc_http_url = env::var("RPC_HTTP_URL").expect("need http rpc url");
+    start_gpa_snapshot_fetcher(rpc_http_url, Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap());
 
     let job2 = spawn_updater_job(
         chain_data.clone(),
@@ -82,6 +90,14 @@ pub async fn main() {
     exit_sender.send(()).unwrap();
     sleep(std::time::Duration::from_secs(1)).await;
     info!("quitting.");
+}
+
+fn start_gpa_snapshot_fetcher(rpc_http_url: String, program_id: Pubkey) {
+    tokio::spawn(async move {
+        let rpc_http_url = rpc_http_url.clone();
+        let snapshot = get_snapshot_gpa(rpc_http_url, program_id.to_string()).await;
+        info!("downloaded snapshot {:?}", snapshot.unwrap().accounts.len());
+    });
 }
 
 // TODO add exit
@@ -109,7 +125,7 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
 // this is replacing the spawn_geyser_source task from router
 fn start_plumbing_task(
     mut grpc_source_rx: Receiver<Message>,
-    account_write_sender: Sender<AccountWrite>,
+    account_write_sender: Sender<AccountOrSnapshotUpdate>,
     slot_sender: Sender<SlotUpdate>) {
     tokio::spawn(async move {
         info!("starting plumbing task");
@@ -125,7 +141,7 @@ fn start_plumbing_task(
                         trace!("[grpc->account_write_sender]: account update for {}@_slot_{} write_version={}",
                             pubkey, slot, update.write_version);
 
-                        account_write_sender.send(AccountWrite {
+                        account_write_sender.send(AccountOrSnapshotUpdate::AccountUpdate(AccountWrite {
                             pubkey,
                             slot,
                             write_version: update.write_version,
@@ -135,7 +151,7 @@ fn start_plumbing_task(
                             rent_epoch: update.rent_epoch,
                             data: update.data,
                             is_selected: false, // what is that?
-                        }).await.expect("channel account_write_sender must not be closed");
+                        })).await.expect("channel account_write_sender must not be closed");
                     }
                     Some(UpdateOneof::Slot(slot_update)) => {
                         let slot = slot_update.slot;

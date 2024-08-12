@@ -10,11 +10,19 @@ use tracing::{debug, error};
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
+
+#[derive(Debug)]
+pub enum AccountOrSnapshotUpdate {
+    AccountUpdate(AccountWrite),
+    SnapshotUpdate(Vec<AccountWrite>),
+}
+
+
 // from router project
 pub fn start_chaindata_updating(
     chain_data: ChainDataArcRw,
     // = account_write_receiver
-    account_writes: async_channel::Receiver<AccountWrite>,
+    account_writes: async_channel::Receiver<AccountOrSnapshotUpdate>,
     slot_updates: async_channel::Receiver<SlotUpdate>,
     account_update_sender: broadcast::Sender<(Pubkey, u64)>,
     mut exit: broadcast::Receiver<()>,
@@ -34,8 +42,8 @@ pub fn start_chaindata_updating(
                         warn!("account write channel err {res:?}");
                         continue;
                     };
-                    trace!("[account_write_receiver->chain_data] account update for {}@_slot_{} write_version={}",
-                        account_write.pubkey, account_write.slot, account_write.write_version);
+                    // trace!("[account_write_receiver->chain_data] account update for {}@_slot_{} write_version={}",
+                    //     account_write.pubkey, account_write.slot, account_write.write_version);
 
                     let mut writer = chain_data.write().unwrap();
                     handle_updated_account(&mut writer, account_write, &account_update_sender);
@@ -72,38 +80,59 @@ pub fn start_chaindata_updating(
 }
 
 // from router project
-#[tracing::instrument(skip_all, level = "trace")]
+
+// trace!("[account_write_receiver->chain_data] .update_account for {}@_slot_{} write_version={}",
+//     update.pubkey, update.slot, update.write_version);
+
+
 fn handle_updated_account(
     chain_data: &mut RwLockWriteGuard<ChainData>,
-    account_write: AccountWrite,
+    update: AccountOrSnapshotUpdate,
     account_update_sender: &broadcast::Sender<(Pubkey, u64)>,
 ) {
     use mango_feeds_connector::chain_data::AccountData;
     use solana_sdk::account::WritableAccount;
     use solana_sdk::clock::Epoch;
 
-    trace!("[account_write_receiver->chain_data] .update_account for {}@_slot_{} write_version={}",
-        account_write.pubkey, account_write.slot, account_write.write_version);
-    chain_data.update_account(
-        account_write.pubkey,
-        AccountData {
-            slot: account_write.slot,
-            write_version: account_write.write_version,
-            account: WritableAccount::create(
-                account_write.lamports,
-                account_write.data,
-                account_write.owner,
-                account_write.executable,
-                account_write.rent_epoch as Epoch,
-            ),
-        },
-    );
+    fn one_update(
+        chain_data: &mut RwLockWriteGuard<ChainData>,
+        account_update_sender: &broadcast::Sender<(Pubkey, u64)>,
+        account_write: AccountWrite,
+    ) {
+        chain_data.update_account(
+            account_write.pubkey,
+            AccountData {
+                slot: account_write.slot,
+                write_version: account_write.write_version,
+                account: WritableAccount::create(
+                    account_write.lamports,
+                    account_write.data,
+                    account_write.owner,
+                    account_write.executable,
+                    account_write.rent_epoch as Epoch,
+                ),
+            },
+        );
 
-    trace!("[account_write_receiver->account_update_sender] send write for {}@_slot_{} write_version={}",
-        account_write.pubkey, account_write.slot, account_write.write_version);
+        // trace!("[account_write_receiver->account_update_sender] send write for {}@_slot_{} write_version={}",
+        // account_write.pubkey, account_write.slot, account_write.write_version);
 
-    let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
+        // ignore failing sends when there are no receivers
+        let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
+    }
+
+    match update {
+        AccountOrSnapshotUpdate::AccountUpdate(account_write) => {
+            one_update(chain_data, account_update_sender, account_write)
+        }
+        AccountOrSnapshotUpdate::SnapshotUpdate(snapshot) => {
+            for account_write in snapshot {
+                one_update(chain_data, account_update_sender, account_write)
+            }
+        }
+    }
 }
+
 
 pub fn spawn_updater_job(
     chain_data: ChainDataArcRw,
@@ -126,7 +155,6 @@ pub fn spawn_updater_job(
                 }
                 res = account_updates.recv() => {
                     let (pubkey, slot) = res.unwrap();
-                    trace!("[account_update_sender->...]-> updater.invalidate_one for {}@_slot_{}", pubkey, slot);
 
                 },
                 _ = refresh_one_interval.tick() => {
