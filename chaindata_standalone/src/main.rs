@@ -20,7 +20,8 @@ use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
 use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
 use mango_feeds_connector::{AccountWrite, SlotUpdate};
-use mango_feeds_connector::snapshot::{get_snapshot_gma, get_snapshot_gpa};
+use crate::get_program_account::get_snapshot_gpa;
+
 use crate::router_impl::{AccountOrSnapshotUpdate, spawn_updater_job};
 
 mod router_impl;
@@ -83,7 +84,7 @@ pub async fn main() {
 
     let job3 = debug_chaindata(chain_data.clone(), exit_sender.subscribe(),);
 
-    sleep(std::time::Duration::from_secs(7)).await;
+    sleep(std::time::Duration::from_secs(100)).await;
     info!("done.");
 
     info!("send exit signal..");
@@ -94,9 +95,11 @@ pub async fn main() {
 
 fn start_gpa_snapshot_fetcher(rpc_http_url: String, program_id: Pubkey) {
     tokio::spawn(async move {
+        info!("loading snapshot from compressed gPA RPC endpoint ...");
         let rpc_http_url = rpc_http_url.clone();
-        let snapshot = get_snapshot_gpa(rpc_http_url, program_id.to_string()).await;
-        info!("downloaded snapshot {:?}", snapshot.unwrap().accounts.len());
+        // 675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8 -> 796157 accounts, 50s
+        let snapshot = get_snapshot_gpa(&rpc_http_url, &program_id, true).await.unwrap();
+        info!("downloaded snapshot for slot {} with {:?} accounts", snapshot.slot, snapshot.accounts.len());
     });
 }
 
