@@ -65,9 +65,6 @@ pub fn start_chaindata_updating(
                         status: slot_update.status,
                         chain: 0,
                     });
-
-                    // TODO: slot updates can significantly affect state, do we need to track what needs to be updated
-                    // when switching to a different fork?
                 }
             }
         }
@@ -103,7 +100,7 @@ fn handle_updated_account(
 
     trace!("[account_write_receiver->account_update_sender] send write for {}@_slot_{} write_version={}",
         account_write.pubkey, account_write.slot, account_write.write_version);
-    // ignore failing sends when there are no receivers
+
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
 }
 
@@ -111,7 +108,7 @@ pub fn spawn_updater_job(
     chain_data: ChainDataArcRw,
     mut account_updates: broadcast::Receiver<(Pubkey, u64)>,
     mut exit: broadcast::Receiver<()>,
-) -> Option<JoinHandle<()>> {
+) -> JoinHandle<()> {
 
     let listener_job = tokio::spawn(async move {
 
@@ -126,50 +123,12 @@ pub fn spawn_updater_job(
                     info!("shutting down update task");
                     break;
                 }
-                // slot = slot_updates.recv() => {
-                //     updater.detect_and_handle_slot_lag(slot);
-                // }
-                // res = metadata_updates.recv() => {
-                //     updater.on_metadata_update(res);
-                // }
                 res = account_updates.recv() => {
                     let (pubkey, slot) = res.unwrap();
                     trace!("[account_update_sender->...]-> updater.invalidate_one for {}@_slot_{}", pubkey, slot);
 
-                    // if !updater.invalidate_one(res) {
-                    //     break 'drain_loop;
-                    // }
-                    //
-                    // let mut batchsize: u32 = 0;
-                    // let started_at = Instant::now();
-                    // 'batch_loop: while let Ok(res) = account_updates.try_recv() {
-                    //     batchsize += 1;
-                    //     if !updater.invalidate_one(Ok(res)) {
-                    //         break 'drain_loop;
-                    //     }
-                    //
-                    //     // budget for microbatch
-                    //     if batchsize > 10 || started_at.elapsed() > Duration::from_micros(500) {
-                    //         break 'batch_loop;
-                    //     }
-                    // }
-
                 },
-                // Ok(_) = price_updates.recv() => {
-                //     updater.state.dirty_prices = true;
-                // },
-                // _ = refresh_all_interval.tick() => {
-                //     updater.refresh_all(&edges);
-                //
-                //     if !updater.state.is_ready && snapshot_timeout < Instant::now() {
-                //         error!("Failed to init '{}' before timeout", updater.dex.name);
-                //         break;
-                //     }
-                // }
                 _ = refresh_one_interval.tick() => {
-                    // updater.refresh_some();
-                    // note!
-                    // info!("-> updater.refresh_some (10 ms tick)");
                 }
             }
         }
@@ -179,5 +138,5 @@ pub fn spawn_updater_job(
         // let _ = updater.ready_sender.try_send(());
     });
 
-    Some(listener_job)
+    listener_job
 }

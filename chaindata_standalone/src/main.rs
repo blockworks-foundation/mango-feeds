@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::env;
 use std::sync::{Arc, RwLock};
-use std::thread::sleep;
 use std::time::Duration;
 use async_channel::Sender;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
@@ -12,6 +11,7 @@ use solana_sdk::pubkey::Pubkey;
 use tokio::sync::broadcast;
 use tokio::sync::mpsc::Receiver;
 use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeUpdatePing};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
@@ -49,13 +49,13 @@ pub async fn main() {
 
     let (account_write_sender, account_write_receiver) = async_channel::unbounded::<AccountWrite>();
     let (slot_sender, slot_receiver) = async_channel::unbounded::<SlotUpdate>();
-    let (account_update_sender, _) = broadcast::channel(64); // 524288
+    let (account_update_sender, _) = broadcast::channel(524288); // 524288
 
     // TODO exit
     start_plumbing_task(grpc_accounts_rx, account_write_sender.clone(), slot_sender.clone());
 
     let chain_data = Arc::new(RwLock::new(ChainData::new()));
-    router_impl::start_chaindata_updating(
+    let job1 = router_impl::start_chaindata_updating(
         chain_data.clone(),
         account_write_receiver,
         slot_receiver,
@@ -63,7 +63,7 @@ pub async fn main() {
         exit_sender.subscribe(),
     );
 
-    spawn_updater_job(
+    let job2 = spawn_updater_job(
         chain_data.clone(),
         account_update_sender.subscribe(),
         exit_sender.subscribe(),
@@ -71,20 +71,19 @@ pub async fn main() {
 
     info!("chaindata standalone started - now wait some time to let it operate ..");
 
-    debug_chaindata(chain_data.clone(), exit_sender.subscribe(),);
+    let job3 = debug_chaindata(chain_data.clone(), exit_sender.subscribe(),);
 
-    sleep(std::time::Duration::from_secs(7));
+    sleep(std::time::Duration::from_secs(7)).await;
     info!("done.");
 
     info!("send exit signal..");
     exit_sender.send(()).unwrap();
-    sleep(std::time::Duration::from_secs(1));
+    sleep(std::time::Duration::from_secs(1)).await;
     info!("quitting.");
 }
 
 // TODO add exit
-fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Receiver<()>,) {
-
+fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Receiver<()>,) -> JoinHandle<()> {
     tokio::spawn(async move {
         info!("starting debug task");
         loop {
@@ -92,15 +91,17 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
                 info!("exit signal received - stopping task");
                 return;
             }
-            let chain_data = chain_data.read().unwrap();
-            info!("chaindata?");
-            for account in chain_data.iter_accounts_rooted() {
-                info!("- chaindata.account {:?}", account);
+            {
+                let chain_data = chain_data.read().unwrap();
+                info!("chaindata?");
+                for account in chain_data.iter_accounts_rooted() {
+                    info!("- chaindata.account {:?}", account);
+                }
             }
-            sleep(std::time::Duration::from_secs(1));
+            
+            sleep(std::time::Duration::from_secs(1)).await;
         }
-    });
-
+    })
 }
 
 // this is replacing the spawn_geyser_source task from router
