@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
+use std::sync::mpsc::SendError;
 use std::time::Duration;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task};
@@ -11,6 +12,7 @@ use solana_sdk::account::Account;
 use solana_sdk::pubkey::Pubkey;
 
 use tokio::sync::{mpsc, broadcast};
+use tokio::sync::mpsc::error::SendTimeoutError;
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
@@ -123,7 +125,12 @@ fn start_gpa_snapshot_fetcher(rpc_http_url: String, program_id: Pubkey, account_
                 }).collect_vec();
 
             info!("sending snapshot chunk with {} accounts", chunk.len());
-            let _sent_res = account_write_sender.send(AccountOrSnapshotUpdate::SnapshotUpdate(chunk)).await;
+            if let Err(SendTimeoutError::Timeout(item)) =
+                account_write_sender.send_timeout(AccountOrSnapshotUpdate::SnapshotUpdate(chunk), Duration::from_millis(500)).await {
+                debug!("send to account_write_sender was blocked - retrying");
+                let _res = account_write_sender.send(item).await.unwrap();
+            }
+            // TODO error handling
         }
 
     });
@@ -138,13 +145,21 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
                 info!("exit signal received - stopping task");
                 return;
             }
-            {
+            let account_cnt_before = {
                 let chain_data = chain_data.read().unwrap();
-                info!("chaindata?");
-                for account in chain_data.iter_accounts_rooted() {
-                    info!("- chaindata.account {:?}", account);
-                }
-            }
+                let cnt = chain_data.accounts_count();
+                info!("chaindata: {} accounts", cnt);
+                cnt
+            };
+            let mearure_duration = std::time::Duration::from_millis(100);
+            sleep(mearure_duration).await;
+            let account_cnt_after = {
+                let chain_data = chain_data.read().unwrap();
+                let cnt = chain_data.accounts_count();
+                info!("chaindata: {} accounts", cnt);
+                cnt
+            };
+            info!("chaindata: {} accounts (throughput {} acc/s)", account_cnt_after, (account_cnt_after - account_cnt_before) as f64 / mearure_duration.as_secs_f64());
 
             sleep(std::time::Duration::from_secs(1)).await;
         }

@@ -8,6 +8,7 @@ use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing::{debug, error};
+use tracing::field::debug;
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
