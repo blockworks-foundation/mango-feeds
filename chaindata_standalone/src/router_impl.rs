@@ -84,7 +84,7 @@ fn handle_updated_account(
     use solana_sdk::account::WritableAccount;
     use solana_sdk::clock::Epoch;
 
-    trace!("[account_writes_channel->chain_data] .update_account for {}@_slot_{} write_version={}",
+    trace!("[account_write_receiver->chain_data] .update_account for {}@_slot_{} write_version={}",
         account_write.pubkey, account_write.slot, account_write.write_version);
     chain_data.update_account(
         account_write.pubkey,
@@ -101,7 +101,7 @@ fn handle_updated_account(
         },
     );
 
-    trace!("[account_writes_channel->account_update_sender] send write for {}@_slot_{} write_version={}",
+    trace!("[account_write_receiver->account_update_sender] send write for {}@_slot_{} write_version={}",
         account_write.pubkey, account_write.slot, account_write.write_version);
     // ignore failing sends when there are no receivers
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
@@ -134,7 +134,7 @@ pub fn spawn_updater_job(
                 // }
                 res = account_updates.recv() => {
                     let (pubkey, slot) = res.unwrap();
-                    trace!("-> updater.invalidate_one for {}@_slot_{}", pubkey, slot);
+                    trace!("[account_update_sender->...]-> updater.invalidate_one for {}@_slot_{}", pubkey, slot);
 
                     // if !updater.invalidate_one(res) {
                     //     break 'drain_loop;
