@@ -180,6 +180,7 @@ fn raydium_accounts() -> SubscribeRequest {
     SubscribeRequest {
         accounts: accounts_subs,
         ping: None,
+        commitment: Some(CommitmentLevel::Processed as i32), // default
         ..Default::default()
     }
 }
