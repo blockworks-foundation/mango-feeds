@@ -49,7 +49,7 @@ pub async fn main() {
 
     let (account_write_sender, account_write_receiver) = async_channel::unbounded::<AccountWrite>();
     let (slot_sender, slot_receiver) = async_channel::unbounded::<SlotUpdate>();
-    let (account_update_sender, _) = broadcast::channel(524288);
+    let (account_update_sender, _) = broadcast::channel(64); // 524288
 
     // TODO exit
     start_plumbing_task(grpc_accounts_rx, account_write_sender.clone(), slot_sender.clone());
@@ -62,7 +62,6 @@ pub async fn main() {
         account_update_sender.clone(),
         exit_sender.subscribe(),
     );
-
 
     spawn_updater_job(
         chain_data.clone(),
@@ -104,6 +103,7 @@ fn debug_chaindata(chain_data: Arc<RwLock<ChainData>>, mut exit: broadcast::Rece
 
 }
 
+// this is replacing the spawn_geyser_source task from router
 fn start_plumbing_task(
     mut grpc_source_rx: Receiver<Message>,
     account_write_sender: Sender<AccountWrite>,
@@ -119,7 +119,8 @@ fn start_plumbing_task(
                         let pubkey = Pubkey::try_from(update.pubkey.clone()).unwrap();
                         let owner = Pubkey::try_from(update.owner.clone()).unwrap();
 
-                        trace!("get account update for {:?}@{} via grpc", pubkey, slot);
+                        trace!("[grpc->account_write_sender]: account update for {}@_slot_{} write_version={}",
+                            pubkey, slot, update.write_version);
 
                         account_write_sender.send(AccountWrite {
                             pubkey,

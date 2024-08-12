@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{info, trace, warn};
 use mango_feeds_connector::chain_data::ChainData;
 use mango_feeds_connector::{AccountWrite, SlotUpdate};
 use solana_sdk::pubkey::Pubkey;
@@ -13,6 +13,7 @@ pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 // from router project
 pub fn start_chaindata_updating(
     chain_data: ChainDataArcRw,
+    // = account_write_receiver
     account_writes: async_channel::Receiver<AccountWrite>,
     slot_updates: async_channel::Receiver<SlotUpdate>,
     account_update_sender: broadcast::Sender<(Pubkey, u64)>,
@@ -33,6 +34,8 @@ pub fn start_chaindata_updating(
                         warn!("account write channel err {res:?}");
                         continue;
                     };
+                    trace!("[account_write_receiver->chain_data] account update for {}@_slot_{} write_version={}",
+                        account_write.pubkey, account_write.slot, account_write.write_version);
 
                     let mut writer = chain_data.write().unwrap();
                     handle_updated_account(&mut writer, account_write, &account_update_sender);
@@ -81,6 +84,8 @@ fn handle_updated_account(
     use solana_sdk::account::WritableAccount;
     use solana_sdk::clock::Epoch;
 
+    trace!("[account_writes_channel->chain_data] .update_account for {}@_slot_{} write_version={}",
+        account_write.pubkey, account_write.slot, account_write.write_version);
     chain_data.update_account(
         account_write.pubkey,
         AccountData {
@@ -96,6 +101,8 @@ fn handle_updated_account(
         },
     );
 
+    trace!("[account_writes_channel->account_update_sender] send write for {}@_slot_{} write_version={}",
+        account_write.pubkey, account_write.slot, account_write.write_version);
     // ignore failing sends when there are no receivers
     let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
 }
@@ -126,7 +133,9 @@ pub fn spawn_updater_job(
                 //     updater.on_metadata_update(res);
                 // }
                 res = account_updates.recv() => {
-                    info!("-> updater.invalidate_one");
+                    let (pubkey, slot) = res.unwrap();
+                    trace!("-> updater.invalidate_one for {}@_slot_{}", pubkey, slot);
+
                     // if !updater.invalidate_one(res) {
                     //     break 'drain_loop;
                     // }
@@ -159,7 +168,8 @@ pub fn spawn_updater_job(
                 // }
                 _ = refresh_one_interval.tick() => {
                     // updater.refresh_some();
-                    info!("-> updater.refresh_some");
+                    // note!
+                    // info!("-> updater.refresh_some (10 ms tick)");
                 }
             }
         }
