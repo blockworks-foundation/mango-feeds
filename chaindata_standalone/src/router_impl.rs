@@ -4,8 +4,9 @@ use mango_feeds_connector::{AccountWrite, SlotUpdate};
 use solana_sdk::pubkey::Pubkey;
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use std::time::{Duration, Instant};
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, mpsc};
 use tokio::task::JoinHandle;
+use tokio::time::sleep;
 use tracing::{debug, error};
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
@@ -22,7 +23,7 @@ pub enum AccountOrSnapshotUpdate {
 pub fn start_chaindata_updating(
     chain_data: ChainDataArcRw,
     // = account_write_receiver
-    account_writes: async_channel::Receiver<AccountOrSnapshotUpdate>,
+    mut account_writes: mpsc::Receiver<AccountOrSnapshotUpdate>,
     slot_updates: async_channel::Receiver<SlotUpdate>,
     account_update_sender: broadcast::Sender<(Pubkey, u64)>,
     mut exit: broadcast::Receiver<()>,
@@ -37,23 +38,32 @@ pub fn start_chaindata_updating(
                     break;
                 }
                 res = account_writes.recv() => {
-                    let Ok(account_write) = res
+                    let Some(update) = res
                     else {
                         warn!("account write channel err {res:?}");
                         continue;
                     };
-                    // trace!("[account_write_receiver->chain_data] account update for {}@_slot_{} write_version={}",
-                    //     account_write.pubkey, account_write.slot, account_write.write_version);
+
+                    match &update {
+                        AccountOrSnapshotUpdate::AccountUpdate(account_update) => {
+                            trace!("[account_write_receiver->chain_data] account update for {}@_slot_{} write_version={}",
+                                account_update.pubkey, account_update.slot, account_update.write_version);
+                        }
+                        AccountOrSnapshotUpdate::SnapshotUpdate(account_writes) => {
+                            trace!("[account_write_receiver->chain_data] account update from snapshot with {} accounts",
+                                account_writes.len());
+                        }
+                    }
 
                     let mut writer = chain_data.write().unwrap();
-                    handle_updated_account(&mut writer, account_write, &account_update_sender);
+                    handle_updated_account(&mut writer, update, &account_update_sender);
 
                     let mut batchsize: u32 = 0;
                     let started_at = Instant::now();
-                    'batch_loop: while let Ok(res) = account_writes.try_recv() {
+                    'batch_loop: while let Ok(bupdate) = account_writes.try_recv() {
                         batchsize += 1;
 
-                        handle_updated_account(&mut writer, res, &account_update_sender);
+                        handle_updated_account(&mut writer, bupdate, &account_update_sender);
 
                         // budget for microbatch
                         if batchsize > 10 || started_at.elapsed() > Duration::from_micros(500) {
@@ -67,6 +77,7 @@ pub fn start_chaindata_updating(
                         warn!("slot channel err {res:?}");
                         continue;
                     };
+
                     chain_data.write().unwrap().update_slot(SlotData {
                         slot: slot_update.slot,
                         parent: slot_update.parent,
@@ -126,6 +137,7 @@ fn handle_updated_account(
             one_update(chain_data, account_update_sender, account_write)
         }
         AccountOrSnapshotUpdate::SnapshotUpdate(snapshot) => {
+            debug!("Update from snapshot data: {}", snapshot.len());
             for account_write in snapshot {
                 one_update(chain_data, account_update_sender, account_write)
             }
