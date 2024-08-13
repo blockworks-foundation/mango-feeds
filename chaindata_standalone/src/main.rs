@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::mpsc::SendError;
 use std::time::Duration;
 use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
-use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task};
+use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task, create_geyser_autoconnection_task_with_mpsc};
 use itertools::Itertools;
 use log::{debug, info, trace, warn};
 use solana_sdk::account::Account;
@@ -34,9 +34,13 @@ mod account_write;
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
+// 796157 accounts
 const RAYDIUM_AMM_PUBKEY: &'static str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
+// 182264 accounts
 const WHIRLPOOL_PUBKEY: &'static str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
-const DEX_PROGRAM_ID: &'static str = WHIRLPOOL_PUBKEY;
+// 580 accounts
+const CROPPER_PUBKEY: &'static str = "H8W3ctz92svYg6mkn1UtGfu2aQr2fnUFHM1RhScEtQDt";
+const DEX_PROGRAM_ID: &'static str = CROPPER_PUBKEY;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 pub async fn main() {
@@ -59,7 +63,9 @@ pub async fn main() {
 
     let grpc_source_config = GrpcSourceConfig::new(grpc_addr, grpc_x_token, None, timeouts.clone());
 
-    let (_jh_grpc_source, grpc_accounts_rx) = create_geyser_autoconnection_task(grpc_source_config.clone(), raydium_accounts(), exit_sender.subscribe());
+    let (grpc_accounts_tx, grpc_accounts_rx) = mpsc::channel(10240);
+    let _jh_grpc_source = create_geyser_autoconnection_task_with_mpsc(
+        grpc_source_config.clone(), raydium_accounts(), grpc_accounts_tx, exit_sender.subscribe());
 
 
     let (account_write_sender, account_write_receiver) = mpsc::channel::<AccountOrSnapshotUpdate>(100_000);
