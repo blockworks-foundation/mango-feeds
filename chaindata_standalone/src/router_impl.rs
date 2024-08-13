@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing::{debug, error};
 use tracing::field::debug;
+use crate::metrics;
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
@@ -45,6 +46,7 @@ pub fn start_chaindata_updating(
                         warn!("account write channel err {res:?}");
                         continue;
                     };
+                    metrics::CHAINDATA_ACCOUNT_WRITE_IN.inc();
 
                     match &update {
                         AccountOrSnapshotUpdate::AccountUpdate(account_update) => {
@@ -74,6 +76,7 @@ pub fn start_chaindata_updating(
                     }
                 }
                 res = slot_updates.recv() => {
+                    metrics::CHAINDATA_SLOT_UPDATE_IN.inc();
                     let Some(slot_update) = res
                     else {
                         warn!("slot channel err {res:?}");
@@ -132,6 +135,7 @@ fn handle_updated_account(
         // account_write.pubkey, account_write.slot, account_write.write_version);
 
         // ignore failing sends when there are no receivers
+        metrics::ACCOUNT_UPDATE_SENDER.inc();
         let _err = account_update_sender.send((account_write.pubkey, account_write.slot));
     }
 
@@ -147,6 +151,7 @@ fn handle_updated_account(
         AccountOrSnapshotUpdate::AccountUpdate(account_write) => {
             trace!("[one_update] Update from single account grpc: {}@_slot_{} write_version={}",
                 account_write.pubkey, account_write.slot, account_write.write_version);
+            metrics::CHAINDATA_UPDATE_ACCOUNT.inc();
             one_update(chain_data, account_update_sender, account_write);
         }
         AccountOrSnapshotUpdate::SnapshotUpdate(snapshot) => {
@@ -167,6 +172,7 @@ fn handle_updated_account(
 
                 trace!("[one_update] Update from snap account data: {}@_slot_{} write_version={}",
                     snap_account_write.pubkey, snap_account_write.slot, snap_account_write.write_version);
+                metrics::CHAINDATA_SNAP_UPDATE_ACCOUNT.inc();
                 one_update(chain_data, account_update_sender, snap_account_write);
             }
 

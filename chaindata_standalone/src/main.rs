@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::SendError;
@@ -8,6 +9,7 @@ use geyser_grpc_connector::{GrpcConnectionTimeouts, GrpcSourceConfig, Message};
 use geyser_grpc_connector::grpc_subscription_autoreconnect_tasks::{create_geyser_autoconnection_task, create_geyser_autoconnection_task_with_mpsc};
 use itertools::Itertools;
 use log::{debug, info, trace, warn};
+use prometheus::{IntCounter, register_int_counter};
 use solana_sdk::account::Account;
 use solana_sdk::pubkey::Pubkey;
 
@@ -24,6 +26,7 @@ use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
 use mango_feeds_connector::{AccountWrite, SlotUpdate};
 use crate::account_write::account_write_from;
 use crate::get_program_account::get_snapshot_gpa;
+use crate::metrics_dump::start_metrics_dumper;
 
 use crate::router_impl::{AccountOrSnapshotUpdate, spawn_updater_job};
 
@@ -31,6 +34,10 @@ mod router_impl;
 mod get_program_account;
 mod solana_rpc_minimal;
 mod account_write;
+mod metrics_dump;
+mod metrics;
+
+
 
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
@@ -48,6 +55,16 @@ pub async fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .with_span_events(FmtSpan::CLOSE)
         .init();
+
+    // start_metrics_dumper(SOME_METRIC.deref());
+    start_metrics_dumper(metrics::SNAPSHOT_ACCOUNTS_CNT.deref());
+    start_metrics_dumper(metrics::GRPC_PLUMBING_ACCOUNT_MESSAGE_CNT.deref());
+    start_metrics_dumper(metrics::GRPC_PLUMBING_SLOT_MESSAGE_CNT.deref());
+    start_metrics_dumper(metrics::CHAINDATA_ACCOUNT_WRITE_IN.deref());
+    start_metrics_dumper(metrics::CHAINDATA_SLOT_UPDATE_IN.deref());
+    start_metrics_dumper(metrics::CHAINDATA_UPDATE_ACCOUNT.deref());
+    start_metrics_dumper(metrics::CHAINDATA_SNAP_UPDATE_ACCOUNT.deref());
+    start_metrics_dumper(metrics::ACCOUNT_UPDATE_SENDER.deref());
 
     let (exit_sender, _) = broadcast::channel(1);
 
@@ -135,6 +152,8 @@ fn start_gpa_snapshot_fetcher(rpc_http_url: String, program_id: Pubkey, account_
                         }
                     }).collect_vec();
 
+                metrics::SNAPSHOT_ACCOUNTS_CNT.inc_by(chunk.len() as u64);
+
                 info!("sending snapshot chunk with {} accounts", chunk.len());
                 if let Err(SendTimeoutError::Timeout(item)) =
                     account_write_sender.send_timeout(AccountOrSnapshotUpdate::SnapshotUpdate(chunk), Duration::from_millis(500)).await {
@@ -193,6 +212,7 @@ fn start_plumbing_task(
             if let Some(Message::GeyserSubscribeUpdate(subscribe_update)) = grpc_source_rx.recv().await {
                 match subscribe_update.update_oneof {
                     Some(UpdateOneof::Account(account_update)) => {
+                        metrics::GRPC_PLUMBING_ACCOUNT_MESSAGE_CNT.inc();
                         let slot = account_update.slot;
                         let update = account_update.account.unwrap();
                         let pubkey = Pubkey::try_from(update.pubkey.clone()).unwrap();
@@ -214,6 +234,7 @@ fn start_plumbing_task(
                         })).await.expect("channel account_write_sender must not be closed");
                     }
                     Some(UpdateOneof::Slot(slot_update)) => {
+                        metrics::GRPC_PLUMBING_SLOT_MESSAGE_CNT.inc();
                         let slot = slot_update.slot;
                         let parent = slot_update.parent;
                         let status = CommitmentLevel::try_from(slot_update.status).map(|v| match v {

@@ -1,10 +1,9 @@
 use std::f64::NAN;
 use std::time::Duration;
-use log::{info, trace};
+use log::{debug, info, trace};
 use prometheus::core::{Collector, Metric};
 use prometheus::IntCounter;
 use tokio::time::{Instant, Interval, interval, sleep};
-use crate::SOME_METRIC;
 
 pub fn start_metrics_dumper(prom_counter: &IntCounter) {
     let metric = prom_counter.clone();
@@ -19,12 +18,12 @@ pub fn start_metrics_dumper(prom_counter: &IntCounter) {
 
         loop {
             let value = metric.get();
-            trace!("counter {} value: {}", name, value);
+            trace!("counter <{}> value: {}", name, value);
 
             if last_observed_value != u64::MIN {
                 let elapsed = last_observed_at.elapsed().as_secs_f64();
                 let delta = value - last_observed_value;
-                info!("counter <{}> (value={}) with throughput {:.1}/s", name, value, delta as f64 / elapsed);
+                debug!("counter <{}> (value={}) with throughput {:.1}/s", name, value, delta as f64 / elapsed);
             }
 
             last_observed_value = value;
