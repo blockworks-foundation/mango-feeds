@@ -47,7 +47,7 @@ const RAYDIUM_AMM_PUBKEY: &'static str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFS
 const WHIRLPOOL_PUBKEY: &'static str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 // 580 accounts
 const CROPPER_PUBKEY: &'static str = "H8W3ctz92svYg6mkn1UtGfu2aQr2fnUFHM1RhScEtQDt";
-const DEX_PROGRAM_ID: &'static str = CROPPER_PUBKEY;
+const DEX_PROGRAM_ID: &'static str = RAYDIUM_AMM_PUBKEY;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 pub async fn main() {
