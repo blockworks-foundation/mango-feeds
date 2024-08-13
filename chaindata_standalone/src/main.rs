@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeUpdatePing};
+use yellowstone_grpc_proto::geyser::{CommitmentLevel, SubscribeRequest, SubscribeRequestFilterAccounts, SubscribeRequestFilterSlots, SubscribeUpdatePing};
 use yellowstone_grpc_proto::geyser::subscribe_update::UpdateOneof;
 
 use mango_feeds_connector::chain_data::{ChainData, SlotStatus};
@@ -213,8 +213,9 @@ fn start_plumbing_task(
                             CommitmentLevel::Confirmed => SlotStatus::Confirmed,
                             CommitmentLevel::Finalized => SlotStatus::Rooted,
                         }).expect("valid commitment level");
-                        trace!("get slot update {:?} -> {}", parent, slot);
-                        
+
+                        trace!("[grpc->slot_sender]: slot info for {}@{:?}", slot, status);
+
                         slot_sender.send(SlotUpdate { slot, parent, status }).await
                             .expect("channel slot_sender must not be closed");
                     }
@@ -236,6 +237,10 @@ fn start_plumbing_task(
 
 
 fn raydium_accounts() -> SubscribeRequest {
+    let mut slot_subs = HashMap::new();
+    slot_subs.insert("client".to_string(), SubscribeRequestFilterSlots {
+        filter_by_commitment: None,
+    });
     let mut accounts_subs = HashMap::new();
     accounts_subs.insert(
         "client".to_string(),
@@ -247,9 +252,10 @@ fn raydium_accounts() -> SubscribeRequest {
     );
 
     SubscribeRequest {
+        slots: slot_subs,
         accounts: accounts_subs,
         ping: None,
-        commitment: Some(CommitmentLevel::Processed as i32), // default
+        commitment: None,
         ..Default::default()
     }
 }
