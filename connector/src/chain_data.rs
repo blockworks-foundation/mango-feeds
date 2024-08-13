@@ -111,14 +111,14 @@ impl ChainData {
         use std::collections::hash_map::Entry;
         match self.slots.entry(new_slot.slot) {
             Entry::Vacant(v) => {
-                v.insert(new_slot);
-                // trace!("inserted new slot {:?}", new_slot);
+                v.insert(new_slot.clone());
+                trace!("inserted new slot {:?}", new_slot);
             }
             Entry::Occupied(o) => {
                 let v = o.into_mut();
                 parent_update = v.parent != new_slot.parent && new_slot.parent.is_some();
                 if parent_update {
-                    // trace!("update parent of slot {}: {}->{}", new_slot.slot, v.parent.unwrap_or(0), new_slot.parent.unwrap_or(0));
+                    trace!("update parent of slot {}: {}->{}", new_slot.slot, v.parent.unwrap_or(0), new_slot.parent.unwrap_or(0));
                 }
                 v.parent = v.parent.or(new_slot.parent);
                 // Never decrease the slot status
@@ -130,7 +130,7 @@ impl ChainData {
         };
 
         if new_best_chain || parent_update {
-            // trace!("update chain data for slot {} and ancestors", new_slot.slot);
+            trace!("update chain data for slot {} and ancestors", new_slot.slot);
             // update the "chain" field down to the first rooted slot
             let mut slot = self.best_chain_slot;
             loop {
@@ -155,7 +155,7 @@ impl ChainData {
             self.account_bytes_stored = 0;
 
             // TODO improve log
-            // trace!("update account data for slot {}", new_slot.slot);
+            trace!("update account data for slot {}", new_slot.slot);
             for (_, writes) in self.accounts.iter_mut() {
                 let newest_rooted_write_slot = Self::newest_rooted_write(
                     writes,
@@ -676,6 +676,13 @@ mod tests {
             .has_headers(false)
             .from_path(slot_stream_dump_file)
             .expect("build csv reader");
+
+        // invariants:
+        // - running with only finalized slots should give the same output
+
+        // TODO how to detect forks? -> use best_chain_slot and follow parents; everything else was forked out
+
+        // confirmed have no parents?
 
         let mut chain_data = ChainData::new();
         for result in rdr.records() {
