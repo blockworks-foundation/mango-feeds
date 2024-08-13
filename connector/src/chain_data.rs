@@ -2,6 +2,7 @@ use crate::chain_data::SlotVectorEffect::*;
 use log::{info, trace};
 use smallvec::{smallvec, SmallVec};
 use solana_sdk::clock::Slot;
+use warp::trace;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -83,16 +84,18 @@ impl Default for ChainData {
 
 impl ChainData {
     pub fn update_slot(&mut self, new_slot: SlotData) {
-        trace!("update_slot: {:?}", new_slot);
+        trace!("update_slot from newslot {:?}", new_slot);
         let new_processed_head = new_slot.slot > self.newest_processed_slot;
         if new_processed_head {
             self.newest_processed_slot = new_slot.slot;
+            trace!("use slot {} as newest_processed_slot", new_slot.slot);
         }
 
         let new_rooted_head =
             new_slot.slot > self.newest_rooted_slot && new_slot.status == SlotStatus::Rooted;
         if new_rooted_head {
             self.newest_rooted_slot = new_slot.slot;
+            trace!("use slot {} as newest_rooted_slot", new_slot.slot);
         }
 
         // Use the highest slot that has a known parent as best chain
@@ -100,6 +103,7 @@ impl ChainData {
         let new_best_chain = new_slot.parent.is_some() && new_slot.slot > self.best_chain_slot;
         if new_best_chain {
             self.best_chain_slot = new_slot.slot;
+            trace!("use slot {} as best_chain_slot", new_slot.slot);
         }
 
         let mut parent_update = false;
@@ -108,19 +112,25 @@ impl ChainData {
         match self.slots.entry(new_slot.slot) {
             Entry::Vacant(v) => {
                 v.insert(new_slot);
+                // trace!("inserted new slot {:?}", new_slot);
             }
             Entry::Occupied(o) => {
                 let v = o.into_mut();
                 parent_update = v.parent != new_slot.parent && new_slot.parent.is_some();
+                if parent_update {
+                    // trace!("update parent of slot {}: {}->{}", new_slot.slot, v.parent.unwrap_or(0), new_slot.parent.unwrap_or(0));
+                }
                 v.parent = v.parent.or(new_slot.parent);
                 // Never decrease the slot status
                 if v.status == SlotStatus::Processed || new_slot.status == SlotStatus::Rooted {
+                    trace!("update status of slot {}: {:?}->{:?}", new_slot.slot, v.status, new_slot.status);
                     v.status = new_slot.status;
                 }
             }
         };
 
         if new_best_chain || parent_update {
+            // trace!("update chain data for slot {} and ancestors", new_slot.slot);
             // update the "chain" field down to the first rooted slot
             let mut slot = self.best_chain_slot;
             loop {
@@ -144,6 +154,8 @@ impl ChainData {
             self.account_versions_stored = 0;
             self.account_bytes_stored = 0;
 
+            // TODO improve log
+            // trace!("update account data for slot {}", new_slot.slot);
             for (_, writes) in self.accounts.iter_mut() {
                 let newest_rooted_write_slot = Self::newest_rooted_write(
                     writes,
@@ -695,7 +707,6 @@ mod tests {
             });
 
         }
-
 
     }
 }
