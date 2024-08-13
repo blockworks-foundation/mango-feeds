@@ -82,7 +82,7 @@ pub async fn main() {
 
     let (grpc_accounts_tx, grpc_accounts_rx) = mpsc::channel(10240);
     let _jh_grpc_source = create_geyser_autoconnection_task_with_mpsc(
-        grpc_source_config.clone(), raydium_accounts(), grpc_accounts_tx, exit_sender.subscribe());
+        grpc_source_config.clone(), dex_accounts(), grpc_accounts_tx, exit_sender.subscribe());
 
 
     let (account_write_sender, account_write_receiver) = mpsc::channel::<AccountOrSnapshotUpdate>(100_000);
@@ -265,9 +265,10 @@ fn start_plumbing_task(
 }
 
 
-fn raydium_accounts() -> SubscribeRequest {
+fn dex_accounts() -> SubscribeRequest {
     let mut slot_subs = HashMap::new();
     slot_subs.insert("client".to_string(), SubscribeRequestFilterSlots {
+        // implies all slots
         filter_by_commitment: None,
     });
     let mut accounts_subs = HashMap::new();
@@ -284,6 +285,7 @@ fn raydium_accounts() -> SubscribeRequest {
         slots: slot_subs,
         accounts: accounts_subs,
         ping: None,
+        // implies accounts at processed level
         commitment: None,
         ..Default::default()
     }
