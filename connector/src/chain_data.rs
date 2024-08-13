@@ -83,6 +83,7 @@ impl Default for ChainData {
 
 impl ChainData {
     pub fn update_slot(&mut self, new_slot: SlotData) {
+        trace!("update_slot: {:?}", new_slot);
         let new_processed_head = new_slot.slot > self.newest_processed_slot;
         if new_processed_head {
             self.newest_processed_slot = new_slot.slot;
@@ -409,12 +410,15 @@ impl ChainDataMetrics {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
     use crate::chain_data::{update_slotvec_logic, SlotVectorEffect::*};
     use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
+    use csv::ReaderBuilder;
+    use solana_sdk::commitment_config::CommitmentLevel;
 
     #[test]
     pub fn test_move_slot_to_finalized() {
@@ -646,5 +650,52 @@ mod tests {
                 account: dummy_account_data.clone(),
             },
         ]
+    }
+
+
+    #[test]
+    pub fn replay_mainnet_slots() {
+        solana_logger::setup_with("info,mango_feeds_connector::chain_data=trace");
+
+        // /Users/stefan/mango/projects/mango-feeds-connector/slot-stream-dump-fsn4.csv
+        let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/slot-stream-dump-fsn4.csv").unwrap();
+        // parse file
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(false)
+            .from_path(slot_stream_dump_file)
+            .expect("build csv reader");
+
+        let mut chain_data = ChainData::new();
+        for result in rdr.records() {
+            let record = result.unwrap();
+            let slot: u64 = record[0].parse().unwrap();
+            let parent: Option<u64> = record[1].parse().ok().and_then(|v| if v == 0 { None } else { Some(v) });
+            let status = match record[2].to_string().as_str() {
+                "P" => CommitmentLevel::Processed,
+                "C" => CommitmentLevel::Confirmed,
+                "F" => CommitmentLevel::Finalized,
+                _ => panic!("invalid commitment level"),
+            };
+            // println!("slot: {}, parent: {:?}, status: {:?}", slot, parent, status);
+
+            let status = match status {
+                CommitmentLevel::Processed => SlotStatus::Processed,
+                CommitmentLevel::Confirmed => SlotStatus::Confirmed,
+                CommitmentLevel::Finalized => SlotStatus::Rooted,
+                _ => panic!("invalid commitment level"),
+            };
+
+            const INIT_CHAIN: Slot = 0;
+
+            chain_data.update_slot(SlotData {
+                slot,
+                parent,
+                status,
+                chain: INIT_CHAIN,
+            });
+
+        }
+
+
     }
 }
