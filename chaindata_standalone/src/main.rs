@@ -35,6 +35,8 @@ mod account_write;
 pub type ChainDataArcRw = Arc<RwLock<ChainData>>;
 
 const RAYDIUM_AMM_PUBKEY: &'static str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
+const WHIRLPOOL_PUBKEY: &'static str = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
+const DEX_PROGRAM_ID: &'static str = WHIRLPOOL_PUBKEY;
 
 #[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 pub async fn main() {
@@ -68,7 +70,7 @@ pub async fn main() {
 
     let rpc_http_url = env::var("RPC_HTTP_URL").expect("need http rpc url");
     start_gpa_snapshot_fetcher(
-        rpc_http_url, Pubkey::from_str(RAYDIUM_AMM_PUBKEY).unwrap(),
+        rpc_http_url, Pubkey::from_str(DEX_PROGRAM_ID).unwrap(),
         account_write_sender.clone());
 
 
@@ -246,7 +248,7 @@ fn raydium_accounts() -> SubscribeRequest {
         "client".to_string(),
         SubscribeRequestFilterAccounts {
             account: vec![],
-            owner: vec![RAYDIUM_AMM_PUBKEY.to_string()],
+            owner: vec![DEX_PROGRAM_ID.to_string()],
             filters: vec![],
         },
     );
