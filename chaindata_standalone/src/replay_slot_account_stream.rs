@@ -24,9 +24,9 @@ pub fn main() {
         .init();
 
     // long file with 5032825 entries
-    let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed.csv").unwrap();
+    let _slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed.csv").unwrap();
     // 500k
-    let _slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed-500k.csv").unwrap();
+    let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed-500k.csv").unwrap();
 
     let mut chain_data = ChainData::new();
     let mut slot_cnt = 0;
@@ -88,13 +88,10 @@ pub fn main() {
         }
 
         if (slot_cnt + account_cnt) % 100_000 == 0 {
-            let elapsed = started_at.elapsed();
-            info!("progress .. slot_cnt: {}, account_cnt: {}, elapsed: {:?}", slot_cnt, account_cnt, elapsed);
+            info!("progress .. slot_cnt: {}, account_cnt: {}, elapsed: {:.02}s", slot_cnt, account_cnt, started_at.elapsed().as_secs_f64());
         }
     }
 
-    let elapsed = started_at.elapsed();
-
-    info!("slot_cnt: {}, account_cnt: {}, elapsed: {:.02}", slot_cnt, account_cnt, elapsed.as_secs_f64());
+    info!("slot_cnt: {}, account_cnt: {}, elapsed: {:.02}s", slot_cnt, account_cnt, started_at.elapsed().as_secs_f64());
 
 }

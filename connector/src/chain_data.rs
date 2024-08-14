@@ -83,6 +83,7 @@ impl Default for ChainData {
 }
 
 impl ChainData {
+    #[tracing::instrument(skip_all, level = "trace")]
     pub fn update_slot(&mut self, new_slotdata: SlotData) {
         let SlotData { slot: new_slot, parent: new_parent, status: new_status, .. } = new_slotdata;
 
@@ -158,23 +159,7 @@ impl ChainData {
 
             // TODO improve log
             trace!("update account data for slot {}", new_slot);
-            for (_, writes) in self.accounts.iter_mut() {
-                let newest_rooted_write_slot = Self::newest_rooted_write(
-                    writes,
-                    self.newest_rooted_slot,
-                    self.best_chain_slot,
-                    &self.slots,
-                )
-                .map(|w| w.slot)
-                // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
-                .unwrap_or(self.newest_rooted_slot + 1);
-                writes.retain(|w| {
-                    w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot
-                });
-                self.account_versions_stored += writes.len();
-                self.account_bytes_stored +=
-                    writes.iter().map(|w| w.account.data().len()).sum::<usize>()
-            }
+            self.clean_accounts_on_new_root();
 
             // now it's fine to drop any slots before the new rooted head
             // as account writes for non-rooted slots before it have been dropped
@@ -182,6 +167,28 @@ impl ChainData {
         }
     }
 
+    #[tracing::instrument(skip_all, level = "trace")]
+    fn clean_accounts_on_new_root(&mut self) {
+        for (_, writes) in self.accounts.iter_mut() {
+            let newest_rooted_write_slot = Self::newest_rooted_write(
+                writes,
+                self.newest_rooted_slot,
+                self.best_chain_slot,
+                &self.slots,
+            )
+                .map(|w| w.slot)
+                // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
+                .unwrap_or(self.newest_rooted_slot + 1);
+            writes.retain(|w| {
+                w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot
+            });
+            self.account_versions_stored += writes.len();
+            self.account_bytes_stored +=
+                writes.iter().map(|w| w.account.data().len()).sum::<usize>()
+        }
+    }
+
+    #[tracing::instrument(skip_all, level = "trace")]
     pub fn update_account(&mut self, pubkey: Pubkey, account: AccountData) {
         if account.write_version == 0 {
             // some upstream components provide write_version=0 for snapshot accounts from gMA/gPA
