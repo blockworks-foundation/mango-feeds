@@ -6,7 +6,7 @@ use std::str::FromStr;
 use std::time::Instant;
 use csv::ReaderBuilder;
 use itertools::Itertools;
-use log::trace;
+use log::{info, trace};
 use solana_sdk::account::AccountSharedData;
 use solana_sdk::clock::Slot;
 use solana_sdk::commitment_config::CommitmentLevel;
@@ -23,7 +23,10 @@ pub fn main() {
         .with_span_events(FmtSpan::CLOSE)
         .init();
 
+    // long file with 5032825 entries
     let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed.csv").unwrap();
+    // 500k
+    let _slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed-500k.csv").unwrap();
 
     let mut chain_data = ChainData::new();
     let mut slot_cnt = 0;
@@ -86,12 +89,12 @@ pub fn main() {
 
         if (slot_cnt + account_cnt) % 100_000 == 0 {
             let elapsed = started_at.elapsed();
-            println!("progress .. slot_cnt: {}, account_cnt: {}, elapsed: {:?}", slot_cnt, account_cnt, elapsed);
+            info!("progress .. slot_cnt: {}, account_cnt: {}, elapsed: {:?}", slot_cnt, account_cnt, elapsed);
         }
     }
 
     let elapsed = started_at.elapsed();
 
-    println!("slot_cnt: {}, account_cnt: {}, elapsed: {:?}", slot_cnt, account_cnt, elapsed);
+    info!("slot_cnt: {}, account_cnt: {}, elapsed: {:.02}", slot_cnt, account_cnt, elapsed.as_secs_f64());
 
 }

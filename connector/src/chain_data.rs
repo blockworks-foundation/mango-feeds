@@ -83,54 +83,56 @@ impl Default for ChainData {
 }
 
 impl ChainData {
-    pub fn update_slot(&mut self, new_slot: SlotData) {
+    pub fn update_slot(&mut self, new_slotdata: SlotData) {
+        let SlotData { slot: new_slot, parent: new_parent, status: new_status, .. } = new_slotdata;
+
         trace!("update_slot from newslot {:?}", new_slot);
-        let new_processed_head = new_slot.slot > self.newest_processed_slot;
+        let new_processed_head = new_slot > self.newest_processed_slot;
         if new_processed_head {
-            self.newest_processed_slot = new_slot.slot;
-            trace!("use slot {} as newest_processed_slot", new_slot.slot);
+            self.newest_processed_slot = new_slot;
+            trace!("use slot {} as newest_processed_slot", new_slot);
         }
 
         let new_rooted_head =
-            new_slot.slot > self.newest_rooted_slot && new_slot.status == SlotStatus::Rooted;
+            new_slot > self.newest_rooted_slot && new_status == SlotStatus::Rooted;
         if new_rooted_head {
-            self.newest_rooted_slot = new_slot.slot;
-            trace!("use slot {} as newest_rooted_slot", new_slot.slot);
+            self.newest_rooted_slot = new_slot;
+            trace!("use slot {} as newest_rooted_slot", new_slot);
         }
 
         // Use the highest slot that has a known parent as best chain
         // (sometimes slots OptimisticallyConfirm before we even know the parent!)
-        let new_best_chain = new_slot.parent.is_some() && new_slot.slot > self.best_chain_slot;
+        let new_best_chain = new_parent.is_some() && new_slot > self.best_chain_slot;
         if new_best_chain {
-            self.best_chain_slot = new_slot.slot;
-            trace!("use slot {} as best_chain_slot", new_slot.slot);
+            self.best_chain_slot = new_slot;
+            trace!("use slot {} as best_chain_slot", new_slot);
         }
 
         let mut parent_update = false;
 
         use std::collections::hash_map::Entry;
-        match self.slots.entry(new_slot.slot) {
+        match self.slots.entry(new_slot) {
             Entry::Vacant(v) => {
-                v.insert(new_slot.clone());
+                v.insert(new_slotdata);
                 trace!("inserted new slot {:?}", new_slot);
             }
             Entry::Occupied(o) => {
                 let v = o.into_mut();
-                parent_update = v.parent != new_slot.parent && new_slot.parent.is_some();
+                parent_update = v.parent != new_parent && new_parent.is_some();
                 if parent_update {
-                    trace!("update parent of slot {}: {}->{}", new_slot.slot, v.parent.unwrap_or(0), new_slot.parent.unwrap_or(0));
+                    trace!("update parent of slot {}: {}->{}", new_slot, v.parent.unwrap_or(0), new_parent.unwrap_or(0));
                 }
-                v.parent = v.parent.or(new_slot.parent);
+                v.parent = v.parent.or(new_parent);
                 // Never decrease the slot status
-                if v.status == SlotStatus::Processed || new_slot.status == SlotStatus::Rooted {
-                    trace!("update status of slot {}: {:?}->{:?}", new_slot.slot, v.status, new_slot.status);
-                    v.status = new_slot.status;
+                if v.status == SlotStatus::Processed || new_status == SlotStatus::Rooted {
+                    trace!("update status of slot {}: {:?}->{:?}", new_slot, v.status, new_status);
+                    v.status = new_status;
                 }
             }
         };
 
         if new_best_chain || parent_update {
-            trace!("update chain data for slot {} and ancestors", new_slot.slot);
+            trace!("update chain data for slot {} and ancestors", new_slot);
             // update the "chain" field down to the first rooted slot
             let mut slot = self.best_chain_slot;
             loop {
@@ -155,7 +157,7 @@ impl ChainData {
             self.account_bytes_stored = 0;
 
             // TODO improve log
-            trace!("update account data for slot {}", new_slot.slot);
+            trace!("update account data for slot {}", new_slot);
             for (_, writes) in self.accounts.iter_mut() {
                 let newest_rooted_write_slot = Self::newest_rooted_write(
                     writes,
@@ -664,56 +666,4 @@ mod tests {
         ]
     }
 
-
-    #[test]
-    pub fn replay_mainnet_slots() {
-        solana_logger::setup_with("info,mango_feeds_connector::chain_data=trace");
-
-        // /Users/stefan/mango/projects/mango-feeds-connector/slot-stream-dump-fsn4.csv
-        let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/slot-stream-dump-fsn4.csv").unwrap();
-        // parse file
-        let mut rdr = ReaderBuilder::new()
-            .has_headers(false)
-            .from_path(slot_stream_dump_file)
-            .expect("build csv reader");
-
-        // invariants:
-        // - running with only finalized slots should give the same output
-
-        // TODO how to detect forks? -> use best_chain_slot and follow parents; everything else was forked out
-
-        // confirmed have no parents?
-
-        let mut chain_data = ChainData::new();
-        for result in rdr.records() {
-            let record = result.unwrap();
-            let slot: u64 = record[0].parse().unwrap();
-            let parent: Option<u64> = record[1].parse().ok().and_then(|v| if v == 0 { None } else { Some(v) });
-            let status = match record[2].to_string().as_str() {
-                "P" => CommitmentLevel::Processed,
-                "C" => CommitmentLevel::Confirmed,
-                "F" => CommitmentLevel::Finalized,
-                _ => panic!("invalid commitment level"),
-            };
-            // println!("slot: {}, parent: {:?}, status: {:?}", slot, parent, status);
-
-            let status = match status {
-                CommitmentLevel::Processed => SlotStatus::Processed,
-                CommitmentLevel::Confirmed => SlotStatus::Confirmed,
-                CommitmentLevel::Finalized => SlotStatus::Rooted,
-                _ => panic!("invalid commitment level"),
-            };
-
-            const INIT_CHAIN: Slot = 0;
-
-            chain_data.update_slot(SlotData {
-                slot,
-                parent,
-                status,
-                chain: INIT_CHAIN,
-            });
-
-        }
-
-    }
 }
