@@ -54,7 +54,7 @@ pub struct ChainData {
     slots: HashMap<u64, SlotData>,
     /// writes to accounts, only the latest rooted write an newer are retained
     /// size distribution on startup: total:1105, size1:315, size2:146
-    accounts: HashMap<Pubkey, SmallVec<[AccountData; 4]>>,
+    accounts: HashMap<Pubkey, SmallVec<[AccountData; 2]>>,
     newest_rooted_slot: u64,
     newest_processed_slot: u64,
     best_chain_slot: u64,
