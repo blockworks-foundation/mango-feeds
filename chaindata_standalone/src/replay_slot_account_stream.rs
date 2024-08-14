@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io;
-use std::io::BufRead;
+use std::io::{BufRead, BufReader, Lines, Read};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Instant;
@@ -13,7 +13,17 @@ use solana_sdk::commitment_config::CommitmentLevel;
 use solana_sdk::pubkey::Pubkey;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
+use clap::Parser;
 use mango_feeds_connector::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
+
+
+// #[derive(Parser, Debug, Clone)]
+// #[clap()]
+// struct Cli {
+//     #[clap(short, long)]
+//     replay_file: Option<String>,
+// }
+
 
 const RAYDIUM_AMM_PUBKEY: &'static str = "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8";
 
@@ -23,19 +33,35 @@ pub fn main() {
         .with_span_events(FmtSpan::CLOSE)
         .init();
 
-    // long file with 5032825 entries
-    let _slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed.csv").unwrap();
-    // 500k
-    let slot_stream_dump_file = PathBuf::from_str("/Users/stefan/mango/projects/mango-feeds-connector/dump-slot-acccounts-fsn4-mixed-500k.csv").unwrap();
+    // let Cli { replay_file } = Cli::parse();
+
 
     let mut chain_data = ChainData::new();
     let mut slot_cnt = 0;
     let mut account_cnt = 0;
     let started_at = Instant::now();
-    // read lins
-    let file = File::open(slot_stream_dump_file).unwrap();
-    let lines = io::BufReader::new(file).lines();
-    for line in lines.flatten() {
+    // read line
+    // let buffer: BufReader<_> = match replay_file {
+    //     None => {
+    //         info!("use data from inline csv");
+    //         // 500k
+    //         let data = include_bytes!("dump-slot-acccounts-fsn4-mixed-500k.csv");
+    //         io::BufReader::new(data.as_ref())
+    //     }
+    //     Some(slot_stream_dump_file) => {
+    //         info!("use replay_file: {}", slot_stream_dump_file);
+    //         let file = File::open(slot_stream_dump_file).unwrap();
+    //         io::BufReader::new(file)
+    //     }
+    // };
+
+    let buffer = {
+        info!("use data from inline csv");
+        // 500k
+        let data = include_bytes!("dump-slot-acccounts-fsn4-mixed-500k.csv");
+        io::BufReader::new(data.as_ref())
+    };
+    for line in buffer.lines().flatten() {
         // update_slot.slot, update_slot.parent.unwrap_or(0), short_status, since_epoch_ms
         // slot, account_pk, write_version, data_len, since_epoch_ms
         let rows = line.split(",").collect_vec();

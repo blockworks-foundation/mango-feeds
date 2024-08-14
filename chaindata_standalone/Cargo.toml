@@ -53,4 +53,5 @@ solana-sdk = { workspace = true }
 solana-client = { workspace = true }
 solana-rpc-client-api = "1.17"
 solana-account-decoder = "1.17"
+clap = { version = "3.2.25", features = ["derive"] }
 
