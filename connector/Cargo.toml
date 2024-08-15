@@ -1,6 +1,6 @@
 [package]
 name = "mango-feeds-connector"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Christian Kamm <mail@ckamm.de>", "groovie@mango.markets"]
 edition = "2021"
 license = "AGPL-3.0-or-later"
