@@ -13,6 +13,7 @@ use crate::metrics::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SlotStatus {
+    // aka Finalized
     Rooted,
     Confirmed,
     Processed,
@@ -223,7 +224,7 @@ impl ChainData {
                     InsertAfter(pos) => {
                         self.account_versions_stored += 1;
                         self.account_bytes_stored += account.account.data().len();
-                        v.insert(pos+1, account);
+                        v.insert(pos + 1, account);
                     }
                     DoNothing => {}
                 }
@@ -244,6 +245,7 @@ impl ChainData {
             .unwrap_or(write.slot <= self.newest_rooted_slot || write.slot > self.best_chain_slot)
     }
 
+    // rooted=finalized
     fn newest_rooted_write<'a>(
         writes: &'a [AccountData],
         newest_rooted_slot: u64,
@@ -328,6 +330,7 @@ impl ChainData {
         self.best_chain_slot
     }
 
+    // aka newest finalized
     pub fn newest_rooted_slot(&self) -> u64 {
         self.newest_rooted_slot
     }
@@ -431,64 +434,12 @@ impl ChainDataMetrics {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use crate::chain_data::{update_slotvec_logic, SlotVectorEffect::*};
     use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
-    use csv::ReaderBuilder;
-    use solana_sdk::commitment_config::CommitmentLevel;
-
-    #[test]
-    #[ignore]
-    pub fn test_try_to_reproduce_weird_thing() {
-        let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
-        let my_account = Pubkey::new_unique();
-        let mut chain_data = ChainData::new();
-
-        chain_data.update_account(
-            my_account,
-            AccountData {
-                slot: 283573414,
-                write_version: 1,
-                account: AccountSharedData::new(100, 100 /*space*/, &owner),
-            },
-        );
-
-        chain_data.update_slot(SlotData {
-            slot: 283574172,
-            parent: None,
-            status: SlotStatus::Rooted, // =finalized
-            chain: 0,
-        });
-
-        chain_data.update_slot(SlotData {
-            slot: 283574209,
-            parent: Some(283574172),
-            status: SlotStatus::Processed,
-            chain: 0,
-        });
-
-        assert_eq!(chain_data.newest_rooted_slot(), 283574172);
-        assert_eq!(chain_data.best_chain_slot(), 283574209);
-        assert_eq!(chain_data.account(&my_account).unwrap().slot, 283573414);
-
-        chain_data.update_account(
-            my_account,
-            AccountData {
-                slot: 283574185,
-                write_version: 1,
-                account: AccountSharedData::new(101, 101 /*space*/, &owner),
-            },
-        );
-
-        assert_eq!(chain_data.newest_rooted_slot(), 283574172);
-        assert_eq!(chain_data.best_chain_slot(), 283574209);
-        assert_eq!(chain_data.account(&my_account).unwrap().slot, 283574185);
-        assert_eq!(chain_data.account(&my_account).unwrap().account.lamports(), 101);
-    }
 
     #[test]
     pub fn test_loosing_account_write() {
@@ -502,7 +453,7 @@ mod tests {
                 slot: 123,
                 write_version: 1,
                 account: AccountSharedData::new(100, 100 /*space*/, &owner),
-            },
+            },j
         );
 
         chain_data.update_slot(SlotData {
