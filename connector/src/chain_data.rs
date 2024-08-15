@@ -1,8 +1,7 @@
 use crate::chain_data::SlotVectorEffect::*;
-use log::{info, trace};
+use log::trace;
 use smallvec::{smallvec, SmallVec};
 use solana_sdk::clock::Slot;
-use warp::trace;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -86,7 +85,12 @@ impl Default for ChainData {
 impl ChainData {
     #[tracing::instrument(skip_all, level = "trace")]
     pub fn update_slot(&mut self, new_slotdata: SlotData) {
-        let SlotData { slot: new_slot, parent: new_parent, status: new_status, .. } = new_slotdata;
+        let SlotData {
+            slot: new_slot,
+            parent: new_parent,
+            status: new_status,
+            ..
+        } = new_slotdata;
 
         trace!("update_slot from newslot {:?}", new_slot);
         let new_processed_head = new_slot > self.newest_processed_slot;
@@ -122,12 +126,22 @@ impl ChainData {
                 let v = o.into_mut();
                 parent_update = v.parent != new_parent && new_parent.is_some();
                 if parent_update {
-                    trace!("update parent of slot {}: {}->{}", new_slot, v.parent.unwrap_or(0), new_parent.unwrap_or(0));
+                    trace!(
+                        "update parent of slot {}: {}->{}",
+                        new_slot,
+                        v.parent.unwrap_or(0),
+                        new_parent.unwrap_or(0)
+                    );
                 }
                 v.parent = v.parent.or(new_parent);
                 // Never decrease the slot status
                 if v.status == SlotStatus::Processed || new_status == SlotStatus::Rooted {
-                    trace!("update status of slot {}: {:?}->{:?}", new_slot, v.status, new_status);
+                    trace!(
+                        "update status of slot {}: {:?}->{:?}",
+                        new_slot,
+                        v.status,
+                        new_status
+                    );
                     v.status = new_status;
                 }
             }
@@ -177,12 +191,11 @@ impl ChainData {
                 self.best_chain_slot,
                 &self.slots,
             )
-                .map(|w| w.slot)
-                // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
-                .unwrap_or(self.newest_rooted_slot + 1);
-            writes.retain(|w| {
-                w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot
-            });
+            .map(|w| w.slot)
+            // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
+            .unwrap_or(self.newest_rooted_slot + 1);
+            writes
+                .retain(|w| w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot);
             self.account_versions_stored += writes.len();
             self.account_bytes_stored +=
                 writes.iter().map(|w| w.account.data().len()).sum::<usize>()
@@ -453,7 +466,8 @@ mod tests {
                 slot: 123,
                 write_version: 1,
                 account: AccountSharedData::new(100, 100 /*space*/, &owner),
-            },j
+            },
+            j,
         );
 
         chain_data.update_slot(SlotData {
@@ -726,5 +740,4 @@ mod tests {
             },
         ]
     }
-
 }
