@@ -37,6 +37,7 @@ serde = { workspace = true }
 serde_derive = { workspace = true }
 
 log = { workspace = true }
+tracing = "0.1.40"
 anyhow = { workspace = true }
 smallvec = "1.13.2"
 

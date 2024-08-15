@@ -2418,6 +2418,7 @@ dependencies = [
  "solana-sdk",
  "tokio",
  "tokio-stream",
+ "tracing",
  "warp",
  "yellowstone-grpc-client",
  "yellowstone-grpc-proto",
