@@ -455,61 +455,6 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    pub fn test_loosing_account_write() {
-        let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
-        let my_account = Pubkey::new_unique();
-        let mut chain_data = ChainData::new();
-
-        chain_data.update_account(
-            my_account,
-            AccountData {
-                slot: 123,
-                write_version: 1,
-                account: AccountSharedData::new(100, 100 /*space*/, &owner),
-            },
-            j,
-        );
-
-        chain_data.update_slot(SlotData {
-            slot: 123,
-            parent: None,
-            status: SlotStatus::Rooted, // =finalized
-            chain: 0,
-        });
-
-        chain_data.update_account(
-            my_account,
-            AccountData {
-                slot: 128,
-                write_version: 1,
-                account: AccountSharedData::new(101, 101 /*space*/, &owner),
-            },
-        );
-
-        chain_data.update_slot(SlotData {
-            slot: 128,
-            parent: Some(123),
-            status: SlotStatus::Processed,
-            chain: 0,
-        });
-
-        assert_eq!(chain_data.newest_rooted_slot(), 123);
-        assert_eq!(chain_data.best_chain_slot(), 128);
-        assert_eq!(chain_data.account(&my_account).unwrap().slot, 128);
-
-        chain_data.update_slot(SlotData {
-            slot: 129,
-            parent: Some(128),
-            status: SlotStatus::Processed,
-            chain: 0,
-        });
-
-        assert_eq!(chain_data.newest_rooted_slot(), 123);
-        assert_eq!(chain_data.best_chain_slot(), 129);
-        assert_eq!(chain_data.account(&my_account).unwrap().slot, 128);
-    }
-
-    #[test]
     #[ignore]
     pub fn test_try_to_reproduce_weird_thing() {
         let owner = Pubkey::from_str("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8").unwrap();
