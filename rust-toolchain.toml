@@ -1,4 +1,4 @@
 [toolchain]
-# aligned with Solana v1.17.x
-channel = "1.76.0"
+# aligned with Solana v1.18.x
+channel = "1.75.0"
 components = ["rustfmt", "clippy"]
