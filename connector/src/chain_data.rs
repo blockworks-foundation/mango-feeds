@@ -1,9 +1,8 @@
-use intmap::IntMap;
 use crate::chain_data::SlotVectorEffect::*;
+use intmap::IntMap;
 use log::trace;
 use smallvec::{smallvec, SmallVec};
 use solana_sdk::clock::Slot;
-use warp::trace;
 use {
     solana_sdk::account::{AccountSharedData, ReadableAccount},
     solana_sdk::pubkey::Pubkey,
@@ -87,7 +86,12 @@ impl Default for ChainData {
 impl ChainData {
     #[tracing::instrument(skip_all, level = "trace")]
     pub fn update_slot(&mut self, new_slotdata: SlotData) {
-        let SlotData { slot: new_slot, parent: new_parent, status: new_status, .. } = new_slotdata;
+        let SlotData {
+            slot: new_slot,
+            parent: new_parent,
+            status: new_status,
+            ..
+        } = new_slotdata;
 
         trace!("update_slot from newslot {:?}", new_slot);
         let new_processed_head = new_slot > self.newest_processed_slot;
@@ -123,8 +127,12 @@ impl ChainData {
                 let v = o.into_mut();
                 parent_update = v.parent != new_parent && new_parent.is_some();
                 if parent_update {
-                    trace!("update parent of slot {}: {}->{}",
-                        new_slot, v.parent.unwrap_or(0), new_parent.unwrap_or(0));
+                    trace!(
+                        "update parent of slot {}: {}->{}",
+                        new_slot,
+                        v.parent.unwrap_or(0),
+                        new_parent.unwrap_or(0)
+                    );
                 }
                 v.parent = v.parent.or(new_parent);
                 // Never decrease the slot status
@@ -184,12 +192,11 @@ impl ChainData {
                 self.best_chain_slot,
                 &self.slots,
             )
-                .map(|w| w.slot)
-                // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
-                .unwrap_or(self.newest_rooted_slot + 1);
-            writes.retain(|w| {
-                w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot
-            });
+            .map(|w| w.slot)
+            // no rooted write found: produce no effect, since writes > newest_rooted_slot are retained anyway
+            .unwrap_or(self.newest_rooted_slot + 1);
+            writes
+                .retain(|w| w.slot == newest_rooted_write_slot || w.slot > self.newest_rooted_slot);
             self.account_versions_stored += writes.len();
             self.account_bytes_stored +=
                 writes.iter().map(|w| w.account.data().len()).sum::<usize>()
@@ -345,7 +352,6 @@ impl ChainData {
     pub fn newest_processed_slot(&self) -> u64 {
         self.newest_processed_slot
     }
-
 }
 
 #[derive(Debug, PartialEq)]
@@ -438,15 +444,12 @@ impl ChainDataMetrics {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use crate::chain_data::{update_slotvec_logic, SlotVectorEffect::*};
     use crate::chain_data::{AccountData, ChainData, SlotData, SlotStatus};
     use solana_sdk::account::{AccountSharedData, ReadableAccount};
     use solana_sdk::clock::Slot;
     use solana_sdk::pubkey::Pubkey;
     use std::str::FromStr;
-    use csv::ReaderBuilder;
-    use solana_sdk::commitment_config::CommitmentLevel;
 
     #[test]
     pub fn test_loosing_account_write() {
@@ -733,5 +736,4 @@ mod tests {
             },
         ]
     }
-
 }
