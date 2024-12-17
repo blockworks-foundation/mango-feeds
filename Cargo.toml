@@ -1,6 +1,7 @@
 [workspace]
 members = [
         "connector",
+        "chaindata_standalone"
 ]
 resolver = "2"
 
@@ -51,6 +52,4 @@ tokio-stream = { version = "0.1.9"}
 rustls = "0.20.8"
 
 warp = "0.3"
-
-
 
